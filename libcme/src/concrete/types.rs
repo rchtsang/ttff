@@ -9,6 +9,6 @@ pub type LiftResult<'irb> = Result<Arc<Insn<'irb>>, context::Error>;
 
 #[derive(Debug)]
 pub struct Insn<'irb> {
-    disasm: ir::Insn<'irb>,
-    pcode: ir::PCode<'irb>,
+    pub disasm: ir::Insn<'irb>,
+    pub pcode: ir::PCode<'irb>,
 }

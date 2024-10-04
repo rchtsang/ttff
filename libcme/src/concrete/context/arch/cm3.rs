@@ -20,6 +20,7 @@ use fugue_ir::{
     disassembly::{IRBuilderArena, Opcode},
 };
 use fugue_core::language::Language;
+use fugue_core::lifter::Lifter;
 use fugue_core::eval::fixed_state::{FixedState, FixedStateError};
 
 use crate::concrete;
@@ -81,22 +82,96 @@ impl<'irb> Context<'irb> {
         let mut lifter = self.lang.lifter();
         let base = address.into();
         let mut offset = 0usize;
+        // largest expected instruction 16 bytes
+        const MAX_INSN_SIZE: usize = 16;
         
-        loop {
+        let mut branch = false;
+        while !branch {
             let address = base + offset as u64;
 
-            
+            let read_result = self._mem_view_bytes(address, MAX_INSN_SIZE);
+            if let Err(err) = read_result {
+                // read failed
+                self.cache.write().insert(address.offset(), Err(err));
+                break;
+            }
+            let bytes = read_result.unwrap();
+            let lift_result = Self::_lift(self.irb, address, bytes, &mut lifter);
+            if lift_result.is_err() {
+                self.cache.write().insert(address.offset(), lift_result);
+                break;
+            } else {
+                let insn = lift_result.unwrap();
+                let pcode = &insn.pcode;
+                
+                offset += pcode.len();
+
+                match pcode.operations.last().unwrap().opcode {
+                    Opcode::Branch
+                    | Opcode::CBranch
+                    | Opcode::IBranch
+                    | Opcode::Call
+                    | Opcode::ICall
+                    | Opcode::Return
+                    | Opcode::CallOther => {
+                        // usually we can tell if the last opcode is branching
+                        branch = true;
+                    },
+                    _ => {
+                        // otherwise we need to check if the pc gets written to
+                        // this may never happen in pcode semantics but idk for sure.
+                        // we leave it commented out for now b/c it probably doesn't matter and better performance
+                        // if it turns out it's possible we will uncomment and kill this comment
+                        // branch = pcode.operations.iter().any(|pcodedata| {
+                        //     if let Some(vnd) = pcodedata.output {
+                        //         vnd == self.pc
+                        //     } else {
+                        //         false
+                        //     }
+                        // });
+                    },
+                }
+
+                self.cache.write().insert(address.offset(), Ok(insn));
+            }
         }
 
-        todo!()
+        // maybe return something here at some point?
     }
 }
 
 
 // private implementations
 impl<'irb> Context<'irb> {
-    fn _fetch(&self, address: impl Into<Address>) -> LiftResult<'irb> {
+
+    fn _lift(
+        irb: &'irb IRBuilderArena,
+        address: impl Into<Address>,
+        bytes: &[u8],
+        lifter: &mut Lifter,
+    ) -> LiftResult<'irb> {
         let address = address.into();
+        let pcode_result = lifter.lift(irb, address.clone(), bytes);
+        if let Err(err) = pcode_result {
+            return Err(err.into());
+        }
+        let pcode = pcode_result.unwrap();
+        let disasm_result = lifter.disassemble(irb, address.clone(), bytes);
+        if let Err(err) = disasm_result {
+            return Err(err.into());
+        }
+        let disasm = disasm_result.unwrap();
+
+        Ok(Arc::new(Insn { disasm, pcode }))
+    }
+
+    fn _fetch(&mut self, address: impl Into<Address>) -> LiftResult<'irb> {
+        let address = address.into();
+
+        if !self.cache.read().contains_key(&address.offset()) {
+            self.lift_block(address);
+        }
+
         self.cache.read()
             .get(&address.offset())
             .ok_or(context::Error::AddressNotLifted(address.clone()))?
