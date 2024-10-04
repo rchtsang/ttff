@@ -1,0 +1,4 @@
+[submodule "fugue-core"]
+	path = fugue-core
+	url = https://github.com/fugue-re/fugue-core.git
+	branch = develop-v0.3
