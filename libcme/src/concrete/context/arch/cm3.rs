@@ -32,11 +32,15 @@ use crate::concrete::{
 pub use crate::concrete::context::Context as ContextTrait;
 pub type TranslationCache<'irb> = IntMap<u64, LiftResult<'irb>>;
 
-
 #[derive(Debug, Error, Clone)]
 pub enum Error {
-    #[error(transparent)]
-    Context(#[from] context::Error),
+
+}
+
+impl Into<context::Error> for Error {
+    fn into(self) -> context::Error {
+        context::Error::from(super::Error::from(self))
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

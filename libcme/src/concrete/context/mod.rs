@@ -1,6 +1,9 @@
 //! context.rs
 //! 
 //! evaluation contex trait
+
+pub mod arch;
+
 use std::sync::Arc;
 use std::ops::Range;
 
@@ -20,6 +23,8 @@ use super::types::*;
 pub enum Error {
     #[error("lifter error: {0}")]
     Lift(String),
+    #[error(transparent)]
+    Arch(#[from] arch::Error),
     #[error("address not lifted: {0:x?}")]
     AddressNotLifted(Address),
     #[error("address in unmapped memory: {0}")]
