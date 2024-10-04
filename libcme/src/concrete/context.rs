@@ -2,6 +2,7 @@
 //! 
 //! evaluation contex trait
 use std::sync::Arc;
+use std::ops::Range;
 
 use thiserror::Error;
 
@@ -10,6 +11,7 @@ use fugue_ir::{
     disassembly::IRBuilderArena,
     error::Error as IRError,
 };
+use fugue_core::eval::fixed_state::FixedStateError;
 use fugue_bv::BitVec;
 
 use super::types::*;
@@ -20,11 +22,28 @@ pub enum Error {
     Lift(String),
     #[error("address not lifted: {0:x?}")]
     AddressNotLifted(Address),
+    #[error("address in unmapped memory: {0}")]
+    Unmapped(Address),
+    #[error("mapped regions conflict: {0:#x?} and {1:#x?}")]
+    MapConflict(Range<Address>, Range<Address>),
+    #[error("out of bounds fixedstate read: [{offset:#x}; {size}]")]
+    OOBRead { offset: usize, size: usize },
+    #[error("out of bounds fixedstate write: [{offset:#x}; {size}]")]
+    OOBWrite { offset: usize, size: usize },
 }
 
 impl From<IRError> for Error {
     fn from(value: IRError) -> Self {
         Self::Lift(format!("{value:?}"))
+    }
+}
+
+impl From<FixedStateError> for Error {
+    fn from(value: FixedStateError) -> Self {
+        match value {
+            FixedStateError::OOBRead { offset, size } => Error::OOBRead { offset, size },
+            FixedStateError::OOBWrite { offset, size } => Error::OOBWrite { offset, size },
+        }
     }
 }
 
