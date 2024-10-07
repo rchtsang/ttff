@@ -75,6 +75,31 @@ pub struct Context<'irb> {
 
 impl<'irb> Context<'irb> {
 
+    pub fn new_with(lang: Language, irb: &'irb IRBuilderArena) -> Self {
+        // todo: make parameter lang_builder instead of lang
+        let t = lang.translator();
+        let arch = t.architecture();
+        assert!(
+            arch.processor() == "ARM"
+            && arch.is_little()
+            && arch.bits() == 32
+            && arch.variant() == "Cortex",
+            "architecture must be ARM:32:LE:Cortex"
+        );
+        Self {
+            pc: t.program_counter().clone(),
+            xpsr: BitVec::from_u32(0u32, 32 << 1),
+            apsr: t.register_by_name("cpsr").unwrap(),
+            regs: FixedState::new(t.register_space_size()),
+            tmps: FixedState::new(t.unique_space_size()),
+            mmap: IntervalMap::default(),
+            mem: vec![],
+            cache: Arc::new(RwLock::new(TranslationCache::default())),
+            irb,
+            lang,
+        }
+    }
+
     fn lift_block(&mut self,
         address: impl Into<Address>,
         // irb: &'irb IRBuilderArena,
@@ -139,6 +164,27 @@ impl<'irb> Context<'irb> {
     }
 }
 
+impl<'irb> context::Context<'irb> for Context<'irb> {
+    fn request(&mut self, req: CtxRequest) -> CtxResponse<'irb> {
+        match req {
+            CtxRequest::Fetch { address } => {
+                CtxResponse::Fetch { result: self._fetch(address) }
+            }
+            CtxRequest::Read { vnd } => {
+                CtxResponse::Read { result: self._read_vnd(vnd) }
+            }
+            CtxRequest::Write { vnd, val } => {
+                CtxResponse::Write { result: self._write_vnd(vnd, val) }
+            }
+            CtxRequest::Load { address, size } => {
+                CtxResponse::Load { result: self._map_read_val(address, size) }
+            }
+            CtxRequest::Store { address, val } => {
+                CtxResponse::Store { result: self._map_write_val(address, val) }
+            }
+        }
+    }
+}
 
 // private implementations
 impl<'irb> Context<'irb> {
@@ -302,29 +348,6 @@ impl<'irb> Context<'irb> {
             todo!()
         } else {
             panic!("read from {spc:?} unsupported")
-        }
-    }
-}
-
-
-impl<'irb> context::Context<'irb> for Context<'irb> {
-    fn request(&mut self, req: CtxRequest) -> CtxResponse<'irb> {
-        match req {
-            CtxRequest::Fetch { address } => {
-                CtxResponse::Fetch { result: self._fetch(address) }
-            }
-            CtxRequest::Read { vnd } => {
-                CtxResponse::Read { result: self._read_vnd(vnd) }
-            }
-            CtxRequest::Write { vnd, val } => {
-                CtxResponse::Write { result: self._write_vnd(vnd, val) }
-            }
-            CtxRequest::Load { address, size } => {
-                CtxResponse::Load { result: self._map_read_val(address, size) }
-            }
-            CtxRequest::Store { address, val } => {
-                CtxResponse::Store { result: self._map_write_val(address, val) }
-            }
         }
     }
 }
