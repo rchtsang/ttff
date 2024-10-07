@@ -14,6 +14,7 @@ use parking_lot::RwLock;
 
 use fugue_ir::{
     VarnodeData,
+    Translator,
     disassembly::{IRBuilderArena, Opcode},
 };
 use fugue_core::prelude::*;
@@ -61,12 +62,12 @@ pub struct Context<'irb> {
     // hence we must handle this manually
     xpsr: [u8 ; 4],
 
-    irb: &'irb IRBuilderArena,
     regs: FixedState,
     tmps: FixedState,
     mmap: IntervalMap<Address, MapIx>,
     mem: Vec<FixedState>,
     // mmio: Vec<???> // todo: add peripheral models
+    irb: &'irb IRBuilderArena,
     cache: Arc<RwLock<TranslationCache<'irb>>>,
 }
 
@@ -74,7 +75,7 @@ pub struct Context<'irb> {
 impl<'irb> Context<'irb> {
 
     pub fn new_with(builder: &LanguageBuilder, irb: &'irb IRBuilderArena) -> Result<Self, context::Error> {
-        let lang = builder.build("ARM:32:LE:Cortex", "default")?;
+        let lang = builder.build("ARM:LE:32:Cortex", "default")?;
         let t = lang.translator();
         let arch = t.architecture();
         assert!(
@@ -103,6 +104,53 @@ impl<'irb> Context<'irb> {
     pub fn lang(&self) -> &Language {
         &self.lang
     }
+
+    pub fn translator(&self) -> &Translator {
+        &self.lang.translator()
+    }
+
+    pub fn pc(&self) -> &VarnodeData {
+        &self.pc
+    }
+
+    pub fn sp(&self) -> &VarnodeData {
+        &self.sp
+    }
+
+    pub fn apsr(&self) -> &VarnodeData {
+        &self.apsr
+    }
+
+    pub fn map_mem(&mut self,
+        base: impl Into<Address>,
+        size: usize,
+    ) -> Result<(), context::Error> {
+        let base = base.into();
+        // mapped memory must be word-aligned
+        assert_eq!(base.offset() & 0b11, 0, "base {base:#x?} is not word-aligned!");
+        assert_eq!(size & 0b11, 0, "size {size:#x} is not word-aligned!");
+
+        // check for collision with existing mapped contexts
+        let range = base..(base + size as u64);
+        if let Some(colliding) = self.mmap.intervals(range.clone()).next() {
+            return Err(context::Error::MapConflict(range, colliding));
+        }
+
+        // create memory and add to map
+        let mem = FixedState::new(size);
+        let idx = MapIx::Mem(self.mem.len());
+        self.mem.push(mem);
+        self.mmap.insert(range, idx);
+
+        Ok(())
+    }
+
+    // pub fn map_mmio(&mut self,
+    //     base: impl Into<Address>,
+    //     // peripheral: ...
+    // ) -> Result<(), context::Error> {
+    //     todo!()
+    // }
 
     fn lift_block(&mut self,
         address: impl Into<Address>,
@@ -353,5 +401,53 @@ impl<'irb> Context<'irb> {
         } else {
             panic!("read from {spc:?} unsupported")
         }
+    }
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::concrete::tests;
+
+    #[test]
+    fn test_read_write() -> Result<(), context::Error> {
+        let builder = LanguageBuilder::new("data/processors")?;
+        let irb = IRBuilderArena::with_capacity(0x1000);
+        let mut context = Context::new_with(&builder, &irb)?;
+
+        context.map_mem(0x0u64, 0x1000usize)?;
+
+        // test read/write mem bytes
+        context._map_write_bytes(Address::from(0x0u64), tests::TEST_PROG_SQUARE)?;
+        let mut bytes = [0u8; 4];
+        context._map_read_bytes(Address::from(0x0u64), &mut bytes)?;
+        assert_eq!(bytes, [0x00, 0xf0, 0x01, 0xf8], "read incorrect byte sequence: {bytes:#x?}");
+
+        // test read/write mem values
+        let addr = Address::from(0x100u64);
+        let val = BitVec::from_u64(0xdeadbeefu64, 32);
+        context._map_write_val(addr, &val)?;
+        let bv = context._map_read_val(addr, val.bytes())?;
+        assert_eq!(bv, val, "read incorrect bitvec: {bv:#x?}");
+
+        // test read/write varnodes
+        let t = context.translator();
+        let r0_vnd = t.register_by_name("r0")
+            .expect("r0 not a register???");
+        context._write_vnd(&r0_vnd, &val)?;
+        let bv = context._read_vnd(&r0_vnd)?;
+        assert_eq!(bv, val, "read incorrect bitvec: {bv:#x?}");
+
+        // test fetch
+        let _insn = context._fetch(0x0u64)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_requests() -> Result<(), context::Error> {
+        todo!()
     }
 }
