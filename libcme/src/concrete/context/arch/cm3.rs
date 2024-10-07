@@ -304,7 +304,7 @@ impl<'irb> Context<'irb> {
     fn _map_read_val(&mut self, address: impl AsRef<Address>, size: usize) -> Result<BitVec, context::Error> {
         let big_endian = self.lang.translator().is_big_endian();
         let mut dst = vec![0u8; size];
-        let view = self._map_read_bytes(address, &mut dst)?;
+        self._map_read_bytes(address, &mut dst)?;
 
         if big_endian {
             Ok(BitVec::from_be_bytes(&dst))
