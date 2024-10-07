@@ -12,18 +12,13 @@ use nohash::IntMap;
 use iset::IntervalMap;
 use parking_lot::RwLock;
 
-use fugue_bv::BitVec;
 use fugue_ir::{
-    Address, VarnodeData,
-    convention::Convention,
-    error::Error as IRError,
+    VarnodeData,
     disassembly::{IRBuilderArena, Opcode},
 };
-use fugue_core::language::Language;
-use fugue_core::lifter::Lifter;
-use fugue_core::eval::fixed_state::{FixedState, FixedStateError};
+use fugue_core::prelude::*;
+use fugue_core::eval::fixed_state::FixedState;
 
-use crate::concrete;
 use crate::concrete::{
     types::*,
     context,
@@ -75,8 +70,8 @@ pub struct Context<'irb> {
 
 impl<'irb> Context<'irb> {
 
-    pub fn new_with(lang: Language, irb: &'irb IRBuilderArena) -> Self {
-        // todo: make parameter lang_builder instead of lang
+    pub fn new_with(builder: &LanguageBuilder, irb: &'irb IRBuilderArena) -> Result<Self, context::Error> {
+        let lang = builder.build("ARM:32:LE:Cortex", "default")?;
         let t = lang.translator();
         let arch = t.architecture();
         assert!(
@@ -86,7 +81,7 @@ impl<'irb> Context<'irb> {
             && arch.variant() == "Cortex",
             "architecture must be ARM:32:LE:Cortex"
         );
-        Self {
+        Ok(Self {
             pc: t.program_counter().clone(),
             xpsr: BitVec::from_u32(0u32, 32 << 1),
             apsr: t.register_by_name("cpsr").unwrap(),
@@ -97,7 +92,7 @@ impl<'irb> Context<'irb> {
             cache: Arc::new(RwLock::new(TranslationCache::default())),
             irb,
             lang,
-        }
+        })
     }
 
     fn lift_block(&mut self,

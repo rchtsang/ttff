@@ -14,6 +14,7 @@ use fugue_ir::{
     disassembly::IRBuilderArena,
     error::Error as IRError,
 };
+use fugue_core::language::LanguageBuilderError;
 use fugue_core::eval::fixed_state::FixedStateError;
 use fugue_bv::BitVec;
 
@@ -23,6 +24,8 @@ use super::types::*;
 pub enum Error {
     #[error("lifter error: {0}")]
     Lift(String),
+    #[error("language builder error: {0}")]
+    LangBuilder(String),
     #[error(transparent)]
     Arch(#[from] arch::Error),
     #[error("address not lifted: {0:x?}")]
@@ -40,6 +43,12 @@ pub enum Error {
 impl From<IRError> for Error {
     fn from(value: IRError) -> Self {
         Self::Lift(format!("{value:?}"))
+    }
+}
+
+impl From<LanguageBuilderError> for Error {
+    fn from(value: LanguageBuilderError) -> Self {
+        Self::LangBuilder(format!("{value:?}"))
     }
 }
 
