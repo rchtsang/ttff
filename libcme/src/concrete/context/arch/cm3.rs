@@ -51,12 +51,15 @@ enum MapIx {
 #[derive(Clone)]
 pub struct Context<'irb> {
     lang: Language,
+    endian: Endian,
     pc: VarnodeData,
+    sp: VarnodeData,
     apsr: VarnodeData, // cpsr in ghidra sla
+
     // armv7m xPSR is a combination of APSR, IPSR, and EPSR
     // and is not defined as part of the ghidra sleigh spec.
     // hence we must handle this manually
-    xpsr: BitVec,
+    xpsr: [u8 ; 4],
 
     irb: &'irb IRBuilderArena,
     regs: FixedState,
@@ -83,7 +86,9 @@ impl<'irb> Context<'irb> {
         );
         Ok(Self {
             pc: t.program_counter().clone(),
-            xpsr: BitVec::from_u32(0u32, 32 << 1),
+            sp: lang.convention().stack_pointer().varnode().clone(),
+            endian: if t.is_big_endian() { Endian::Big } else { Endian::Little },
+            xpsr: [0u8; 4],
             apsr: t.register_by_name("cpsr").unwrap(),
             regs: FixedState::new(t.register_space_size()),
             tmps: FixedState::new(t.unique_space_size()),
@@ -93,6 +98,10 @@ impl<'irb> Context<'irb> {
             irb,
             lang,
         })
+    }
+
+    pub fn lang(&self) -> &Language {
+        &self.lang
     }
 
     fn lift_block(&mut self,
@@ -319,13 +328,13 @@ impl<'irb> Context<'irb> {
     fn _read_vnd(&mut self, vnd: &VarnodeData) -> Result<BitVec, context::Error> {
         let spc = vnd.space();
         if spc.is_constant() {
-            todo!()
+            Ok(BitVec::from_u64(vnd.offset(), vnd.bits()))
         } else if spc.is_register() {
-            todo!()
+            Ok(self.regs.read_val_with(vnd.offset() as usize, vnd.size(), self.endian)?)
         } else if spc.is_unique() {
-            todo!()
+            Ok(self.tmps.read_val_with(vnd.offset() as usize, vnd.size(), self.endian)?)
         } else if spc.is_default() {
-            todo!()
+            self._map_read_val(Address::from(vnd.offset()), vnd.size())
         } else {
             panic!("read from {spc:?} unsupported")
         }
@@ -334,13 +343,13 @@ impl<'irb> Context<'irb> {
     fn _write_vnd(&mut self, vnd: &VarnodeData, val: &BitVec) -> Result<(), context::Error> {
         let spc = vnd.space();
         if spc.is_register() {
-            todo!()
+            Ok(self.regs.write_val_with(vnd.offset() as usize, val, self.endian)?)
         } else if spc.is_unique() {
-            todo!()
-        } else if spc.is_constant() {
-            todo!()
+            Ok(self.tmps.write_val_with(vnd.offset() as usize, val, self.endian)?)
         } else if spc.is_default() {
-            todo!()
+            self._map_write_val(Address::from(vnd.offset()), val)
+        } else if spc.is_constant() {
+            panic!("cannot write to constant varnode!")
         } else {
             panic!("read from {spc:?} unsupported")
         }
