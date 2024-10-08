@@ -3,7 +3,6 @@
 //! architecture-specific state implementation for CallOther
 
 use thiserror::Error;
-use dyn_clone::{DynClone, clone_trait_object};
 
 pub mod cm3;
 

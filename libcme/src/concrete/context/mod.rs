@@ -9,14 +9,12 @@ use std::ops::Range;
 use thiserror::Error;
 
 use fugue_ir::{ Address, VarnodeData };
-use fugue_ir::{
-    disassembly::IRBuilderArena,
-    error::Error as IRError,
-};
+use fugue_ir::error::Error as IRError;
 use fugue_core::language::LanguageBuilderError;
 use fugue_core::eval::fixed_state::FixedStateError;
 use fugue_bv::BitVec;
 
+use crate::peripheral;
 use super::types::*;
 
 #[derive(Debug, Error, Clone)]
@@ -27,6 +25,8 @@ pub enum Error {
     LangBuilder(String),
     #[error(transparent)]
     Arch(#[from] arch::Error),
+    #[error("peripheral error: {0}")]
+    Peripheral(String),
     #[error("address not lifted: {0:x?}")]
     AddressNotLifted(Address),
     #[error("address in unmapped memory: {0}")]
@@ -57,6 +57,12 @@ impl From<FixedStateError> for Error {
             FixedStateError::OOBRead { offset, size } => Error::OOBRead { offset, size },
             FixedStateError::OOBWrite { offset, size } => Error::OOBWrite { offset, size },
         }
+    }
+}
+
+impl From<peripheral::Error> for Error {
+    fn from(value: peripheral::Error) -> Self {
+        Self::Peripheral(format!("{value:?}"))
     }
 }
 

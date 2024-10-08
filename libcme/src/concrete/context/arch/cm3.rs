@@ -25,6 +25,7 @@ use crate::concrete::{
     context,
     context::{CtxRequest, CtxResponse},
 };
+use crate::peripheral::Peripheral;
 
 pub use crate::concrete::context::Context as ContextTrait;
 pub type TranslationCache<'irb> = IntMap<u64, LiftResult<'irb>>;
@@ -60,13 +61,13 @@ pub struct Context<'irb> {
     // armv7m xPSR is a combination of APSR, IPSR, and EPSR
     // and is not defined as part of the ghidra sleigh spec.
     // hence we must handle this manually
-    xpsr: [u8 ; 4],
+    xpsr: u32,
 
     regs: FixedState,
     tmps: FixedState,
     mmap: IntervalMap<Address, MapIx>,
     mem: Vec<FixedState>,
-    // mmio: Vec<???> // todo: add peripheral models
+    mmio: Vec<Peripheral>,
     irb: &'irb IRBuilderArena,
     cache: Arc<RwLock<TranslationCache<'irb>>>,
 }
@@ -89,12 +90,13 @@ impl<'irb> Context<'irb> {
             pc: t.program_counter().clone(),
             sp: lang.convention().stack_pointer().varnode().clone(),
             endian: if t.is_big_endian() { Endian::Big } else { Endian::Little },
-            xpsr: [0u8; 4],
+            xpsr: 0u32,
             apsr: t.register_by_name("cpsr").unwrap(),
             regs: FixedState::new(t.register_space_size()),
             tmps: FixedState::new(t.unique_space_size()),
             mmap: IntervalMap::default(),
             mem: vec![],
+            mmio: vec![],
             cache: Arc::new(RwLock::new(TranslationCache::default())),
             irb,
             lang,
@@ -130,7 +132,7 @@ impl<'irb> Context<'irb> {
         assert_eq!(base.offset() & 0b11, 0, "base {base:#x?} is not word-aligned!");
         assert_eq!(size & 0b11, 0, "size {size:#x} is not word-aligned!");
 
-        // check for collision with existing mapped contexts
+        // check for collision with existing mapped regions
         let range = base..(base + size as u64);
         if let Some(colliding) = self.mmap.intervals(range.clone()).next() {
             return Err(context::Error::MapConflict(range, colliding));
@@ -145,12 +147,26 @@ impl<'irb> Context<'irb> {
         Ok(())
     }
 
-    // pub fn map_mmio(&mut self,
-    //     base: impl Into<Address>,
-    //     // peripheral: ...
-    // ) -> Result<(), context::Error> {
-    //     todo!()
-    // }
+    pub fn map_mmio(&mut self,
+        peripheral: Peripheral,
+    ) -> Result<(), context::Error> {
+        // peripheral base must be word-aligned
+        assert_eq!(peripheral.range.start.offset() & 0b11, 0,
+            "peripheral is not word-aligned!");
+
+        // check for collision with existing mapped regions
+        let range = peripheral.range.clone();
+        if let Some(colliding) = self.mmap.intervals(range.clone()).next() {
+            return Err(context::Error::MapConflict(range, colliding));
+        }
+
+        // add peripheral to map
+        let idx = MapIx::Mmio(self.mmio.len());
+        self.mmio.push(peripheral);
+        self.mmap.insert(range, idx);
+
+        Ok(())
+    }
 
     fn lift_block(&mut self,
         address: impl Into<Address>,
@@ -334,7 +350,9 @@ impl<'irb> Context<'irb> {
                     .map_err(context::Error::from)
             }
             MapIx::Mmio(idx) => {
-                todo!("yet to implement peripherals (have a peripheral struct with generic fields/callbacks)")
+                let peripheral = self.mmio.get_mut(idx).unwrap();
+                peripheral.read_bytes(address, dst)
+                    .map_err(context::Error::from)
             }
         }
     }
@@ -350,7 +368,9 @@ impl<'irb> Context<'irb> {
                     .map_err(context::Error::from)
             }
             MapIx::Mmio(idx) => {
-                todo!("yet to implement peripherals")
+                let peripheral = self.mmio.get_mut(idx).unwrap();
+                peripheral.write_bytes(address, src)
+                    .map_err(context::Error::from)
             }
         }
     }
@@ -416,14 +436,19 @@ impl<'irb> Context<'irb> {
 mod tests {
     use super::*;
     use crate::concrete::tests;
+    use crate::peripheral::{Peripheral, dummy::DummyState};
 
     #[test]
     fn test_read_write() -> Result<(), context::Error> {
         let builder = LanguageBuilder::new("data/processors")?;
         let irb = IRBuilderArena::with_capacity(0x1000);
         let mut context = Context::new_with(&builder, &irb)?;
-
         context.map_mem(0x0u64, 0x1000usize)?;
+
+        // test map dummy peripheral
+        let dummy_base = Address::from(0x2000u64);
+        let dummy = Peripheral::new_with(dummy_base..(dummy_base + 0x400u64), Box::new(DummyState::default()));
+        context.map_mmio(dummy)?;
 
         // test read/write mem bytes
         context._map_write_bytes(Address::from(0x0u64), tests::TEST_PROG_SQUARE)?;

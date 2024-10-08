@@ -10,6 +10,7 @@ fugue-core = { path = "../fugue-core/fugue-core" }
 fugue-bv = { path = "../fugue-core/fugue-bv" }
 fugue-bytes = { path = "../fugue-core/fugue-bytes" }
 fugue-ir = { path = "../fugue-core/fugue-ir" }
+anyhow = "1"
 thiserror = "1"
 serde = "1.0"
 parking_lot = "0.12"
