@@ -4,7 +4,6 @@
 
 pub mod arch;
 
-use std::sync::Arc;
 use std::ops::Range;
 
 use thiserror::Error;
@@ -69,13 +68,15 @@ impl From<FixedStateError> for Error {
 /// this should allow for easier observability on the context side since
 /// all of these can can be handled in a single function and observers can be
 /// dispatched from a central location without having to litter them everywhere
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum CtxRequest<'a> {
     Fetch { address: Address },
     Read { vnd: &'a VarnodeData },
     Write { vnd: &'a VarnodeData, val: &'a BitVec },
     Load { address: Address, size: usize },
     Store { address: Address, val: &'a BitVec },
+    LoadBytes { address: Address, dst: &'a mut [u8] },
+    StoreBytes { address: Address, bytes: &'a [u8] },
 }
 
 /// context request response
@@ -88,6 +89,8 @@ pub enum CtxResponse<'irb> {
     Write { result: Result<(), Error> },
     Load { result: Result<BitVec, Error> },
     Store { result: Result<(), Error> },
+    LoadBytes { result: Result<(), Error> },
+    StoreBytes { result: Result<(), Error> },
 }
 
 
@@ -102,7 +105,7 @@ pub trait Context<'irb> {
     /// handles every basic CtxRequest enum variant.
     /// forcing all types of context interactions through this single request function 
     /// makes implementing observability things a bit easier.
-    fn request(&mut self, req: CtxRequest) -> CtxResponse<'irb>;
+    fn request<'ctx>(&'ctx mut self, req: CtxRequest) -> CtxResponse<'irb>;
 
     fn fetch(&mut self, address: Address) -> LiftResult<'irb> {
         self.request(CtxRequest::Fetch { address }).into()
@@ -122,6 +125,14 @@ pub trait Context<'irb> {
 
     fn store(&mut self, address: Address, val: &BitVec) -> Result<(), Error> {
         self.request(CtxRequest::Store { address, val }).into()
+    }
+
+    fn load_bytes(&mut self, address: Address, dst: &mut [u8]) -> Result<(), Error> {
+        self.request(CtxRequest::LoadBytes { address, dst }).into()
+    }
+
+    fn store_bytes<'a>(&mut self, address: Address, bytes: &'a [u8]) -> Result<(), Error> {
+        self.request(CtxRequest::StoreBytes { address, bytes }).into()
     }
 }
 
@@ -150,6 +161,8 @@ impl<'irb> Into<Result<(), Error>> for CtxResponse<'irb> {
         match self {
             CtxResponse::Store { result } => { result }
             CtxResponse::Write { result } => { result }
+            CtxResponse::LoadBytes { result } => { result }
+            CtxResponse::StoreBytes { result } => { result }
             _ => { panic!("expected Store or Write response! got: {self:?}") }
         }
     }

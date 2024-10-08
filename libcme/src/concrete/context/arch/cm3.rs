@@ -217,7 +217,7 @@ impl<'irb> Context<'irb> {
 }
 
 impl<'irb> context::Context<'irb> for Context<'irb> {
-    fn request(&mut self, req: CtxRequest) -> CtxResponse<'irb> {
+    fn request<'ctx>(&'ctx mut self, req: CtxRequest) -> CtxResponse<'irb> {
         match req {
             CtxRequest::Fetch { address } => {
                 CtxResponse::Fetch { result: self._fetch(address) }
@@ -233,6 +233,12 @@ impl<'irb> context::Context<'irb> for Context<'irb> {
             }
             CtxRequest::Store { address, val } => {
                 CtxResponse::Store { result: self._map_write_val(address, val) }
+            }
+            CtxRequest::LoadBytes { address, dst } => {
+                CtxResponse::LoadBytes { result: self._map_read_bytes(address, dst) }
+            }
+            CtxRequest::StoreBytes { address, bytes} => {
+                CtxResponse::StoreBytes { result: self._map_write_bytes(address, bytes) }
             }
         }
     }
@@ -448,6 +454,36 @@ mod tests {
 
     #[test]
     fn test_requests() -> Result<(), context::Error> {
-        todo!()
+        let builder = LanguageBuilder::new("data/processors")?;
+        let irb = IRBuilderArena::with_capacity(0x1000);
+        let mut context = Context::new_with(&builder, &irb)?;
+        context.map_mem(0x0u64, 0x1000usize)?;
+
+        // request load/store program bytes
+        let addr = Address::from(0x0u64);
+        context.store_bytes(addr, tests::TEST_PROG_SQUARE)?;
+        let mut bytes = [0u8; 4];
+        context.load_bytes(addr, &mut bytes)?;
+        assert_eq!(bytes, [0x00, 0xf0, 0x01, 0xf8], "read incorrect byte sequence: {bytes:#x?}");
+
+        // request load/store val
+        let addr = Address::from(0x100u64);
+        let val = BitVec::from_u64(0xdeadbeefu64, 32);
+        context.store(addr, &val)?;
+        let bv = context.load(addr, val.bytes())?;
+        assert_eq!(bv, val, "read incorrect bitvec: {bv:#x?}");
+
+        // request read/write varnode
+        let t = context.translator();
+        let r0_vnd = t.register_by_name("r0")
+            .expect("r0 not a register???");
+        context.write(&r0_vnd, &val)?;
+        let bv = context.read(&r0_vnd)?;
+        assert_eq!(bv, val, "read incorrect bitvec: {bv:#x?}");
+
+        // test fetch
+        let _insn = context.fetch(Address::from(0x0u64))?;
+
+        Ok(())
     }
 }
