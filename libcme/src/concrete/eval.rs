@@ -34,7 +34,7 @@ pub enum FlowType {
 
 /// concrete pcode evaluator
 pub struct Evaluator {
-    pc: Location,
+    pub pc: Location,
 }
 
 /// helper to convert BitVec to Address
@@ -504,6 +504,49 @@ impl<'irb> Evaluator {
 
         self._assign(dst, val.cast(dst.bits()), context)
     }
+}
 
-    
+
+
+#[cfg(test)]
+mod test {
+    use fugue_core::language::LanguageBuilder;
+    use fugue_ir::disassembly::IRBuilderArena;
+    use crate::concrete::context::arch::cm3;
+    use super::*;
+
+    #[test]
+    fn test_evaluator() -> Result<(), Error> {
+        let builder = LanguageBuilder::new("data/processors")
+            .expect("language builder not instantiated");
+        let irb = IRBuilderArena::with_capacity(0x1000);
+        let mut context = cm3::Context::new_with(&builder, &irb)?;
+
+        let size = 0x2000usize;
+        context.map_mem(0x0u64, size)?;
+
+        context.store_bytes(0x0u64, crate::concrete::tests::TEST_PROG_SQUARE)?;
+
+        context.write_pc(0x0u64)?;
+        context.write_sp(size as u64)?;
+
+        let mut evaluator = Evaluator::new();
+        let halt_address = Address::from(0x4u64);
+        let mut cycles = 0;
+        while evaluator.pc.address() != halt_address {
+            let pc = evaluator.pc.address().offset();
+            println!("pc: {pc:#x?}");
+            evaluator.step(&mut context)?;
+            cycles += 1;
+        }
+        assert!(cycles > 10, "instructions executed: {cycles}");
+
+        let r0 = context.translator().register_by_name("r0")
+            .expect("no register named r0");
+        let retval = context.read(&r0)?;
+
+        assert_eq!(retval.to_i32().unwrap(), 6561, "retval: {retval:?}, cycles: {cycles}");
+
+        Ok(())
+    }
 }

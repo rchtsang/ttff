@@ -198,6 +198,12 @@ impl<'irb> context::Context<'irb> for Context<'irb> {
             CtxRequest::WritePc { address } => {
                 CtxResponse::WritePc { result: self._set_pc(address) }
             }
+            CtxRequest::ReadSp => {
+                CtxResponse::ReadSp { result: self._get_sp() }
+            }
+            CtxRequest::WriteSp { address } => {
+                CtxResponse::WriteSp { result: self._set_sp(address) }
+            }
             CtxRequest::CallOther { output, inputs } => {
                 CtxResponse::CallOther { result: self._userop(output, inputs) }
             }
@@ -224,6 +230,28 @@ impl<'irb> Context<'irb> {
             .unsigned_cast(self.pc.bits());
         self.regs.write_val_with(
             self.pc.offset() as usize,
+            &val,
+            self.endian
+        )?;
+        Ok(())
+    }
+
+    fn _get_sp(&self) -> Result<Address, context::Error> {
+        let val = self.regs.read_val_with(
+            self.sp.offset() as usize,
+            self.sp.size(),
+            self.endian
+        )?;
+        val.to_u64()
+            .map(Address::from)
+            .ok_or_else(| | context::Error::AddressInvalid(val))
+    }
+
+    fn _set_sp(&mut self, address: Address) -> Result<(), context::Error> {
+        let val = BitVec::from(address.offset())
+            .unsigned_cast(self.sp.bits());
+        self.regs.write_val_with(
+            self.sp.offset() as usize,
             &val,
             self.endian
         )?;

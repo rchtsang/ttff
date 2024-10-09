@@ -88,6 +88,8 @@ pub enum CtxRequest<'a> {
     StoreBytes { address: Address, bytes: &'a [u8] },
     ReadPc,
     WritePc { address: Address },
+    ReadSp,
+    WriteSp { address: Address },
     CallOther { output: Option<&'a VarnodeData>, inputs: &'a [VarnodeData] },
 }
 
@@ -105,6 +107,8 @@ pub enum CtxResponse<'irb> {
     StoreBytes { result: Result<(), Error> },
     ReadPc { result: Result<Address, Error> },
     WritePc { result: Result<(), Error> },
+    ReadSp { result: Result<Address, Error> },
+    WriteSp { result: Result<(), Error> },
     CallOther { result: Result<Option<Location>, Error> },
 }
 
@@ -145,6 +149,15 @@ pub trait Context<'irb> {
     fn write_pc(&mut self, address: impl Into<Address>) -> Result<(), Error> {
         let address = address.into();
         self.request(CtxRequest::WritePc { address }).into()
+    }
+
+    fn read_sp(&mut self) -> Result<Address, Error> {
+        self.request(CtxRequest::ReadSp).into()
+    }
+
+    fn write_sp(&mut self, address: impl Into<Address>) -> Result<(), Error> {
+        let address = address.into();
+        self.request(CtxRequest::WriteSp { address }).into()
     }
 
     fn load(&mut self, address: impl Into<Address>, size: usize) -> Result<BitVec, Error> {
@@ -198,6 +211,7 @@ impl<'irb> Into<Result<(), Error>> for CtxResponse<'irb> {
             CtxResponse::Store { result } => { result }
             CtxResponse::Write { result } => { result }
             CtxResponse::WritePc { result } => { result }
+            CtxResponse::WriteSp { result } => { result }
             CtxResponse::LoadBytes { result } => { result }
             CtxResponse::StoreBytes { result } => { result }
             _ => { panic!("expected Store or Write response! got: {self:?}") }
@@ -209,6 +223,7 @@ impl<'irb> Into<Result<Address, Error>> for CtxResponse<'irb> {
     fn into(self) -> Result<Address, Error> {
         match self {
             CtxResponse::ReadPc { result } => { result }
+            CtxResponse::ReadSp { result } => { result }
             _ => { panic!("expected ReadPc response! got: {self:?}") }
         }
     }
