@@ -13,11 +13,10 @@ use iset::IntervalMap;
 use parking_lot::RwLock;
 
 use fugue_ir::{
-    VarnodeData,
-    Translator,
-    disassembly::{IRBuilderArena, Opcode},
+    disassembly::{IRBuilderArena, Opcode}, Translator, VarnodeData
 };
 use fugue_core::prelude::*;
+use fugue_core::ir::Location;
 use fugue_core::eval::fixed_state::FixedState;
 
 use crate::concrete::{
@@ -103,10 +102,6 @@ impl<'irb> Context<'irb> {
         })
     }
 
-    pub fn lang(&self) -> &Language {
-        &self.lang
-    }
-
     pub fn translator(&self) -> &Translator {
         &self.lang.translator()
     }
@@ -167,8 +162,75 @@ impl<'irb> Context<'irb> {
 
         Ok(())
     }
+}
 
-    fn lift_block(&mut self,
+impl<'irb> context::Context<'irb> for Context<'irb> {
+    fn lang(&self) -> &Language {
+        &self.lang
+    }
+
+    fn request<'ctx>(&'ctx mut self, req: CtxRequest) -> CtxResponse<'irb> {
+        match req {
+            CtxRequest::Fetch { address } => {
+                CtxResponse::Fetch { result: self._fetch(address) }
+            }
+            CtxRequest::Read { vnd } => {
+                CtxResponse::Read { result: self._read_vnd(vnd) }
+            }
+            CtxRequest::Write { vnd, val } => {
+                CtxResponse::Write { result: self._write_vnd(vnd, val) }
+            }
+            CtxRequest::Load { address, size } => {
+                CtxResponse::Load { result: self._map_read_val(address, size) }
+            }
+            CtxRequest::Store { address, val } => {
+                CtxResponse::Store { result: self._map_write_val(address, val) }
+            }
+            CtxRequest::LoadBytes { address, dst } => {
+                CtxResponse::LoadBytes { result: self._map_read_bytes(address, dst) }
+            }
+            CtxRequest::StoreBytes { address, bytes} => {
+                CtxResponse::StoreBytes { result: self._map_write_bytes(address, bytes) }
+            }
+            CtxRequest::ReadPc => {
+                CtxResponse::ReadPc { result: self._get_pc() }
+            }
+            CtxRequest::WritePc { address } => {
+                CtxResponse::WritePc { result: self._set_pc(address) }
+            }
+            CtxRequest::CallOther { output, inputs } => {
+                CtxResponse::CallOther { result: self._userop(output, inputs) }
+            }
+        }
+    }
+}
+
+// private implementations
+impl<'irb> Context<'irb> {
+
+    fn _get_pc(&self) -> Result<Address, context::Error> {
+        let val = self.regs.read_val_with(
+            self.pc.offset() as usize,
+            self.pc.size(),
+            self.endian
+        )?;
+        val.to_u64()
+            .map(Address::from)
+            .ok_or_else(| | context::Error::AddressInvalid(val))
+    }
+
+    fn _set_pc(&mut self, address: Address) -> Result<(), context::Error> {
+        let val = BitVec::from(address.offset())
+            .unsigned_cast(self.pc.bits());
+        self.regs.write_val_with(
+            self.pc.offset() as usize,
+            &val,
+            self.endian
+        )?;
+        Ok(())
+    }
+
+    fn _lift_block(&mut self,
         address: impl Into<Address>,
         // irb: &'irb IRBuilderArena,
     ) {
@@ -230,38 +292,6 @@ impl<'irb> Context<'irb> {
 
         // maybe return something here at some point?
     }
-}
-
-impl<'irb> context::Context<'irb> for Context<'irb> {
-    fn request<'ctx>(&'ctx mut self, req: CtxRequest) -> CtxResponse<'irb> {
-        match req {
-            CtxRequest::Fetch { address } => {
-                CtxResponse::Fetch { result: self._fetch(address) }
-            }
-            CtxRequest::Read { vnd } => {
-                CtxResponse::Read { result: self._read_vnd(vnd) }
-            }
-            CtxRequest::Write { vnd, val } => {
-                CtxResponse::Write { result: self._write_vnd(vnd, val) }
-            }
-            CtxRequest::Load { address, size } => {
-                CtxResponse::Load { result: self._map_read_val(address, size) }
-            }
-            CtxRequest::Store { address, val } => {
-                CtxResponse::Store { result: self._map_write_val(address, val) }
-            }
-            CtxRequest::LoadBytes { address, dst } => {
-                CtxResponse::LoadBytes { result: self._map_read_bytes(address, dst) }
-            }
-            CtxRequest::StoreBytes { address, bytes} => {
-                CtxResponse::StoreBytes { result: self._map_write_bytes(address, bytes) }
-            }
-        }
-    }
-}
-
-// private implementations
-impl<'irb> Context<'irb> {
 
     fn _lift(
         irb: &'irb IRBuilderArena,
@@ -288,7 +318,7 @@ impl<'irb> Context<'irb> {
         let address = address.into();
 
         if !self.cache.read().contains_key(&address.offset()) {
-            self.lift_block(address);
+            self._lift_block(address);
         }
 
         self.cache.read()
@@ -297,7 +327,8 @@ impl<'irb> Context<'irb> {
             .clone()
     }
 
-    fn _get_mapped_region(&self, address: Address) -> Result<(Range<Address>, MapIx), context::Error> {
+    fn _get_mapped_region(&self, address: impl Into<Address>) -> Result<(Range<Address>, MapIx), context::Error> {
+        let address: Address = address.into();
         let mut overlaps = self.mmap.overlap(address.clone());
         let (range, val) = overlaps.next()
             .ok_or(context::Error::Unmapped(address.clone()))?;
@@ -428,6 +459,13 @@ impl<'irb> Context<'irb> {
             panic!("read from {spc:?} unsupported")
         }
     }
+
+    fn _userop(&mut self,
+        output: Option<&VarnodeData>,
+        inputs: &[VarnodeData],
+    ) -> Result<Option<Location>, context::Error> {
+        todo!()
+    }
 }
 
 
@@ -507,7 +545,7 @@ mod tests {
         assert_eq!(bv, val, "read incorrect bitvec: {bv:#x?}");
 
         // test fetch
-        let _insn = context.fetch(Address::from(0x0u64))?;
+        let _insn = context.fetch(0x0u64)?;
 
         Ok(())
     }

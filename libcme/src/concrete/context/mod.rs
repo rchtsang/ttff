@@ -8,9 +8,10 @@ use std::ops::Range;
 
 use thiserror::Error;
 
-use fugue_ir::{ Address, VarnodeData };
+use fugue_ir::{Address, VarnodeData};
 use fugue_ir::error::Error as IRError;
-use fugue_core::language::LanguageBuilderError;
+use fugue_core::ir::Location;
+use fugue_core::language::{Language, LanguageBuilderError};
 use fugue_core::eval::fixed_state::FixedStateError;
 use fugue_bv::BitVec;
 
@@ -27,7 +28,9 @@ pub enum Error {
     Arch(#[from] arch::Error),
     #[error("peripheral error: {0}")]
     Peripheral(String),
-    #[error("address not lifted: {0:x?}")]
+    #[error("invalid address: {0:#x?}")]
+    AddressInvalid(BitVec),
+    #[error("address not lifted: {0:#x?}")]
     AddressNotLifted(Address),
     #[error("address in unmapped memory: {0}")]
     Unmapped(Address),
@@ -74,7 +77,7 @@ impl From<peripheral::Error> for Error {
 /// this should allow for easier observability on the context side since
 /// all of these can can be handled in a single function and observers can be
 /// dispatched from a central location without having to litter them everywhere
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum CtxRequest<'a> {
     Fetch { address: Address },
     Read { vnd: &'a VarnodeData },
@@ -83,6 +86,9 @@ pub enum CtxRequest<'a> {
     Store { address: Address, val: &'a BitVec },
     LoadBytes { address: Address, dst: &'a mut [u8] },
     StoreBytes { address: Address, bytes: &'a [u8] },
+    ReadPc,
+    WritePc { address: Address },
+    CallOther { output: Option<&'a VarnodeData>, inputs: &'a [VarnodeData] },
 }
 
 /// context request response
@@ -97,6 +103,9 @@ pub enum CtxResponse<'irb> {
     Store { result: Result<(), Error> },
     LoadBytes { result: Result<(), Error> },
     StoreBytes { result: Result<(), Error> },
+    ReadPc { result: Result<Address, Error> },
+    WritePc { result: Result<(), Error> },
+    CallOther { result: Result<Option<Location>, Error> },
 }
 
 
@@ -105,15 +114,19 @@ pub enum CtxResponse<'irb> {
 /// an architecture emulation context implementation should implement this trait to keep the
 /// actual evaluator architecture agnostic
 pub trait Context<'irb> {
+
+    fn lang(&self) -> &Language;
+
     /// evaluate request in context and return a response
     /// 
     /// a struct that implements context must implement a single request function that 
     /// handles every basic CtxRequest enum variant.
     /// forcing all types of context interactions through this single request function 
     /// makes implementing observability things a bit easier.
-    fn request<'ctx>(&'ctx mut self, req: CtxRequest) -> CtxResponse<'irb>;
+    fn request(&mut self, req: CtxRequest) -> CtxResponse<'irb>;
 
-    fn fetch(&mut self, address: Address) -> LiftResult<'irb> {
+    fn fetch(&mut self, address: impl Into<Address>) -> LiftResult<'irb> {
+        let address = address.into();
         self.request(CtxRequest::Fetch { address }).into()
     }
 
@@ -125,20 +138,37 @@ pub trait Context<'irb> {
         self.request(CtxRequest::Write { vnd, val }).into()
     }
 
-    fn load(&mut self, address: Address, size: usize) -> Result<BitVec, Error> {
+    fn read_pc(&mut self) -> Result<Address, Error> {
+        self.request(CtxRequest::ReadPc).into()
+    }
+
+    fn write_pc(&mut self, address: impl Into<Address>) -> Result<(), Error> {
+        let address = address.into();
+        self.request(CtxRequest::WritePc { address }).into()
+    }
+
+    fn load(&mut self, address: impl Into<Address>, size: usize) -> Result<BitVec, Error> {
+        let address = address.into();
         self.request(CtxRequest::Load { address, size }).into()
     }
 
-    fn store(&mut self, address: Address, val: &BitVec) -> Result<(), Error> {
+    fn store(&mut self, address: impl Into<Address>, val: &BitVec) -> Result<(), Error> {
+        let address = address.into();
         self.request(CtxRequest::Store { address, val }).into()
     }
 
-    fn load_bytes(&mut self, address: Address, dst: &mut [u8]) -> Result<(), Error> {
+    fn load_bytes(&mut self, address: impl Into<Address>, dst: &mut [u8]) -> Result<(), Error> {
+        let address = address.into();
         self.request(CtxRequest::LoadBytes { address, dst }).into()
     }
 
-    fn store_bytes<'a>(&mut self, address: Address, bytes: &'a [u8]) -> Result<(), Error> {
+    fn store_bytes<'a>(&mut self, address: impl Into<Address>, bytes: &'a [u8]) -> Result<(), Error> {
+        let address = address.into();
         self.request(CtxRequest::StoreBytes { address, bytes }).into()
+    }
+
+    fn userop(&mut self, output: Option<&VarnodeData>, inputs: &[VarnodeData]) -> Result<Option<Location>, Error> {
+        self.request(CtxRequest::CallOther { output, inputs }).into()
     }
 }
 
@@ -167,9 +197,28 @@ impl<'irb> Into<Result<(), Error>> for CtxResponse<'irb> {
         match self {
             CtxResponse::Store { result } => { result }
             CtxResponse::Write { result } => { result }
+            CtxResponse::WritePc { result } => { result }
             CtxResponse::LoadBytes { result } => { result }
             CtxResponse::StoreBytes { result } => { result }
             _ => { panic!("expected Store or Write response! got: {self:?}") }
+        }
+    }
+}
+
+impl<'irb> Into<Result<Address, Error>> for CtxResponse<'irb> {
+    fn into(self) -> Result<Address, Error> {
+        match self {
+            CtxResponse::ReadPc { result } => { result }
+            _ => { panic!("expected ReadPc response! got: {self:?}") }
+        }
+    }
+}
+
+impl<'irb> Into<Result<Option<Location>, Error>> for CtxResponse<'irb> {
+    fn into(self) -> Result<Option<Location>, Error> {
+        match self {
+            CtxResponse::CallOther { result } => { result }
+            _ => { panic!("expected CallOther response! got: {self:?}") }
         }
     }
 }
