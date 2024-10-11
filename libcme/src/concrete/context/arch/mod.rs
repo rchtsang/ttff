@@ -4,12 +4,12 @@
 
 use thiserror::Error;
 
-pub mod cm3;
+pub mod armv7m;
 
 #[derive(Debug, Error, Clone)]
 pub enum Error {
     #[error(transparent)]
-    CortexM3(#[from] cm3::Error),
+    Armv7M(#[from] armv7m::Error),
 }
 
 

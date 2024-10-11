@@ -5,7 +5,7 @@
 use thiserror::Error;
 
 use fugue_core::prelude::*;
-use fugue_core::ir::{Location, PCode};
+use fugue_core::ir::Location;
 use fugue_ir::disassembly::{Opcode, VarnodeData, PCodeData};
 
 use crate::concrete::context;
@@ -512,7 +512,7 @@ impl<'irb> Evaluator {
 mod test {
     use fugue_core::language::LanguageBuilder;
     use fugue_ir::disassembly::IRBuilderArena;
-    use crate::concrete::context::arch::cm3;
+    use crate::concrete::context::arch::armv7m;
     use super::*;
 
     #[test]
@@ -520,7 +520,7 @@ mod test {
         let builder = LanguageBuilder::new("data/processors")
             .expect("language builder not instantiated");
         let irb = IRBuilderArena::with_capacity(0x1000);
-        let mut context = cm3::Context::new_with(&builder, &irb)?;
+        let mut context = armv7m::Context::new_with(&builder, &irb)?;
 
         let size = 0x2000usize;
         context.map_mem(0x0u64, size)?;
