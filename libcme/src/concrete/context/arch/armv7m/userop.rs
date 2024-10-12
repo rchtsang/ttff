@@ -19,14 +19,14 @@ impl<'irb> Context<'irb> {
         if index >= USEROPS.len() {
             return Err(Error::InvalidUserOp(index).into());
         }
-        USEROPS[index].1(self, index, inputs, output).map_err(|err| err.into())
+        USEROPS[index].1(self, index, inputs, output)
     }
 }
 
 /// ghidra userop function table
 static USEROPS: &'static [(
     &'static str,
-    fn(&mut Context, usize, &[VarnodeData], Option<&VarnodeData>) -> Result<Option<Location>, Error>,
+    fn(&mut Context, usize, &[VarnodeData], Option<&VarnodeData>) -> Result<Option<Location>, context::Error>,
 )] = &[
     ("count_leading_zeroes",              _count_leading_zeroes),
     ("coprocessor_function",              _coprocessor_function),
@@ -97,15 +97,26 @@ fn _count_leading_zeroes(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
-    todo!("unsupported userop: {}", USEROPS[index].0)
+) -> Result<Option<Location>, context::Error> {
+    assert_eq!(inputs.len(), 1, "count_leading_zeros expects exactly 1 input!");
+    assert!(output.is_some(), "count_leading_zeros expects an output");
+    let input0 = &inputs[0];
+    let dst = output.unwrap();
+    let in0_bv = this._read_vnd(input0)?;
+    let result = BitVec::from_u32(
+        in0_bv.to_u32().expect("failed to cast BitVec to u32")
+        .leading_zeros(),
+        dst.bits(),
+    );
+    this._write_vnd(dst, &result)?;
+    Ok(None)
 }
 
 fn _coprocessor_function(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -113,7 +124,7 @@ fn _coprocessor_function2(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -121,7 +132,7 @@ fn _coprocessor_load(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -129,7 +140,7 @@ fn _coprocessor_load2(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -137,7 +148,7 @@ fn _coprocessor_loadlong(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -145,7 +156,7 @@ fn _coprocessor_loadlong2(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -153,7 +164,7 @@ fn _coprocessor_moveto(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -161,7 +172,7 @@ fn _coprocessor_moveto2(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -169,7 +180,7 @@ fn _coprocessor_movefrom_rt(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -177,7 +188,7 @@ fn _coprocessor_movefrom_rt2(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -185,7 +196,7 @@ fn _coprocessor_movefrom2(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -193,7 +204,7 @@ fn _coprocessor_store(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -201,7 +212,7 @@ fn _coprocessor_store2(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -209,7 +220,7 @@ fn _coprocessor_storelong(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -217,7 +228,7 @@ fn _coprocessor_storelong2(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -225,7 +236,7 @@ fn _software_interrupt(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -233,7 +244,7 @@ fn _software_bkpt(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -241,7 +252,7 @@ fn _software_udf(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -249,7 +260,7 @@ fn _software_hlt(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -257,7 +268,7 @@ fn _software_hvc(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -265,7 +276,7 @@ fn _software_smc(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -273,7 +284,7 @@ fn _set_user_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -281,7 +292,7 @@ fn _set_fiq_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -289,7 +300,7 @@ fn _set_irq_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -297,7 +308,7 @@ fn _set_supervisor_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -305,7 +316,7 @@ fn _set_monitor_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -313,7 +324,7 @@ fn _set_abort_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -321,7 +332,7 @@ fn _set_undefined_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -329,7 +340,7 @@ fn _set_system_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -337,7 +348,7 @@ fn _enable_irq_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -345,7 +356,7 @@ fn _enable_fiq_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -353,7 +364,7 @@ fn _enable_dataabort_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -361,7 +372,7 @@ fn _disable_irq_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -369,7 +380,7 @@ fn _disable_fiq_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -377,7 +388,7 @@ fn _is_fiq_interrupts_enabled(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -385,7 +396,7 @@ fn _is_irq_interripts_enabled(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -393,7 +404,7 @@ fn _disable_dataabort_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -401,7 +412,7 @@ fn _has_exclusive_access(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -409,7 +420,7 @@ fn _is_current_mode_privileged(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -417,7 +428,7 @@ fn _set_thread_mode_privileged(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -425,7 +436,7 @@ fn _is_thread_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -433,7 +444,7 @@ fn _jazelle_branch(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -441,7 +452,7 @@ fn _clear_exclusive_local(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -449,7 +460,7 @@ fn _hint_debug(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -457,7 +468,7 @@ fn _data_memory_barrier(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -465,7 +476,7 @@ fn _data_synchronization_barrier(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -473,7 +484,7 @@ fn _secure_monitor_call(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -481,7 +492,7 @@ fn _wait_for_event(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -489,7 +500,7 @@ fn _wait_for_interrupt(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -497,7 +508,7 @@ fn _hint_yield(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -505,7 +516,7 @@ fn _instruction_synchronization_barrier(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -513,7 +524,7 @@ fn _hint_preload_data(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -521,7 +532,7 @@ fn _hint_preload_data_for_write(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -529,7 +540,7 @@ fn _hint_preload_instruction(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -537,7 +548,7 @@ fn _signed_saturate(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -545,7 +556,7 @@ fn _signed_does_saturate(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -553,7 +564,7 @@ fn _unsigned_saturate(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -561,7 +572,7 @@ fn _unsigned_does_saturate(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -569,7 +580,7 @@ fn _absolute(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -577,7 +588,7 @@ fn _reverse_bit_order(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -585,7 +596,7 @@ fn _send_event(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
@@ -593,6 +604,6 @@ fn _set_endian_state(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
-) -> Result<Option<Location>, Error> {
+) -> Result<Option<Location>, context::Error> {
     todo!("unsupported userop: {}", USEROPS[index].0)
 }

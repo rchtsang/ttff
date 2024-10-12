@@ -129,57 +129,73 @@ pub trait Context<'irb> {
     /// makes implementing observability things a bit easier.
     fn request(&mut self, req: CtxRequest) -> CtxResponse<'irb>;
 
+    /// fetch the lifted instruction at the given address
     fn fetch(&mut self, address: impl Into<Address>) -> LiftResult<'irb> {
         let address = address.into();
         self.request(CtxRequest::Fetch { address }).into()
     }
 
+    /// read a varnode
     fn read(&mut self, vnd: &VarnodeData) -> Result<BitVec, Error> {
         self.request(CtxRequest::Read { vnd }).into()
     }
 
+    /// write a varnode
     fn write(&mut self, vnd: &VarnodeData, val: &BitVec) -> Result<(), Error> {
         self.request(CtxRequest::Write { vnd, val }).into()
     }
 
+    /// read the current pc address
     fn read_pc(&mut self) -> Result<Address, Error> {
         self.request(CtxRequest::ReadPc).into()
     }
 
+    /// write an address to the pc
     fn write_pc(&mut self, address: impl Into<Address>) -> Result<(), Error> {
         let address = address.into();
         self.request(CtxRequest::WritePc { address }).into()
     }
 
+    /// read the current stack pointer address
     fn read_sp(&mut self) -> Result<Address, Error> {
         self.request(CtxRequest::ReadSp).into()
     }
 
+    /// write an address the the active stack pointer
     fn write_sp(&mut self, address: impl Into<Address>) -> Result<(), Error> {
         let address = address.into();
         self.request(CtxRequest::WriteSp { address }).into()
     }
 
+    /// load a value from mapped memory
     fn load(&mut self, address: impl Into<Address>, size: usize) -> Result<BitVec, Error> {
         let address = address.into();
         self.request(CtxRequest::Load { address, size }).into()
     }
 
+    /// store a value in mapped memory
     fn store(&mut self, address: impl Into<Address>, val: &BitVec) -> Result<(), Error> {
         let address = address.into();
         self.request(CtxRequest::Store { address, val }).into()
     }
 
+    /// load bytes from mapped memory into a destination buffer
     fn load_bytes(&mut self, address: impl Into<Address>, dst: &mut [u8]) -> Result<(), Error> {
         let address = address.into();
         self.request(CtxRequest::LoadBytes { address, dst }).into()
     }
 
+    /// store bytes from a source buffer into mapped memory
     fn store_bytes<'a>(&mut self, address: impl Into<Address>, bytes: &'a [u8]) -> Result<(), Error> {
         let address = address.into();
         self.request(CtxRequest::StoreBytes { address, bytes }).into()
     }
 
+    /// call a user-defined pcode operation
+    /// 
+    /// on succes, returns a Location (from an address) if the userop performs a branch.
+    /// no implemented userops currently branch at all,
+    /// but this is left as is for future support if necessry.
     fn userop(&mut self, output: Option<&VarnodeData>, inputs: &[VarnodeData]) -> Result<Option<Location>, Error> {
         self.request(CtxRequest::CallOther { output, inputs }).into()
     }
