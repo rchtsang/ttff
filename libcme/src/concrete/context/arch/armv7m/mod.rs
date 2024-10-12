@@ -11,6 +11,7 @@ use thiserror::Error;
 use nohash::IntMap;
 use iset::IntervalMap;
 use parking_lot::RwLock;
+use flagset::{FlagSet, flags};
 
 use fugue_ir::{
     disassembly::{IRBuilderArena, Opcode}, Translator, VarnodeData
@@ -29,9 +30,12 @@ use crate::peripheral::Peripheral;
 pub use crate::concrete::context::Context as ContextTrait;
 pub type TranslationCache<'irb> = IntMap<u64, LiftResult<'irb>>;
 
+mod userop;
+
 #[derive(Debug, Error, Clone)]
 pub enum Error {
-
+    #[error("invalid userop id: {0}")]
+    InvalidUserOp(usize),
 }
 
 impl Into<context::Error> for Error {
@@ -39,6 +43,56 @@ impl Into<context::Error> for Error {
         context::Error::from(super::Error::from(self))
     }
 }
+
+
+/// armv7m operation mode
+/// 
+/// see armv7m arch ref manual B1.3.1
+/// 
+/// privileged execution state is lumped into operation mode
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Mode {
+    /// entered on reset and/or as result of exception return
+    Thread { privileged: bool, main_sp: bool },
+    /// entered on exception. must be in handler mode to issue exception return.
+    /// always privileged execution
+    Handler,
+    /// entered if halt on debug event
+    Debug,
+}
+
+/// exception type
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ExceptionType {
+    Reset,
+    SVCall,
+    Fault,
+    Interrupt,
+}
+
+flags! {
+    /// exception state
+    #[derive(Hash)]
+    pub enum ExceptionState: u8 {
+        Inactive = 0x80,
+        Active   = 0x01,
+        Pending  = 0x02,
+        // Active and Pending, only asynchronous exceptions
+    }
+}
+
+/// exception
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Exception {
+    typ: ExceptionType,
+    num: u32,
+    priority: u32,
+    // vector entry point defined in vector table
+    entry: Address,
+    state: FlagSet<ExceptionState>
+}
+
+
 
 #[derive(Clone, Copy, Debug)]
 enum MapIx {
@@ -57,10 +111,16 @@ pub struct Context<'irb> {
     sp: VarnodeData,
     apsr: VarnodeData, // cpsr in ghidra sla
 
-    // armv7m xPSR is a combination of APSR, IPSR, and EPSR
-    // and is not defined as part of the ghidra sleigh spec.
-    // hence we must handle this manually
+    /// execution mode
+    mode: Mode,
+    /// armv7m xPSR is a combination of APSR, IPSR, and EPSR
+    /// and is not defined as part of the ghidra sleigh spec.
+    /// hence we must handle this manually
     xpsr: u32,
+    /// banked main stack pointer (always used in handler mod)
+    main_sp: Option<u32>,
+    /// banked process stack pointer (optionally used in thread mode)
+    proc_sp: Option<u32>,
 
     regs: FixedState,
     tmps: FixedState,
@@ -77,19 +137,14 @@ impl<'irb> Context<'irb> {
     pub fn new_with(builder: &LanguageBuilder, irb: &'irb IRBuilderArena) -> Result<Self, context::Error> {
         let lang = builder.build("ARM:LE:32:Cortex", "default")?;
         let t = lang.translator();
-        let arch = t.architecture();
-        assert!(
-            arch.processor() == "ARM"
-            && arch.is_little()
-            && arch.bits() == 32
-            && arch.variant() == "Cortex",
-            "architecture must be ARM:32:LE:Cortex"
-        );
         Ok(Self {
             pc: t.program_counter().clone(),
             sp: lang.convention().stack_pointer().varnode().clone(),
             endian: if t.is_big_endian() { Endian::Big } else { Endian::Little },
+            mode: Mode::Thread { privileged: false, main_sp: true },
             xpsr: 0u32,
+            main_sp: None,
+            proc_sp: None,
             apsr: t.register_by_name("cpsr").unwrap(),
             regs: FixedState::new(t.register_space_size()),
             tmps: FixedState::new(t.unique_space_size()),
@@ -164,6 +219,14 @@ impl<'irb> Context<'irb> {
     }
 }
 
+impl <'irb> Context<'irb> {
+    fn _current_mode_is_privileged(&self) -> bool {
+        todo!()
+    }
+
+
+}
+
 impl<'irb> context::Context<'irb> for Context<'irb> {
     fn lang(&self) -> &Language {
         &self.lang
@@ -205,7 +268,9 @@ impl<'irb> context::Context<'irb> for Context<'irb> {
                 CtxResponse::WriteSp { result: self._set_sp(address) }
             }
             CtxRequest::CallOther { output, inputs } => {
-                CtxResponse::CallOther { result: self._userop(output, inputs) }
+                assert!(inputs[0].space().is_constant(), "input0 of userop must be constant id per pcode spec");
+                let index = inputs[0].offset() as usize;
+                CtxResponse::CallOther { result: self._userop(index, &inputs[1..], output) }
             }
         }
     }
@@ -486,13 +551,6 @@ impl<'irb> Context<'irb> {
         } else {
             panic!("read from {spc:?} unsupported")
         }
-    }
-
-    fn _userop(&mut self,
-        output: Option<&VarnodeData>,
-        inputs: &[VarnodeData],
-    ) -> Result<Option<Location>, context::Error> {
-        todo!()
     }
 }
 
