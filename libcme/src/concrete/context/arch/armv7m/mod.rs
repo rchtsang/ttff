@@ -219,14 +219,6 @@ impl<'irb> Context<'irb> {
     }
 }
 
-impl <'irb> Context<'irb> {
-    fn _current_mode_is_privileged(&self) -> bool {
-        todo!()
-    }
-
-
-}
-
 impl<'irb> context::Context<'irb> for Context<'irb> {
     fn lang(&self) -> &Language {
         &self.lang
