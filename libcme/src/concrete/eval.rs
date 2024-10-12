@@ -520,7 +520,7 @@ mod test {
         let builder = LanguageBuilder::new("data/processors")
             .expect("language builder not instantiated");
         let irb = IRBuilderArena::with_capacity(0x1000);
-        let mut context = armv7m::Context::new_with(&builder, &irb)?;
+        let mut context = armv7m::Context::new_with(&builder, &irb, None)?;
 
         let size = 0x2000usize;
         context.map_mem(0x0u64, size)?;

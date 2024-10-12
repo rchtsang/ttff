@@ -33,6 +33,8 @@ pub type TranslationCache<'irb> = IntMap<u64, LiftResult<'irb>>;
 mod userop;
 mod exception;
 pub use exception::*;
+mod scs;
+pub use scs::*;
 
 #[derive(Debug, Error, Clone)]
 pub enum Error {
@@ -67,6 +69,7 @@ pub enum Mode {
 enum MapIx {
     Mem(usize),
     Mmio(usize),
+    Scs,
 }
 
 /// the cortex-m3 execution context
@@ -94,6 +97,7 @@ pub struct Context<'irb> {
     regs: FixedState,
     tmps: FixedState,
     mmap: IntervalMap<Address, MapIx>,
+    scs: SysCtrlSpace,
     mem: Vec<FixedState>,
     mmio: Vec<Peripheral>,
     irb: &'irb IRBuilderArena,
@@ -103,9 +107,17 @@ pub struct Context<'irb> {
 
 impl<'irb> Context<'irb> {
 
-    pub fn new_with(builder: &LanguageBuilder, irb: &'irb IRBuilderArena) -> Result<Self, context::Error> {
+    pub fn new_with(
+        builder: &LanguageBuilder,
+        irb: &'irb IRBuilderArena,
+        scs_config: Option<SysCtrlConfig>,
+    ) -> Result<Self, context::Error> {
         let lang = builder.build("ARM:LE:32:Cortex", "default")?;
         let t = lang.translator();
+        let scs_config = scs_config.unwrap_or_default();
+        let mut mmap = IntervalMap::default();
+        mmap.insert(Address::from(0xe000e000u64)..Address::from(0xe000f000u64), MapIx::Scs);
+
         Ok(Self {
             pc: t.program_counter().clone(),
             sp: lang.convention().stack_pointer().varnode().clone(),
@@ -117,7 +129,8 @@ impl<'irb> Context<'irb> {
             apsr: t.register_by_name("cpsr").unwrap(),
             regs: FixedState::new(t.register_space_size()),
             tmps: FixedState::new(t.unique_space_size()),
-            mmap: IntervalMap::default(),
+            mmap,
+            scs: SysCtrlSpace::new_from(scs_config),
             mem: vec![],
             mmio: vec![],
             cache: Arc::new(RwLock::new(TranslationCache::default())),
@@ -405,6 +418,12 @@ impl<'irb> Context<'irb> {
             MapIx::Mmio(_idx) => {
                 panic!("mmio peripherals can't implement view_bytes due to their send/receive data model")
             }
+            MapIx::Scs => {
+                let state = self.scs.as_ref();
+                let offset = (*address - range.start).offset() as usize;
+                state.view_bytes(offset, size)
+                    .map_err(context::Error::from)
+            }
         }
     }
 
@@ -420,6 +439,12 @@ impl<'irb> Context<'irb> {
             }
             MapIx::Mmio(_idx) => {
                 panic!("mmio peripherals can't implement view_bytes due to their send/receive data model")
+            }
+            MapIx::Scs => {
+                let state = self.scs.as_mut();
+                let offset = (*address - range.start).offset() as usize;
+                state.view_bytes_mut(offset, size)
+                    .map_err(context::Error::from)
             }
         }
     }
@@ -439,6 +464,12 @@ impl<'irb> Context<'irb> {
                 peripheral.read_bytes(address, dst)
                     .map_err(context::Error::from)
             }
+            MapIx::Scs => {
+                let state = self.scs.as_ref();
+                let offset = (*address - range.start).offset() as usize;
+                state.read_bytes(offset, dst)
+                    .map_err(context::Error::from)
+            }
         }
     }
 
@@ -455,6 +486,12 @@ impl<'irb> Context<'irb> {
             MapIx::Mmio(idx) => {
                 let peripheral = self.mmio.get_mut(idx).unwrap();
                 peripheral.write_bytes(address, src)
+                    .map_err(context::Error::from)
+            }
+            MapIx::Scs => {
+                let state = self.scs.as_mut();
+                let offset = (*address - range.start).offset() as usize;
+                state.write_bytes(offset, src)
                     .map_err(context::Error::from)
             }
         }

@@ -8,7 +8,7 @@ use crate::peripheral::{Peripheral, dummy::DummyState};
 fn test_read_write() -> Result<(), context::Error> {
     let builder = LanguageBuilder::new("data/processors")?;
     let irb = IRBuilderArena::with_capacity(0x1000);
-    let mut context = Context::new_with(&builder, &irb)?;
+    let mut context = Context::new_with(&builder, &irb, None)?;
     context.map_mem(0x0u64, 0x1000usize)?;
 
     // test map dummy peripheral
@@ -47,7 +47,7 @@ fn test_read_write() -> Result<(), context::Error> {
 fn test_requests() -> Result<(), context::Error> {
     let builder = LanguageBuilder::new("data/processors")?;
     let irb = IRBuilderArena::with_capacity(0x1000);
-    let mut context = Context::new_with(&builder, &irb)?;
+    let mut context = Context::new_with(&builder, &irb, None)?;
     context.map_mem(0x0u64, 0x1000usize)?;
 
     // request load/store program bytes
