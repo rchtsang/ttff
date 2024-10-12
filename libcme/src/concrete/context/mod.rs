@@ -7,6 +7,7 @@ pub mod arch;
 use std::ops::Range;
 
 use thiserror::Error;
+use flagset::flags;
 
 use fugue_ir::{Address, VarnodeData};
 use fugue_ir::error::Error as IRError;
@@ -69,6 +70,19 @@ impl From<peripheral::Error> for Error {
     }
 }
 
+flags! {
+    pub enum Permission: u8 {
+        R = 0x04,
+        W = 0x02,
+        E = 0x01,
+        RO = 0x04,
+        WO = 0x02,
+        RW = (Permission::R | Permission::W).bits(),
+        RE = (Permission::R | Permission::E).bits(),
+        WE = (Permission::W | Permission::E).bits(),
+        RWE = (Permission::R | Permission::W | Permission::E).bits(),
+    }
+}
 
 /// context request
 /// 

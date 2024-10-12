@@ -48,6 +48,15 @@ impl Into<context::Error> for Error {
     }
 }
 
+/// armv7m architecture event
+/// 
+/// these events can be triggered on writes to system control
+/// and must be dealt with immediately with an update to the
+/// context state if necessary
+#[derive(Debug, Clone)]
+pub enum Event {
+
+}
 
 /// armv7m operation mode
 /// 
@@ -438,13 +447,10 @@ impl<'irb> Context<'irb> {
                     .map_err(context::Error::from)
             }
             MapIx::Mmio(_idx) => {
-                panic!("mmio peripherals can't implement view_bytes due to their send/receive data model")
+                panic!("mmio peripherals can't implement view_bytes_mut due to their send/receive data model")
             }
             MapIx::Scs => {
-                let state = self.scs.as_mut();
-                let offset = (*address - range.start).offset() as usize;
-                state.view_bytes_mut(offset, size)
-                    .map_err(context::Error::from)
+                panic!("scs can't implement view_bytes_mut without potentially violating event triggers")
             }
         }
     }
@@ -465,10 +471,13 @@ impl<'irb> Context<'irb> {
                     .map_err(context::Error::from)
             }
             MapIx::Scs => {
-                let state = self.scs.as_ref();
                 let offset = (*address - range.start).offset() as usize;
-                state.read_bytes(offset, dst)
-                    .map_err(context::Error::from)
+                let maybe_evt = self.scs.read_bytes(offset, dst)
+                    .map_err(context::Error::from)?;
+                if let Some(evt) = maybe_evt {
+                    todo!("deal with generated events");
+                }
+                Ok(())
             }
         }
     }
@@ -489,10 +498,13 @@ impl<'irb> Context<'irb> {
                     .map_err(context::Error::from)
             }
             MapIx::Scs => {
-                let state = self.scs.as_mut();
                 let offset = (*address - range.start).offset() as usize;
-                state.write_bytes(offset, src)
-                    .map_err(context::Error::from)
+                let maybe_evt = self.scs.write_bytes(offset, src)
+                    .map_err(context::Error::from)?;
+                if let Some(evt) = maybe_evt {
+                    todo!("deal with generated events");
+                }
+                Ok(())
             }
         }
     }
