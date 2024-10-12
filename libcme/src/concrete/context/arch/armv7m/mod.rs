@@ -31,6 +31,8 @@ pub use crate::concrete::context::Context as ContextTrait;
 pub type TranslationCache<'irb> = IntMap<u64, LiftResult<'irb>>;
 
 mod userop;
+mod exception;
+pub use exception::*;
 
 #[derive(Debug, Error, Clone)]
 pub enum Error {
@@ -60,39 +62,6 @@ pub enum Mode {
     /// entered if halt on debug event
     Debug,
 }
-
-/// exception type
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ExceptionType {
-    Reset,
-    SVCall,
-    Fault,
-    Interrupt,
-}
-
-flags! {
-    /// exception state
-    #[derive(Hash)]
-    pub enum ExceptionState: u8 {
-        Inactive = 0x80,
-        Active   = 0x01,
-        Pending  = 0x02,
-        // Active and Pending, only asynchronous exceptions
-    }
-}
-
-/// exception
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Exception {
-    typ: ExceptionType,
-    num: u32,
-    priority: u32,
-    // vector entry point defined in vector table
-    entry: Address,
-    state: FlagSet<ExceptionState>
-}
-
-
 
 #[derive(Clone, Copy, Debug)]
 enum MapIx {

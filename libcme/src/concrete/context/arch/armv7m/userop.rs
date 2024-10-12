@@ -93,6 +93,10 @@ static USEROPS: &'static [(
     ("setEndianState",                    _set_endian_state),
 ];
 
+/// implements the CLZ instruction.
+/// 
+/// probably defined as a userop in order to take advantage of 
+/// host hardware implementation
 fn _count_leading_zeroes(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -232,6 +236,9 @@ fn _coprocessor_storelong2(this: &mut Context,
     todo!("unsupported userop: {}", USEROPS[index].0)
 }
 
+/// implements the SVC instruction in armv7m
+/// 
+/// generates an SVCall exception
 fn _software_interrupt(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
