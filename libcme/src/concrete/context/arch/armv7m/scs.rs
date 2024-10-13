@@ -1,8 +1,9 @@
 //! scs.rs
 
-use context::Permission;
+use bitfield_struct::bitfield;
 
 use super::*;
+use context::Permission;
 
 
 /// system control space
@@ -34,8 +35,28 @@ impl SysCtrlSpace {
     }
 
     pub fn read_bytes(&mut self, offset: impl Into<usize>, dst: &mut [u8]) -> Result<Option<Event>, context::Error> {
-        assert_eq!(dst.len(), 4, "read from system control space must be word aligned");
         let offset = offset.into();
+        assert_eq!(offset & 0b11, 0, "access to scs must be 32-bit word aligned!");
+        if let Some(scr) = SCReg::lookup_offset(offset) {
+            self.read_reg(&scr, dst)
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn write_bytes(&mut self, offset: impl Into<usize>, src: &[u8]) -> Result<Option<Event>, context::Error> {
+        let offset = offset.into();
+        assert_eq!(offset & 0b11, 0, "access to scs must be 32-bit word aligned!");
+        if let Some(scr) = SCReg::lookup_offset(offset) {
+            self.write_reg(&scr, src)
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn read_reg(&mut self, scr: &SCReg, dst: &mut [u8]) -> Result<Option<Event>, context::Error> {
+        assert_eq!(dst.len(), 4, "read from system control space must be word aligned");
+        let offset = scr.offset();
         let view = self.backing.view_bytes(offset, dst.len())
             .map_err(context::Error::from)?;
         let read_val = view.iter()
@@ -45,58 +66,32 @@ impl SysCtrlSpace {
                 dst[i] = byte; // read val into dst during fold
                 val | (byte << (i * 8)) as u32
             });
-        if let Some(scr) = SCReg::lookup_offset(offset) {
-            self._on_read(&scr, read_val).map_err(|err| err.into())
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub fn write_bytes(&mut self, offset: impl Into<usize>, src: &[u8]) -> Result<Option<Event>, context::Error> {
-        assert_eq!(src.len(), 4, "write to system control space must be word aligned");
-        let offset = offset.into();
-        let view = self.backing.view_bytes_mut(offset, src.len())
-            .map_err(context::Error::from)?;
-        let write_val = src.iter()
-            .enumerate()
-            .take(4)
-            .fold(0u32, |val, (i, &byte)| {
-                view[i] = byte; // write value into backing during fold
-                val | (byte << (i * 8)) as u32
-            });
-        if let Some(scr) = SCReg::lookup_offset(offset) {
-            self._on_write(&scr, write_val).map_err(|err| err.into())
-        } else {
-            Ok(None)
-        }
-    }
-}
-
-impl Default for SysCtrlSpace {
-    fn default() -> Self {
-        Self {
-            backing: FixedState::new(0x1000),
-        }
-    }
-}
-
-impl SysCtrlSpace {
-    fn _on_read(&mut self, scr: &SCReg, read_val: u32) -> Result<Option<Event>, Error> {
         match scr {
             SCReg::MPU(mpu_reg) => {
                 mpu_reg.read_evt(read_val)
+                    .map_err(Into::<context::Error>::into)
             }
             SCReg::NVIC(nvic_reg) => {
                 nvic_reg.read_evt(read_val)
+                    .map_err(Into::<context::Error>::into)
             }
             SCReg::SysTick(systick_reg) => {
                 systick_reg.read_evt(read_val)
+                    .map_err(Into::<context::Error>::into)
             }
             _ => { Ok(None) }
         }
     }
 
-    fn _on_write(&mut self, scr: &SCReg, write_val: u32) -> Result<Option<Event>, Error> {
+    pub fn write_reg(&mut self, scr: &SCReg, src: &[u8]) -> Result<Option<Event>, context::Error> {
+        assert_eq!(src.len(), 4, "write to system control space must be word aligned");
+        let offset = scr.offset();
+        let write_val = src.iter()
+            .enumerate()
+            .take(4)
+            .fold(0u32, |val, (i, &byte)| {
+                val | (byte << (i * 8)) as u32
+            });
         match scr {
             SCReg::ICSR => {
                 todo!()
@@ -124,14 +119,30 @@ impl SysCtrlSpace {
             }
             SCReg::MPU(mpu_reg) => {
                 mpu_reg.write_evt(write_val)
+                    .map_err(Into::<context::Error>::into)
             }
             SCReg::NVIC(nvic_reg) => {
                 nvic_reg.write_evt(write_val)
+                    .map_err(Into::<context::Error>::into)
             }
             SCReg::SysTick(systick_reg) => {
                 systick_reg.write_evt(write_val)
+                    .map_err(Into::<context::Error>::into)
             }
-            _ => { Ok(None) }
+            _ => {
+                let view = self.backing.view_bytes_mut(offset, src.len())
+                    .map_err(context::Error::from)?;
+                view.copy_from_slice(src);
+                Ok(None)
+            }
+        }
+    }
+}
+
+impl Default for SysCtrlSpace {
+    fn default() -> Self {
+        Self {
+            backing: FixedState::new(0x1000),
         }
     }
 }
@@ -229,54 +240,6 @@ impl SCReg {
         self._data().reset
     }
 
-    fn _data(&self) -> &SCRegData {
-        match self {
-            SCReg::CPUID    => { &SCRegData { offset: 0xd00_usize, perms: 0b100, reset: None } }
-            SCReg::ICSR     => { &SCRegData { offset: 0xd04_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::VTOR     => { &SCRegData { offset: 0xd08_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::AIRCR    => { &SCRegData { offset: 0xd0c_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::SCR      => { &SCRegData { offset: 0xd10_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::CCR      => { &SCRegData { offset: 0xd14_usize, perms: 0b110, reset: None } }
-            SCReg::SHPR1    => { &SCRegData { offset: 0xd18_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::SHPR2    => { &SCRegData { offset: 0xd1c_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::SHPR3    => { &SCRegData { offset: 0xd20_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::SHCSR    => { &SCRegData { offset: 0xd24_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::CFSR     => { &SCRegData { offset: 0xd28_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::HFSR     => { &SCRegData { offset: 0xd2c_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::DFSR     => { &SCRegData { offset: 0xd30_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::MMFAR    => { &SCRegData { offset: 0xd34_usize, perms: 0b110, reset: None } }
-            SCReg::BFAR     => { &SCRegData { offset: 0xd38_usize, perms: 0b110, reset: None } }
-            SCReg::AFSR     => { &SCRegData { offset: 0xd3c_usize, perms: 0b110, reset: None } }
-            SCReg::CPACR    => { &SCRegData { offset: 0xd88_usize, perms: 0b110, reset: None } }
-            
-            // SCReg::FPCCR     => { &SCRegData { offset: 0xf34_usize, perms: 0b110, reset: Some(0x0) } }
-            // SCReg::FPCAR     => { &SCRegData { offset: 0xf38_usize, perms: 0b110, reset: None } }
-            // SCReg::FPDSCR    => { &SCRegData { offset: 0xf3c_usize, perms: 0b110, reset: Some(0x0) } }
-            // SCReg::MVFR0     => { &SCRegData { offset: 0xf40_usize, perms: 0b100, reset: Some(0x0) } }
-            // SCReg::MVFR1     => { &SCRegData { offset: 0xf44_usize, perms: 0b100, reset: Some(0x0) } }
-            // SCReg::MVFR2     => { &SCRegData { offset: 0xf48_usize, perms: 0b100, reset: Some(0x0) } }
-            
-            SCReg::MCR      => { &SCRegData { offset: 0x000_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::ICTR     => { &SCRegData { offset: 0x004_usize, perms: 0b100, reset: None } }
-            SCReg::ACTLR    => { &SCRegData { offset: 0x008_usize, perms: 0b110, reset: None } }
-            SCReg::STIR     => { &SCRegData { offset: 0xf00_usize, perms: 0b010, reset: None } }
-            SCReg::PID4     => { &SCRegData { offset: 0xfd0_usize, perms: 0b100, reset: None } }
-            SCReg::PID5     => { &SCRegData { offset: 0xfd4_usize, perms: 0b100, reset: None } }
-            SCReg::PID6     => { &SCRegData { offset: 0xfd8_usize, perms: 0b100, reset: None } }
-            SCReg::PID7     => { &SCRegData { offset: 0xfdc_usize, perms: 0b100, reset: None } }
-            SCReg::PID0     => { &SCRegData { offset: 0xfe0_usize, perms: 0b100, reset: None } }
-            SCReg::PID1     => { &SCRegData { offset: 0xfe4_usize, perms: 0b100, reset: None } }
-            SCReg::PID2     => { &SCRegData { offset: 0xfe8_usize, perms: 0b100, reset: None } }
-            SCReg::PID3     => { &SCRegData { offset: 0xfec_usize, perms: 0b100, reset: None } }
-            SCReg::CID0     => { &SCRegData { offset: 0xff0_usize, perms: 0b100, reset: None } }
-            SCReg::CID1     => { &SCRegData { offset: 0xff4_usize, perms: 0b100, reset: None } }
-            SCReg::CID2     => { &SCRegData { offset: 0xff8_usize, perms: 0b100, reset: None } }
-            SCReg::CID3     => { &SCRegData { offset: 0xffc_usize, perms: 0b100, reset: None } }
-
-            screg => { panic!("data for {screg:?} not implemented!") }
-        }
-    }
-
     pub fn lookup_address(address: impl AsRef<Address>) -> Option<Self> {
         let address = address.as_ref();
         let offset = address.offset()
@@ -345,5 +308,467 @@ impl SCReg {
 
             _ => { None }
         }
+    }
+}
+
+impl SCReg {
+    fn _data(&self) -> &SCRegData {
+        match self {
+            SCReg::CPUID    => { &SCRegData { offset: 0xd00_usize, perms: 0b100, reset: None } }
+            SCReg::ICSR     => { &SCRegData { offset: 0xd04_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::VTOR     => { &SCRegData { offset: 0xd08_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::AIRCR    => { &SCRegData { offset: 0xd0c_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::SCR      => { &SCRegData { offset: 0xd10_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::CCR      => { &SCRegData { offset: 0xd14_usize, perms: 0b110, reset: None } }
+            SCReg::SHPR1    => { &SCRegData { offset: 0xd18_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::SHPR2    => { &SCRegData { offset: 0xd1c_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::SHPR3    => { &SCRegData { offset: 0xd20_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::SHCSR    => { &SCRegData { offset: 0xd24_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::CFSR     => { &SCRegData { offset: 0xd28_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::HFSR     => { &SCRegData { offset: 0xd2c_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::DFSR     => { &SCRegData { offset: 0xd30_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::MMFAR    => { &SCRegData { offset: 0xd34_usize, perms: 0b110, reset: None } }
+            SCReg::BFAR     => { &SCRegData { offset: 0xd38_usize, perms: 0b110, reset: None } }
+            SCReg::AFSR     => { &SCRegData { offset: 0xd3c_usize, perms: 0b110, reset: None } }
+            SCReg::CPACR    => { &SCRegData { offset: 0xd88_usize, perms: 0b110, reset: None } }
+            
+            // SCReg::FPCCR     => { &SCRegData { offset: 0xf34_usize, perms: 0b110, reset: Some(0x0) } }
+            // SCReg::FPCAR     => { &SCRegData { offset: 0xf38_usize, perms: 0b110, reset: None } }
+            // SCReg::FPDSCR    => { &SCRegData { offset: 0xf3c_usize, perms: 0b110, reset: Some(0x0) } }
+            // SCReg::MVFR0     => { &SCRegData { offset: 0xf40_usize, perms: 0b100, reset: Some(0x0) } }
+            // SCReg::MVFR1     => { &SCRegData { offset: 0xf44_usize, perms: 0b100, reset: Some(0x0) } }
+            // SCReg::MVFR2     => { &SCRegData { offset: 0xf48_usize, perms: 0b100, reset: Some(0x0) } }
+            
+            SCReg::MCR      => { &SCRegData { offset: 0x000_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::ICTR     => { &SCRegData { offset: 0x004_usize, perms: 0b100, reset: None } }
+            SCReg::ACTLR    => { &SCRegData { offset: 0x008_usize, perms: 0b110, reset: None } }
+            SCReg::STIR     => { &SCRegData { offset: 0xf00_usize, perms: 0b010, reset: None } }
+            SCReg::PID4     => { &SCRegData { offset: 0xfd0_usize, perms: 0b100, reset: None } }
+            SCReg::PID5     => { &SCRegData { offset: 0xfd4_usize, perms: 0b100, reset: None } }
+            SCReg::PID6     => { &SCRegData { offset: 0xfd8_usize, perms: 0b100, reset: None } }
+            SCReg::PID7     => { &SCRegData { offset: 0xfdc_usize, perms: 0b100, reset: None } }
+            SCReg::PID0     => { &SCRegData { offset: 0xfe0_usize, perms: 0b100, reset: None } }
+            SCReg::PID1     => { &SCRegData { offset: 0xfe4_usize, perms: 0b100, reset: None } }
+            SCReg::PID2     => { &SCRegData { offset: 0xfe8_usize, perms: 0b100, reset: None } }
+            SCReg::PID3     => { &SCRegData { offset: 0xfec_usize, perms: 0b100, reset: None } }
+            SCReg::CID0     => { &SCRegData { offset: 0xff0_usize, perms: 0b100, reset: None } }
+            SCReg::CID1     => { &SCRegData { offset: 0xff4_usize, perms: 0b100, reset: None } }
+            SCReg::CID2     => { &SCRegData { offset: 0xff8_usize, perms: 0b100, reset: None } }
+            SCReg::CID3     => { &SCRegData { offset: 0xffc_usize, perms: 0b100, reset: None } }
+
+            screg => { panic!("data for {screg:?} not implemented!") }
+        }
+    }
+}
+
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct CPUID {
+    #[bits(4)]
+    pub revision: u32,
+    #[bits(12)]
+    pub partno: u32,
+    #[bits(4, default = 0xF)]
+    pub architecture: u32,
+    #[bits(4)]
+    pub variant: u32,
+    #[bits(8, default = 0x41)]
+    pub implementer: u32,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct ICSR {
+    #[bits(9)]
+    pub vectactive: u32,
+    #[bits(2)]
+    __: u32,
+    #[bits(1)]
+    pub rettobase: bool,
+    #[bits(9)]
+    pub vectpending: u32,
+    #[bits(1)]
+    __: bool,
+    #[bits(1)]
+    pub isrpending: bool,
+    #[bits(1)]
+    pub isrpreempt: bool,
+    __: bool,
+    #[bits(1)]
+    pub pendstclr: bool,
+    #[bits(1)]
+    pub pendstset: bool,
+    #[bits(1)]
+    pub pendsvclr: bool,
+    #[bits(1)]
+    pub pendsvset: bool,
+    #[bits(2)]
+    __: u32,
+    #[bits(1)]
+    pub nmipendset: bool,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct VTOR {
+    #[bits(7, default = 0x0)]
+    __: u32,
+    #[bits(25)]
+    pub tbloff: u32,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct AIRCR {
+    #[bits(1)]
+    pub vectreset: bool,
+    #[bits(1)]
+    pub vectclractive: bool,
+    #[bits(1, default = false)]
+    pub sysresetreq: bool,
+    #[bits(5)]
+    __: u32,
+    #[bits(3, default = 0)]
+    pub prigroup: u32,
+    #[bits(4)]
+    __: u32,
+    #[bits(1, default = 0)]
+    pub endianness: u8,
+    #[bits(16)]
+    pub vectkey_stat: u32,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct SCR {
+    #[bits(1)]
+    __: bool,
+    #[bits(1)]
+    pub sleeponexit: bool,
+    #[bits(1)]
+    pub sleepdeep: bool,
+    #[bits(1)]
+    __: bool,
+    #[bits(1)]
+    pub sevonpend: bool,
+    #[bits(27)]
+    __: u32,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct CCR {
+    #[bits(1)]
+    pub nonbasethrdena: bool,
+    #[bits(1)]
+    pub usersetmpend: bool,
+    #[bits(1)]
+    __: bool,
+    #[bits(1)]
+    pub unalign_trp: bool,
+    #[bits(1)]
+    pub div_0_trp: bool,
+    #[bits(3)]
+    __: u32,
+    #[bits(1)]
+    pub bfhfnmign: bool,
+    #[bits(1)]
+    pub stkalign: bool,
+    #[bits(6)]
+    __: u32,
+    #[bits(1)]
+    pub dc: bool,
+    #[bits(1)]
+    pub ic: bool,
+    #[bits(1)]
+    pub bp: bool,
+    #[bits(13)]
+    __: u32,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct SHPR1 {
+    #[bits(8)]
+    pub pri_4: u8,
+    #[bits(8)]
+    pub pri_5: u8,
+    #[bits(8)]
+    pub pri_6: u8,
+    #[bits(8)]
+    pub pri_7: u8,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct SHPR2 {
+    #[bits(8)]
+    pub pri_8: u8,
+    #[bits(8)]
+    pub pri_9: u8,
+    #[bits(8)]
+    pub pri_10: u8,
+    #[bits(8)]
+    pub pri_11: u8,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct SHPR3 {
+    #[bits(8)]
+    pub pri_12: u8,
+    #[bits(8)]
+    pub pri_13: u8,
+    #[bits(8)]
+    pub pri_14: u8,
+    #[bits(8)]
+    pub pri_15: u8,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct SHCSR {
+    #[bits(1)]
+    pub memfaultact: bool,
+    #[bits(1)]
+    pub busfaultact: bool,
+    #[bits(1)]
+    __: bool,
+    #[bits(1)]
+    pub usgfaultact: bool,
+    #[bits(3)]
+    __: u32,
+    #[bits(1)]
+    pub svcallact: bool,
+    #[bits(1)]
+    pub monitoract: bool,
+    #[bits(1)]
+    __: bool,
+    #[bits(1)]
+    pub pendsvact: bool,
+    #[bits(1)]
+    pub systickact: bool,
+    #[bits(1)]
+    pub usgfaultpended: bool,
+    #[bits(1)]
+    pub memfaultpended: bool,
+    #[bits(1)]
+    pub busfaultpended: bool,
+    #[bits(1)]
+    pub svcallpended: bool,
+    #[bits(1)]
+    pub memfaultena: bool,
+    #[bits(1)]
+    pub busfaultena: bool,
+    #[bits(1)]
+    pub usgfaultena: bool,
+    #[bits(13)]
+    __: u32,
+}
+
+#[bitfield(u32)]
+pub struct CFSR {
+    #[bits(8)]
+    pub memmanage: MMFSR,
+    #[bits(8)]
+    pub busfault: BFSR,
+    #[bits(16)]
+    pub usagefault: UFSR,
+}
+
+/// UsageFault status register
+#[bitfield(u16)]
+pub struct UFSR {
+    #[bits(1)]
+    pub undefinstr: bool,
+    #[bits(1)]
+    pub invstate: bool,
+    #[bits(1)]
+    pub invpc: bool,
+    #[bits(1)]
+    pub nocp: bool,
+    #[bits(4)]
+    __: u32,
+    #[bits(1)]
+    pub unaligned: bool,
+    #[bits(1)]
+    pub divbyzero: bool,
+    #[bits(6)]
+    __: u32,
+}
+
+/// BusFault status register
+#[bitfield(u8)]
+pub struct BFSR {
+    #[bits(1)]
+    pub ibuserr: bool,
+    #[bits(1)]
+    pub preciserr: bool,
+    #[bits(1)]
+    pub impreciserr: bool,
+    #[bits(1)]
+    pub unstkerr: bool,
+    #[bits(1)]
+    pub stkerr: bool,
+    #[bits(1)]
+    pub lsperr: bool,
+    #[bits(1)]
+    __: bool,
+    #[bits(1)]
+    pub bfarvalid: bool,
+}
+
+/// MemManage fault status register
+#[bitfield(u8)]
+pub struct MMFSR {
+    #[bits(1)]
+    pub iaccviol: bool,
+    #[bits(1)]
+    pub daccviol: bool,
+    #[bits(1)]
+    __: bool,
+    #[bits(1)]
+    pub munstkerr: bool,
+    #[bits(1)]
+    pub mstkerr: bool,
+    #[bits(1)]
+    pub mlsperr: bool,
+    #[bits(1)]
+    __: bool,
+    #[bits(1)]
+    pub mmarvalid: bool,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct HFSR {
+    #[bits(1)]
+    __: bool,
+    #[bits(1)]
+    pub vecttbl: bool,
+    #[bits(28)]
+    __: u32,
+    #[bits(1)]
+    pub forced: bool,
+    #[bits(1)]
+    pub debugevt: bool,
+}
+
+// writing 1 clears bit to 0.
+// read halted bit by instruction during stepping returns unknown 
+/// C1.6.1 debug fault status register
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct DFSR {
+    #[bits(1)]
+    pub halted: bool,
+    #[bits(1)]
+    pub bkpt: bool,
+    #[bits(1)]
+    pub dwttrap: bool,
+    #[bits(1)]
+    pub vcatch: bool,
+    #[bits(1)]
+    pub external: bool,
+    #[bits(27)]
+    __: u32,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct MMFAR {
+    #[bits(32)]
+    pub address: u32,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct BFAR {
+    #[bits(32)]
+    pub address: u32,
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct CPACR {
+    #[bits(2)]
+    pub cp0: CPACRAccess,
+    #[bits(2)]
+    pub cp1: CPACRAccess,
+    #[bits(2)]
+    pub cp2: CPACRAccess,
+    #[bits(2)]
+    pub cp3: CPACRAccess,
+    #[bits(2)]
+    pub cp4: CPACRAccess,
+    #[bits(2)]
+    pub cp5: CPACRAccess,
+    #[bits(2)]
+    pub cp6: CPACRAccess,
+    #[bits(2)]
+    pub cp7: CPACRAccess,
+    #[bits(4)]
+    __: u8,
+    #[bits(2)]
+    pub cp10: CPACRAccess,
+    #[bits(2)]
+    pub cp11: CPACRAccess,
+    #[bits(8)]
+    __: u8,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum CPACRAccess {
+    Denied = 0b00,
+    Privileged = 0b01,
+    Full = 0b11,
+}
+
+impl CPACRAccess {
+    const fn into_bits(self) -> u8 {
+        self as _
+    }
+    const fn from_bits(value: u8) -> Self {
+        match value {
+            0b00 => Self::Denied,
+            0b01 => Self::Privileged,
+            0b11 => Self::Full,
+            _ => { panic!("invalid access bits!") }
+        }
+    }
+}
+
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct ICTR {
+    #[bits(4)]
+    pub intlinesnum: usize,
+    #[bits(28)]
+    __: u32,
+}
+
+impl ICTR {
+    pub fn num_int_lines(&self) -> usize {
+        (self.intlinesnum() + 1) * 32
+    }
+}
+
+/// software triggered interrupt
+/// 
+/// same efect as setting NVIC IPSR interrupt bit to 1
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct STIR {
+    #[bits(9)]
+    pub intid: u32,
+    #[bits(23)]
+    __: u32,
+}
+
+impl STIR {
+    pub fn exception_number(&self) -> usize {
+        (self.intid() + 16) as usize
     }
 }

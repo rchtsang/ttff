@@ -20,3 +20,4 @@ iset = "0.3.0"
 dyn-clone = "1"
 bumpalo = { version= "3.16.0", features = ["collections"] }
 flagset = "0.4.6"
+bitfield-struct = "0.9.0"
