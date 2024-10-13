@@ -33,12 +33,42 @@ impl SysCtrlSpace {
         todo!("implement scs constructor")
     }
 
-    pub fn read_bytes(&self, offset: impl Into<usize>, dst: &mut [u8]) -> Result<Option<Event>, context::Error> {
-        todo!()
+    pub fn read_bytes(&mut self, offset: impl Into<usize>, dst: &mut [u8]) -> Result<Option<Event>, context::Error> {
+        assert_eq!(dst.len(), 4, "read from system control space must be word aligned");
+        let offset = offset.into();
+        let view = self.backing.view_bytes(offset, dst.len())
+            .map_err(context::Error::from)?;
+        let read_val = view.iter()
+            .enumerate()
+            .take(4)
+            .fold(0u32, |val, (i, &byte)| {
+                dst[i] = byte; // read val into dst during fold
+                val | (byte << (i * 8)) as u32
+            });
+        if let Some(scr) = SCReg::lookup_offset(offset) {
+            self._on_read(&scr, read_val).map_err(|err| err.into())
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn write_bytes(&mut self, offset: impl Into<usize>, src: &[u8]) -> Result<Option<Event>, context::Error> {
-        todo!()
+        assert_eq!(src.len(), 4, "write to system control space must be word aligned");
+        let offset = offset.into();
+        let view = self.backing.view_bytes_mut(offset, src.len())
+            .map_err(context::Error::from)?;
+        let write_val = src.iter()
+            .enumerate()
+            .take(4)
+            .fold(0u32, |val, (i, &byte)| {
+                view[i] = byte; // write value into backing during fold
+                val | (byte << (i * 8)) as u32
+            });
+        if let Some(scr) = SCReg::lookup_offset(offset) {
+            self._on_write(&scr, write_val).map_err(|err| err.into())
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -46,6 +76,62 @@ impl Default for SysCtrlSpace {
     fn default() -> Self {
         Self {
             backing: FixedState::new(0x1000),
+        }
+    }
+}
+
+impl SysCtrlSpace {
+    fn _on_read(&mut self, scr: &SCReg, read_val: u32) -> Result<Option<Event>, Error> {
+        match scr {
+            SCReg::MPU(mpu_reg) => {
+                mpu_reg.read_evt(read_val)
+            }
+            SCReg::NVIC(nvic_reg) => {
+                nvic_reg.read_evt(read_val)
+            }
+            SCReg::SysTick(systick_reg) => {
+                systick_reg.read_evt(read_val)
+            }
+            _ => { Ok(None) }
+        }
+    }
+
+    fn _on_write(&mut self, scr: &SCReg, write_val: u32) -> Result<Option<Event>, Error> {
+        match scr {
+            SCReg::ICSR => {
+                todo!()
+            }
+            SCReg::VTOR => {
+                todo!()
+            }
+            SCReg::AIRCR => {
+                todo!()
+            }
+            SCReg::SCR => {
+                todo!()
+            }
+            SCReg::CCR => {
+                todo!()
+            }
+            SCReg::SHCSR => {
+                todo!()
+            }
+            SCReg::CPACR => {
+                unimplemented!("coprocessor access not supported")
+            }
+            SCReg::STIR => {
+                todo!()
+            }
+            SCReg::MPU(mpu_reg) => {
+                mpu_reg.write_evt(write_val)
+            }
+            SCReg::NVIC(nvic_reg) => {
+                nvic_reg.write_evt(write_val)
+            }
+            SCReg::SysTick(systick_reg) => {
+                systick_reg.write_evt(write_val)
+            }
+            _ => { Ok(None) }
         }
     }
 }
@@ -95,6 +181,9 @@ pub enum SCReg {
     ACTLR,  // auxiliary control register
     STIR,   // software triggered interrupt register
 
+    SysTick(SysTickReg),    // systick register
+    NVIC(NVICReg),          // nvic register
+    MPU(MPUReg),            // mpu register
     // todo: floating point extension scb registers
     // todo: cache and branch predictor maintenance
 
@@ -188,14 +277,17 @@ impl SCReg {
         }
     }
 
-    pub fn lookup(address: impl AsRef<Address>) -> Option<Self> {
+    pub fn lookup_address(address: impl AsRef<Address>) -> Option<Self> {
         let address = address.as_ref();
         let offset = address.offset()
             .checked_sub(0xe000e000)
             .expect("address is not in scs!");
-        assert!(offset < 0x1000, "address is not in scs!");
+        Self::lookup_offset(offset as usize)
+    }
 
-        match offset as usize {
+    pub fn lookup_offset(offset: usize) -> Option<Self> {
+        assert!(offset < 0x1000, "address is not in scs!");
+        match offset {
             0xd00_usize => { Some(SCReg::CPUID) }
             0xd04_usize => { Some(SCReg::ICSR) }
             0xd08_usize => { Some(SCReg::VTOR) }
@@ -237,6 +329,19 @@ impl SCReg {
             0xff4_usize => { Some(SCReg::CID1) }
             0xff8_usize => { Some(SCReg::CID2) }
             0xffc_usize => { Some(SCReg::CID3) }
+
+            0x010 ..= 0x0ff => {
+                SysTickReg::lookup_offset(offset)
+                    .map(|systick_reg| SCReg::SysTick(systick_reg))
+            }
+            0x100 ..= 0xcff => {
+                NVICReg::lookup_offset(offset)
+                    .map(|nvic_reg| SCReg::NVIC(nvic_reg))
+            }
+            0xd90 ..= 0xdef => {
+                MPUReg::lookup_offset(offset)
+                    .map(|mpu_reg| SCReg::MPU(mpu_reg))
+            }
 
             _ => { None }
         }

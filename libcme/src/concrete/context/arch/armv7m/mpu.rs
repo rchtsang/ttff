@@ -1,15 +1,15 @@
-//! nvic.rs
+//! mpu.rs
 //! 
-//! implementation of the nested vector interrupt controller for armv7m
+//! memory protection unit implementation
 
 use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum NVICReg {
+pub enum MPUReg {
 
 }
 
-impl NVICReg {
+impl MPUReg {
     pub fn read_evt(&self, read_val: u32) -> Result<Option<Event>, Error> {
         todo!()
     }
@@ -18,7 +18,7 @@ impl NVICReg {
         todo!()
     }
 
-    pub fn lookup_offset(offset: usize) -> Option<NVICReg> {
-        todo!() // see B3.4.3 for implementation
+    pub fn lookup_offset(offset: usize) -> Option<MPUReg> {
+        todo!() // see B3.5.4 for implementation
     }
 }

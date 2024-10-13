@@ -35,6 +35,12 @@ mod exception;
 pub use exception::*;
 mod scs;
 pub use scs::*;
+mod systick;
+pub use systick::*;
+mod nvic;
+pub use nvic::*;
+mod mpu;
+pub use mpu::*;
 
 #[derive(Debug, Error, Clone)]
 pub enum Error {
@@ -428,6 +434,7 @@ impl<'irb> Context<'irb> {
                 panic!("mmio peripherals can't implement view_bytes due to their send/receive data model")
             }
             MapIx::Scs => {
+                // viewing bytes in SCS will not trigger any arch events
                 let state = self.scs.as_ref();
                 let offset = (*address - range.start).offset() as usize;
                 state.view_bytes(offset, size)
