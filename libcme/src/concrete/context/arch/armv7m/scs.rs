@@ -165,12 +165,8 @@ impl SysCtrlSpace {
                 Ok(evts)
             }
             SCReg::CFSR => {
-                let view = self.backing.view_bytes_mut(offset, src.len())
-                    .map_err(context::Error::from)?;
-                let current_val = bytes_as_u32_le(view);
                 let cfsr = CFSR::from_bits(write_val);
-                view.copy_from_slice(write_bytes);
-                Ok(cfsr.write_evt(current_val))
+                Ok(cfsr.write_evt())
             }
             SCReg::SHCSR => {
                 todo!()
@@ -807,12 +803,11 @@ pub struct CFSR {
 }
 
 impl CFSR {
-    pub fn write_evt(&self, current_val: u32) -> Vec<Event> {
+    pub fn write_evt(&self) -> Vec<Event> {
         let mut evts = vec![];
-        let current_state = Self::from_bits(current_val);
-        evts.extend(self.memmanage().write_evt(current_state.memmanage().into_bits()));
-        evts.extend(self.busfault().write_evt(current_state.busfault().into_bits()));
-        evts.extend(self.usagefault().write_evt(current_state.usagefault().into_bits()));
+        evts.extend(self.memmanage().write_evt());
+        evts.extend(self.busfault().write_evt());
+        evts.extend(self.usagefault().write_evt());
         evts
     }
 }
@@ -839,10 +834,26 @@ pub struct UFSR {
 }
 
 impl UFSR {
-    pub fn write_evt(&self, current_val: u16) -> Vec<Event> {
+    pub fn write_evt(&self) -> Vec<Event> {
         let mut evts = vec![];
-        let changed = Self::from_bits(self.into_bits() ^ current_val);
-        todo!();
+        if self.undefinstr() {
+            evts.push(Event::FaultStatusClr(UsgFault::UndefinedInsn.into()));
+        }
+        if self.invstate() {
+            evts.push(Event::FaultStatusClr(UsgFault::InvalidState.into()));
+        }
+        if self.invpc() {
+            evts.push(Event::FaultStatusClr(UsgFault::IntegrityCheck.into()));
+        }
+        if self.nocp() {
+            evts.push(Event::FaultStatusClr(UsgFault::CoprocessorAccess.into()));
+        }
+        if self.unaligned() {
+            evts.push(Event::FaultStatusClr(UsgFault::UnalignedAccess.into()));
+        }
+        if self.divbyzero() {
+            evts.push(Event::FaultStatusClr(UsgFault::DivideByZero.into()));
+        }
         evts
     }
 }
@@ -869,10 +880,29 @@ pub struct BFSR {
 }
 
 impl BFSR {
-    pub fn write_evt(&self, current_val: u8) -> Vec<Event> {
+    pub fn write_evt(&self) -> Vec<Event> {
         let mut evts = vec![];
-        let changed = Self::from_bits(self.into_bits() ^ current_val);
-        todo!();
+        if self.ibuserr() {
+            evts.push(Event::FaultStatusClr(BusFault::InsnPrefetch.into()));
+        }
+        if self.preciserr() {
+            evts.push(Event::FaultStatusClr(BusFault::PreciseDataAccess.into()));
+        }
+        if self.impreciserr() {
+            evts.push(Event::FaultStatusClr(BusFault::ImprciseDataAccess.into()));
+        }
+        if self.unstkerr() {
+            evts.push(Event::FaultStatusClr(BusFault::OnExceptionReturn.into()));
+        }
+        if self.stkerr() {
+            evts.push(Event::FaultStatusClr(BusFault::OnExceptionEntry.into()));
+        }
+        if self.lsperr() {
+            evts.push(Event::FaultStatusClr(BusFault::LazyStatePreservation.into()));
+        }
+        if self.bfarvalid() {
+            unimplemented!("what happens on write to bfarvalid?");
+        }
         evts
     }
 }
@@ -899,10 +929,26 @@ pub struct MMFSR {
 }
 
 impl MMFSR {
-    pub fn write_evt(&self, current_val: u8) -> Vec<Event> {
+    pub fn write_evt(&self) -> Vec<Event> {
         let mut evts = vec![];
-        let changed = Self::from_bits(self.into_bits() ^ current_val);
-        todo!();
+        if self.iaccviol() {
+            evts.push(Event::FaultStatusClr(MemFault::InsnAccessViolation.into()));
+        }
+        if self.daccviol() {
+            evts.push(Event::FaultStatusClr(MemFault::DataAccessViolation.into()));
+        }
+        if self.munstkerr() {
+            evts.push(Event::FaultStatusClr(MemFault::OnExceptionReturn.into()));
+        }
+        if self.mstkerr() {
+            evts.push(Event::FaultStatusClr(MemFault::OnExceptionEntry.into()));
+        }
+        if self.mlsperr() {
+            evts.push(Event::FaultStatusClr(MemFault::LazyStatePreservation.into()));
+        }
+        if self.mmarvalid() {
+            unimplemented!("what happens on write to mmarvalid?");
+        }
         evts
     }
 }

@@ -41,6 +41,8 @@ mod nvic;
 pub use nvic::*;
 mod mpu;
 pub use mpu::*;
+mod faults;
+pub use faults::*;
 
 #[derive(Debug, Error, Clone)]
 pub enum Error {
@@ -94,6 +96,8 @@ pub enum Event {
     // SHPR sets system handler priorities, needed by exception/interrupt handling system
     SetSystemHandlerPriority { id: u8, priority: u8}, // (PRI_x in SHPR1, SHPR2, or SHPR3) set system handler x's priority level
     
+    // CFSR, MMFSR, BFSR, UFSR, HFSR
+    FaultStatusClr(Fault),
 }
 
 /// armv7m operation mode
