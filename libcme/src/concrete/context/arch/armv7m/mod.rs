@@ -61,7 +61,26 @@ impl Into<context::Error> for Error {
 /// context state if necessary
 #[derive(Debug, Clone)]
 pub enum Event {
+    // ICSR
+    ExceptionSetActive(ExceptionType),
+    ExceptionSetPending(ExceptionType),
+    ExceptionClrPending(ExceptionType),
 
+    // VTOR
+    VectorTableOffsetWrite(u32),
+
+    // AIRCR
+    ExternSysResetRequest,   // (SYSRESETREQ) external system reset request
+    LocalSysResetRequest,   // (VECTRESET) local system reset
+    ExceptionClrAllActive,  // (VECTCLRACTIVE) clear all active state info for fixed and configurable exceptions, clear ipsr to 0
+    VectorKeyWrite,         // (VECTKEY) 0x05fa written to vector key register
+
+    // SCR keeps state that influences execution
+    SetTransitionWakupEvent(bool),  // transitions from inactive to pending are/aren't wakeup events
+    SetDeepSleep(bool),             // selected sleep state is/isn't deep sleep
+    SetSleepOnExit(bool),           // enter/don't enter sleep state
+
+    
 }
 
 /// armv7m operation mode
@@ -479,9 +498,9 @@ impl<'irb> Context<'irb> {
             }
             MapIx::Scs => {
                 let offset = (*address - range.start).offset() as usize;
-                let maybe_evt = self.scs.read_bytes(offset, dst)
+                let maybe_evts = self.scs.read_bytes(offset, dst)
                     .map_err(context::Error::from)?;
-                if let Some(evt) = maybe_evt {
+                for evt in maybe_evts {
                     todo!("deal with generated events");
                 }
                 Ok(())
@@ -506,9 +525,9 @@ impl<'irb> Context<'irb> {
             }
             MapIx::Scs => {
                 let offset = (*address - range.start).offset() as usize;
-                let maybe_evt = self.scs.write_bytes(offset, src)
+                let maybe_evts = self.scs.write_bytes(offset, src)
                     .map_err(context::Error::from)?;
-                if let Some(evt) = maybe_evt {
+                for evt in maybe_evts {
                     todo!("deal with generated events");
                 }
                 Ok(())

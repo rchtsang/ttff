@@ -5,6 +5,7 @@ use bitfield_struct::bitfield;
 use super::*;
 use context::Permission;
 
+use crate::utils::*;
 
 /// system control space
 /// 
@@ -34,27 +35,27 @@ impl SysCtrlSpace {
         todo!("implement scs constructor")
     }
 
-    pub fn read_bytes(&mut self, offset: impl Into<usize>, dst: &mut [u8]) -> Result<Option<Event>, context::Error> {
+    pub fn read_bytes(&mut self, offset: impl Into<usize>, dst: &mut [u8]) -> Result<Vec<Event>, context::Error> {
         let offset = offset.into();
         assert_eq!(offset & 0b11, 0, "access to scs must be 32-bit word aligned!");
         if let Some(scr) = SCReg::lookup_offset(offset) {
             self.read_reg(&scr, dst)
         } else {
-            Ok(None)
+            Ok(vec![])
         }
     }
 
-    pub fn write_bytes(&mut self, offset: impl Into<usize>, src: &[u8]) -> Result<Option<Event>, context::Error> {
+    pub fn write_bytes(&mut self, offset: impl Into<usize>, src: &[u8]) -> Result<Vec<Event>, context::Error> {
         let offset = offset.into();
         assert_eq!(offset & 0b11, 0, "access to scs must be 32-bit word aligned!");
         if let Some(scr) = SCReg::lookup_offset(offset) {
             self.write_reg(&scr, src)
         } else {
-            Ok(None)
+            Ok(vec![])
         }
     }
 
-    pub fn read_reg(&mut self, scr: &SCReg, dst: &mut [u8]) -> Result<Option<Event>, context::Error> {
+    pub fn read_reg(&mut self, scr: &SCReg, dst: &mut [u8]) -> Result<Vec<Event>, context::Error> {
         assert_eq!(dst.len(), 4, "read from system control space must be word aligned");
         let offset = scr.offset();
         let view = self.backing.view_bytes(offset, dst.len())
@@ -67,6 +68,19 @@ impl SysCtrlSpace {
                 val | (byte << (i * 8)) as u32
             });
         match scr {
+            SCReg::AIRCR => {
+                let prigroup = todo!("get prigroup value");
+                let aircr = AIRCR::new()
+                    .with_vectkey_stat(0xFA05)
+                    .with_endianness(0)
+                    .with_prigroup(prigroup)
+                    .with_sysresetreq(false)
+                    .with_vectclractive(false)
+                    .with_vectreset(false)
+                    .into_bits();
+                dst.copy_from_slice(&aircr.to_le_bytes());
+                Ok(vec![])
+            }
             SCReg::MPU(mpu_reg) => {
                 mpu_reg.read_evt(read_val)
                     .map_err(Into::<context::Error>::into)
@@ -79,31 +93,42 @@ impl SysCtrlSpace {
                 systick_reg.read_evt(read_val)
                     .map_err(Into::<context::Error>::into)
             }
-            _ => { Ok(None) }
+            _ => { Ok(vec![]) }
         }
     }
 
-    pub fn write_reg(&mut self, scr: &SCReg, src: &[u8]) -> Result<Option<Event>, context::Error> {
+    pub fn write_reg(&mut self, scr: &SCReg, src: &[u8]) -> Result<Vec<Event>, context::Error> {
         assert_eq!(src.len(), 4, "write to system control space must be word aligned");
         let offset = scr.offset();
-        let write_val = src.iter()
-            .enumerate()
-            .take(4)
-            .fold(0u32, |val, (i, &byte)| {
-                val | (byte << (i * 8)) as u32
-            });
+        let write_val = bytes_as_u32_le(src);
         match scr {
             SCReg::ICSR => {
-                todo!()
+                let icsr = ICSR::from_bits(write_val);
+                let view = self.backing.view_bytes_mut(offset, src.len())
+                    .map_err(context::Error::from)?;
+                view.copy_from_slice(src);
+                Ok(icsr.write_evt())
             }
             SCReg::VTOR => {
-                todo!()
+                let write_val = write_val & 0xFFFFFF80;
+                let vtor = VTOR::from(write_val);
+                let view = self.backing.view_bytes_mut(offset, src.len())
+                    .map_err(context::Error::from)?;
+                view.copy_from_slice(&write_val.to_le_bytes());
+                Ok(vtor.write_evt())
             }
             SCReg::AIRCR => {
-                todo!()
+                let aircr = AIRCR::from_bits(write_val);
+                Ok(aircr.write_evt())
             }
             SCReg::SCR => {
-                todo!()
+                // don't want to create events for things that didn't change
+                let view = self.backing.view_bytes_mut(offset, src.len())
+                    .map_err(context::Error::from)?;
+                let current_val = bytes_as_u32_le(view);
+                let scr = SCR::from_bits(write_val);
+                view.copy_from_slice(src);
+                Ok(scr.write_evt(current_val))
             }
             SCReg::CCR => {
                 todo!()
@@ -133,7 +158,7 @@ impl SysCtrlSpace {
                 let view = self.backing.view_bytes_mut(offset, src.len())
                     .map_err(context::Error::from)?;
                 view.copy_from_slice(src);
-                Ok(None)
+                Ok(vec![])
             }
         }
     }
@@ -409,6 +434,29 @@ pub struct ICSR {
     pub nmipendset: bool,
 }
 
+impl ICSR {
+    pub fn write_evt(&self) -> Vec<Event> {
+        let mut evts = vec![];
+        if self.pendstclr() {
+            evts.push(Event::ExceptionClrPending(ExceptionType::SysTick));
+        }
+        if self.pendstset() {
+            evts.push(Event::ExceptionSetPending(ExceptionType::SysTick));
+        }
+        if self.pendsvclr() {
+            evts.push(Event::ExceptionClrPending(ExceptionType::PendSV));
+        }
+        if self.pendsvset() {
+            // writing 1 should be a way of requesting context switch
+            evts.push(Event::ExceptionSetPending(ExceptionType::PendSV));
+        }
+        if self.nmipendset() {
+            evts.push(Event::ExceptionSetActive(ExceptionType::NMI));
+        }
+        evts
+    }
+}
+
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct VTOR {
@@ -416,6 +464,12 @@ pub struct VTOR {
     __: u32,
     #[bits(25)]
     pub tbloff: u32,
+}
+
+impl VTOR {
+    pub fn write_evt(&self) -> Vec<Event> {
+        vec![Event::VectorTableOffsetWrite(self.tbloff() << 7)]
+    }
 }
 
 #[bitfield(u32)]
@@ -439,6 +493,25 @@ pub struct AIRCR {
     pub vectkey_stat: u32,
 }
 
+impl AIRCR {
+    pub fn write_evt(&self) -> Vec<Event> {
+        let mut evts = vec![];
+        if self.vectreset() {
+            evts.push(Event::LocalSysResetRequest);
+        }
+        if self.vectclractive() {
+            evts.push(Event::ExceptionClrAllActive);
+        }
+        if self.sysresetreq() {
+            evts.push(Event::ExternSysResetRequest);
+        }
+        if self.vectkey_stat() == 0x05fa {
+            evts.push(Event::VectorKeyWrite);
+        }
+        evts
+    }
+}
+
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct SCR {
@@ -454,6 +527,23 @@ pub struct SCR {
     pub sevonpend: bool,
     #[bits(27)]
     __: u32,
+}
+
+impl SCR {
+    pub fn write_evt(&self, current_val: u32) -> Vec<Event> {
+        let mut evts = vec![];
+        let changed = Self::from(self.into_bits() ^ current_val);
+        if changed.sleeponexit() {
+            evts.push(Event::SetSleepOnExit(self.sleeponexit()));
+        }
+        if changed.sleepdeep() {
+            evts.push(Event::SetDeepSleep(self.sleepdeep()));
+        }
+        if changed.sevonpend() {
+            evts.push(Event::SetTransitionWakupEvent(self.sevonpend()));
+        }
+        evts
+    }
 }
 
 #[bitfield(u32)]

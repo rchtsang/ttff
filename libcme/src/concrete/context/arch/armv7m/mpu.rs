@@ -10,11 +10,11 @@ pub enum MPUReg {
 }
 
 impl MPUReg {
-    pub fn read_evt(&self, read_val: u32) -> Result<Option<Event>, Error> {
+    pub fn read_evt(&self, read_val: u32) -> Result<Vec<Event>, Error> {
         todo!()
     }
 
-    pub fn write_evt(&self, write_val: u32) -> Result<Option<Event>, Error> {
+    pub fn write_evt(&self, write_val: u32) -> Result<Vec<Event>, Error> {
         todo!()
     }
 
