@@ -1,5 +1,11 @@
 //! scs.rs
 
+/*
+ * TODO:
+ * - implement endian sensitivity
+ * - replace struct/int/byte conversions with unsafe std::mem::transmute for performance
+ */
+
 use bitfield_struct::bitfield;
 
 use super::*;
@@ -37,9 +43,8 @@ impl SysCtrlSpace {
 
     pub fn read_bytes(&mut self, offset: impl Into<usize>, dst: &mut [u8]) -> Result<Vec<Event>, context::Error> {
         let offset = offset.into();
-        assert_eq!(offset & 0b11, 0, "access to scs must be 32-bit word aligned!");
         if let Some(scr) = SCReg::lookup_offset(offset) {
-            self.read_reg(&scr, dst)
+            self.read_reg(&scr, dst, Some(offset - scr.offset()))
         } else {
             Ok(vec![])
         }
@@ -47,17 +52,16 @@ impl SysCtrlSpace {
 
     pub fn write_bytes(&mut self, offset: impl Into<usize>, src: &[u8]) -> Result<Vec<Event>, context::Error> {
         let offset = offset.into();
-        assert_eq!(offset & 0b11, 0, "access to scs must be 32-bit word aligned!");
         if let Some(scr) = SCReg::lookup_offset(offset) {
-            self.write_reg(&scr, src)
+            self.write_reg(&scr, src, Some(offset - scr.offset()))
         } else {
             Ok(vec![])
         }
     }
 
-    pub fn read_reg(&mut self, scr: &SCReg, dst: &mut [u8]) -> Result<Vec<Event>, context::Error> {
-        assert_eq!(dst.len(), 4, "read from system control space must be word aligned");
-        let offset = scr.offset();
+    pub fn read_reg(&mut self, scr: &SCReg, dst: &mut [u8], byte_off: Option<usize>) -> Result<Vec<Event>, context::Error> {
+        let byte_off = byte_off.unwrap_or(0);
+        let offset = scr.offset() + byte_off;
         let view = self.backing.view_bytes(offset, dst.len())
             .map_err(context::Error::from)?;
         let read_val = view.iter()
@@ -97,11 +101,12 @@ impl SysCtrlSpace {
         }
     }
 
-    pub fn write_reg(&mut self, scr: &SCReg, src: &[u8]) -> Result<Vec<Event>, context::Error> {
-        assert_eq!(src.len(), 4, "write to system control space must be word aligned");
-        let offset = scr.offset();
+    pub fn write_reg(&mut self, sc_reg: &SCReg, src: &[u8], byte_off: Option<usize>) -> Result<Vec<Event>, context::Error> {
+        let byte_off = byte_off.unwrap_or(0);
+        assert!(((src.len() + byte_off) <= 4), "access must be within a single word-aligned region");
+        let offset = sc_reg.offset();
         let write_val = bytes_as_u32_le(src);
-        match scr {
+        match sc_reg {
             SCReg::ICSR => {
                 let icsr = ICSR::from_bits(write_val);
                 let view = self.backing.view_bytes_mut(offset, src.len())
@@ -131,7 +136,29 @@ impl SysCtrlSpace {
                 Ok(scr.write_evt(current_val))
             }
             SCReg::CCR => {
-                todo!()
+                // don't want to create events for things that didn't change
+                let view = self.backing.view_bytes_mut(offset, src.len())
+                    .map_err(context::Error::from)?;
+                let current_val = bytes_as_u32_le(view);
+                let ccr = CCR::from(write_val);
+                // TODO: implement RAO/WI and RAZ/WI for relvant bits as necessary. this will need config information
+                view.copy_from_slice(&write_val.to_le_bytes());
+                Ok(ccr.write_evt(current_val))
+            }
+            SCReg::SHPR1(idx) | SCReg::SHPR2(idx) | SCReg::SHPR3(idx) => {
+                // note that `.offset()` of shpr registers returns the word-aligned register offset,
+                // but the access may be relative to a byte or halfword.
+                // in the future i may need to consider this for other registers as well.
+                let view = self.backing.view_bytes_mut(offset, src.len())
+                    .map_err(context::Error::from)?;
+                let mut evts = vec![];
+                for (i, &byte) in src.iter().enumerate().take(4 - byte_off) {
+                    if view[i] != byte {
+                        view[i] = byte;
+                        evts.push(Event::SetSystemHandlerPriority { id: *idx + i as u8, priority: byte });
+                    }
+                }
+                Ok(evts)
             }
             SCReg::SHCSR => {
                 todo!()
@@ -187,35 +214,35 @@ impl Default for SysCtrlConfig {
 /// system control register enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SCReg {
-    CPUID,  // cpuid base register
-    ICSR,   // interrupt control and state register 
-    VTOR,   // vector table offset register
-    AIRCR,  // application interrupt and reset control register
-    SCR,    // system control register
-    CCR,    // configuration and control register
-    SHPR1,  // system handler priority register 1
-    SHPR2,  // system handler priority register 2
-    SHPR3,  // system handler priority register 3
-    SHCSR,  // system handler control and state register
-    CFSR,   // configurable fault status register
-    HFSR,   // hardfault status register
-    DFSR,   // debug fault status register
-    MMFAR,  // memmanage fault address register
-    BFAR,   // busfault address register
-    AFSR,   // auxiliary fault status register
-    CPACR,  // coprocessor access control register
+    CPUID,      // cpuid base register
+    ICSR,       // interrupt control and state register 
+    VTOR,       // vector table offset register
+    AIRCR,      // application interrupt and reset control register
+    SCR,        // system control register
+    CCR,        // configuration and control register
+    SHPR1(u8),  // system handler priority register 1 (with handler number)
+    SHPR2(u8),  // system handler priority register 2 (with handler number)
+    SHPR3(u8),  // system handler priority register 3 (with handler number)
+    SHCSR,      // system handler control and state register
+    CFSR,       // configurable fault status register
+    HFSR,       // hardfault status register
+    DFSR,       // debug fault status register
+    MMFAR,      // memmanage fault address register
+    BFAR,       // busfault address register
+    AFSR,       // auxiliary fault status register
+    CPACR,      // coprocessor access control register
     
-    FPCCR,  // floating point context control register
-    FPCAR,  // floating point context address register
-    FPDSCR, // floating point default status control register
-    MVFR0,  // media and fp feature register 0
-    MVFR1,  // media and fp feature register 1
-    MVFR2,  // media and fp feature register 2
+    FPCCR,      // floating point context control register
+    FPCAR,      // floating point context address register
+    FPDSCR,     // floating point default status control register
+    MVFR0,      // media and fp feature register 0
+    MVFR1,      // media and fp feature register 1
+    MVFR2,      // media and fp feature register 2
 
-    MCR,    // main control register, reserved
-    ICTR,   // interrupt controller type register
-    ACTLR,  // auxiliary control register
-    STIR,   // software triggered interrupt register
+    MCR,        // main control register, reserved
+    ICTR,       // interrupt controller type register
+    ACTLR,      // auxiliary control register
+    STIR,       // software triggered interrupt register
 
     SysTick(SysTickReg),    // systick register
     NVIC(NVICReg),          // nvic register
@@ -282,9 +309,9 @@ impl SCReg {
             0xd0c_usize => { Some(SCReg::AIRCR) }
             0xd10_usize => { Some(SCReg::SCR) }
             0xd14_usize => { Some(SCReg::CCR) }
-            0xd18_usize => { Some(SCReg::SHPR1) }
-            0xd1c_usize => { Some(SCReg::SHPR2) }
-            0xd20_usize => { Some(SCReg::SHPR3) }
+            0xd18_usize..=0xd1b => { Some(SCReg::SHPR1((offset - 0xd18 +  4) as u8)) }
+            0xd1c_usize..=0xd1f => { Some(SCReg::SHPR2((offset - 0xd1c +  8) as u8)) }
+            0xd20_usize..=0xd23 => { Some(SCReg::SHPR3((offset - 0xd20 + 12) as u8)) }
             0xd24_usize => { Some(SCReg::SHCSR) }
             0xd28_usize => { Some(SCReg::CFSR) }
             0xd2c_usize => { Some(SCReg::HFSR) }
@@ -345,9 +372,9 @@ impl SCReg {
             SCReg::AIRCR    => { &SCRegData { offset: 0xd0c_usize, perms: 0b110, reset: Some(0x0) } }
             SCReg::SCR      => { &SCRegData { offset: 0xd10_usize, perms: 0b110, reset: Some(0x0) } }
             SCReg::CCR      => { &SCRegData { offset: 0xd14_usize, perms: 0b110, reset: None } }
-            SCReg::SHPR1    => { &SCRegData { offset: 0xd18_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::SHPR2    => { &SCRegData { offset: 0xd1c_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::SHPR3    => { &SCRegData { offset: 0xd20_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::SHPR1(_) => { &SCRegData { offset: 0xd18_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::SHPR2(_) => { &SCRegData { offset: 0xd1c_usize, perms: 0b110, reset: Some(0x0) } }
+            SCReg::SHPR3(_) => { &SCRegData { offset: 0xd20_usize, perms: 0b110, reset: Some(0x0) } }
             SCReg::SHCSR    => { &SCRegData { offset: 0xd24_usize, perms: 0b110, reset: Some(0x0) } }
             SCReg::CFSR     => { &SCRegData { offset: 0xd28_usize, perms: 0b110, reset: Some(0x0) } }
             SCReg::HFSR     => { &SCRegData { offset: 0xd2c_usize, perms: 0b110, reset: Some(0x0) } }
@@ -438,20 +465,20 @@ impl ICSR {
     pub fn write_evt(&self) -> Vec<Event> {
         let mut evts = vec![];
         if self.pendstclr() {
-            evts.push(Event::ExceptionClrPending(ExceptionType::SysTick));
+            evts.push(Event::ExceptionSetPending(ExceptionType::SysTick, false));
         }
         if self.pendstset() {
-            evts.push(Event::ExceptionSetPending(ExceptionType::SysTick));
+            evts.push(Event::ExceptionSetPending(ExceptionType::SysTick, true));
         }
         if self.pendsvclr() {
-            evts.push(Event::ExceptionClrPending(ExceptionType::PendSV));
+            evts.push(Event::ExceptionSetPending(ExceptionType::PendSV, false));
         }
         if self.pendsvset() {
             // writing 1 should be a way of requesting context switch
-            evts.push(Event::ExceptionSetPending(ExceptionType::PendSV));
+            evts.push(Event::ExceptionSetPending(ExceptionType::PendSV, true));
         }
         if self.nmipendset() {
-            evts.push(Event::ExceptionSetActive(ExceptionType::NMI));
+            evts.push(Event::ExceptionSetActive(ExceptionType::NMI, self.nmipendset()));
         }
         evts
     }
@@ -577,6 +604,41 @@ pub struct CCR {
     __: u32,
 }
 
+impl CCR {
+    pub fn write_evt(&self, current_val: u32) -> Vec<Event> {
+        let mut evts = vec![];
+        let changed = Self::from(self.into_bits() ^ current_val);
+        if changed.nonbasethrdena() {
+            evts.push(Event::ThreadModeExceptionsEnabled(self.nonbasethrdena()));
+        }
+        if changed.usersetmpend() {
+            evts.push(Event::STIRUnprivilegedAccessAllowed(self.usersetmpend()));
+        }
+        if changed.unalign_trp() {
+            evts.push(Event::UnalignedAccessTrapEnabled(self.unalign_trp()));
+        }
+        if changed.div_0_trp() {
+            evts.push(Event::DivideByZeroTrapEnabled(self.div_0_trp()));
+        }
+        if changed.bfhfnmign() {
+            evts.push(Event::PreciseDataAccessFaultIgnored(self.bfhfnmign()));
+        }
+        if changed.stkalign() {
+            evts.push(Event::Stack8ByteAligned(self.stkalign()));
+        }
+        if changed.dc() {
+            evts.push(Event::DataCacheEnabled(self.dc()));
+        }
+        if changed.ic() {
+            evts.push(Event::InsnCacheEnabled(self.ic()));
+        }
+        if changed.bp() {
+            evts.push(Event::BranchPredictionEnabled(self.bp()));
+        }
+        evts
+    }
+}
+
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct SHPR1 {
@@ -588,6 +650,11 @@ pub struct SHPR1 {
     pub pri_6: u8,
     #[bits(8)]
     pub pri_7: u8,
+}
+
+impl SHPR1 {
+    #[inline]
+    pub fn base() -> usize { 0xd18_usize }
 }
 
 #[bitfield(u32)]
@@ -603,6 +670,11 @@ pub struct SHPR2 {
     pub pri_11: u8,
 }
 
+impl SHPR2 {
+    #[inline]
+    pub fn base() -> usize { 0xd1c_usize }
+}
+
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct SHPR3 {
@@ -614,6 +686,11 @@ pub struct SHPR3 {
     pub pri_14: u8,
     #[bits(8)]
     pub pri_15: u8,
+}
+
+impl SHPR3 {
+    #[inline]
+    pub fn base() -> usize { 0xd20_usize }
 }
 
 #[bitfield(u32)]
@@ -655,6 +732,56 @@ pub struct SHCSR {
     pub usgfaultena: bool,
     #[bits(13)]
     __: u32,
+}
+
+impl SHCSR {
+    pub fn write_evt(&self, current_val: u32) -> Vec<Event> {
+        let mut evts = vec![];
+        let changed = Self::from_bits(current_val);
+        if changed.memfaultact() {
+            evts.push(Event::ExceptionSetActive(ExceptionType::MemManage, self.memfaultact()));
+        }
+        if changed.busfaultact() {
+            evts.push(Event::ExceptionSetActive(ExceptionType::BusFault, self.busfaultact()));
+        }
+        if changed.usgfaultact() {
+            evts.push(Event::ExceptionSetActive(ExceptionType::UsageFault, self.usgfaultact()));
+        }
+        if changed.svcallact() {
+            evts.push(Event::ExceptionSetActive(ExceptionType::SVCall, self.svcallact()));
+        }
+        if changed.monitoract() {
+            evts.push(Event::ExceptionSetActive(ExceptionType::DebugMonitor, self.monitoract()));
+        }
+        if changed.pendsvact() {
+            evts.push(Event::ExceptionSetActive(ExceptionType::PendSV, self.pendsvact()));
+        }
+        if changed.systickact() {
+            evts.push(Event::ExceptionSetActive(ExceptionType::SysTick, self.systickact()));
+        }
+        if changed.usgfaultpended() {
+            evts.push(Event::ExceptionSetPending(ExceptionType::UsageFault, self.usgfaultpended()));
+        }
+        if changed.memfaultpended() {
+            evts.push(Event::ExceptionSetPending(ExceptionType::MemManage, self.memfaultpended()));
+        }
+        if changed.busfaultpended() {
+            evts.push(Event::ExceptionSetPending(ExceptionType::BusFault, self.busfaultpended()));
+        }
+        if changed.svcallpended() {
+            evts.push(Event::ExceptionSetPending(ExceptionType::SVCall, self.svcallpended()));
+        }
+        if changed.memfaultena() {
+            evts.push(Event::ExceptionEnabled(ExceptionType::MemManage, self.memfaultena()));
+        }
+        if changed.busfaultena() {
+            evts.push(Event::ExceptionEnabled(ExceptionType::BusFault, self.busfaultena()));
+        }
+        if changed.usgfaultena() {
+            evts.push(Event::ExceptionEnabled(ExceptionType::UsageFault, self.usgfaultena()));
+        }
+        evts
+    }
 }
 
 #[bitfield(u32)]

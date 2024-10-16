@@ -61,10 +61,10 @@ impl Into<context::Error> for Error {
 /// context state if necessary
 #[derive(Debug, Clone)]
 pub enum Event {
-    // ICSR
-    ExceptionSetActive(ExceptionType),
-    ExceptionSetPending(ExceptionType),
-    ExceptionClrPending(ExceptionType),
+    // ICSR and SHCSR
+    ExceptionSetActive(ExceptionType, bool),
+    ExceptionSetPending(ExceptionType, bool),
+    ExceptionEnabled(ExceptionType, bool),
 
     // VTOR
     VectorTableOffsetWrite(u32),
@@ -80,6 +80,19 @@ pub enum Event {
     SetDeepSleep(bool),             // selected sleep state is/isn't deep sleep
     SetSleepOnExit(bool),           // enter/don't enter sleep state
 
+    // CCR keeps state that influences executon
+    ThreadModeExceptionsEnabled(bool),      // (NONBASETHRDENA) allow/disallow enter/return to thread mode with active exceptions (except priority boosting)
+    STIRUnprivilegedAccessAllowed(bool),    // (USERSETMPEND) allow/disallow unprivileged access to the STIR
+    UnalignedAccessTrapEnabled(bool),       // (UNALIGN_TRP) enable/disable trapping on unaligned word/halfword accesses
+    DivideByZeroTrapEnabled(bool),          // (DIV_0_TRP) enable/disable trapping on divide by 0
+    PreciseDataAccessFaultIgnored(bool),    // (BFHFNMIGN) set lockup/ignored for precise data access faults at priorities -1 or -2
+    Stack8ByteAligned(bool),                // (STKALIGN) guarantee 4-byte/8-byte stack alignment w/ SP adjustment
+    DataCacheEnabled(bool),                 // (DC) enable/disable data and unified caches
+    InsnCacheEnabled(bool),                 // (IC) enable/disable instruction caches
+    BranchPredictionEnabled(bool),          // (BP) enable/disable program flow prediction
+
+    // SHPR sets system handler priorities, needed by exception/interrupt handling system
+    SetSystemHandlerPriority { id: u8, priority: u8}, // (PRI_x in SHPR1, SHPR2, or SHPR3) set system handler x's priority level
     
 }
 
