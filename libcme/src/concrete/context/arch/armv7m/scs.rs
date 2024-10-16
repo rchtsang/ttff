@@ -103,9 +103,12 @@ impl SysCtrlSpace {
 
     pub fn write_reg(&mut self, sc_reg: &SCReg, src: &[u8], byte_off: Option<usize>) -> Result<Vec<Event>, context::Error> {
         let byte_off = byte_off.unwrap_or(0);
+        assert!((src.len() != 3) && (src.len() <= 4), "access must be byte, half-word, or word aligned");
         assert!(((src.len() + byte_off) <= 4), "access must be within a single word-aligned region");
         let offset = sc_reg.offset();
-        let write_val = bytes_as_u32_le(src);
+        let write_bytes = &mut [0u8; 4];
+        write_bytes[byte_off..].copy_from_slice(src);
+        let write_val = bytes_as_u32_le(write_bytes);
         match sc_reg {
             SCReg::ICSR => {
                 let icsr = ICSR::from_bits(write_val);
@@ -153,12 +156,21 @@ impl SysCtrlSpace {
                     .map_err(context::Error::from)?;
                 let mut evts = vec![];
                 for (i, &byte) in src.iter().enumerate().take(4 - byte_off) {
+                    let i = i + byte_off;
                     if view[i] != byte {
                         view[i] = byte;
                         evts.push(Event::SetSystemHandlerPriority { id: *idx + i as u8, priority: byte });
                     }
                 }
                 Ok(evts)
+            }
+            SCReg::CFSR => {
+                let view = self.backing.view_bytes_mut(offset, src.len())
+                    .map_err(context::Error::from)?;
+                let current_val = bytes_as_u32_le(view);
+                let cfsr = CFSR::from_bits(write_val);
+                view.copy_from_slice(write_bytes);
+                Ok(cfsr.write_evt(current_val))
             }
             SCReg::SHCSR => {
                 todo!()
@@ -224,7 +236,7 @@ pub enum SCReg {
     SHPR2(u8),  // system handler priority register 2 (with handler number)
     SHPR3(u8),  // system handler priority register 3 (with handler number)
     SHCSR,      // system handler control and state register
-    CFSR,       // configurable fault status register
+    CFSR,       // configurable fault status register (with offset to bus subregisters)
     HFSR,       // hardfault status register
     DFSR,       // debug fault status register
     MMFAR,      // memmanage fault address register
@@ -737,7 +749,7 @@ pub struct SHCSR {
 impl SHCSR {
     pub fn write_evt(&self, current_val: u32) -> Vec<Event> {
         let mut evts = vec![];
-        let changed = Self::from_bits(current_val);
+        let changed = Self::from_bits(self.into_bits() ^ current_val);
         if changed.memfaultact() {
             evts.push(Event::ExceptionSetActive(ExceptionType::MemManage, self.memfaultact()));
         }
@@ -794,6 +806,17 @@ pub struct CFSR {
     pub usagefault: UFSR,
 }
 
+impl CFSR {
+    pub fn write_evt(&self, current_val: u32) -> Vec<Event> {
+        let mut evts = vec![];
+        let current_state = Self::from_bits(current_val);
+        evts.extend(self.memmanage().write_evt(current_state.memmanage().into_bits()));
+        evts.extend(self.busfault().write_evt(current_state.busfault().into_bits()));
+        evts.extend(self.usagefault().write_evt(current_state.usagefault().into_bits()));
+        evts
+    }
+}
+
 /// UsageFault status register
 #[bitfield(u16)]
 pub struct UFSR {
@@ -813,6 +836,15 @@ pub struct UFSR {
     pub divbyzero: bool,
     #[bits(6)]
     __: u32,
+}
+
+impl UFSR {
+    pub fn write_evt(&self, current_val: u16) -> Vec<Event> {
+        let mut evts = vec![];
+        let changed = Self::from_bits(self.into_bits() ^ current_val);
+        todo!();
+        evts
+    }
 }
 
 /// BusFault status register
@@ -836,6 +868,15 @@ pub struct BFSR {
     pub bfarvalid: bool,
 }
 
+impl BFSR {
+    pub fn write_evt(&self, current_val: u8) -> Vec<Event> {
+        let mut evts = vec![];
+        let changed = Self::from_bits(self.into_bits() ^ current_val);
+        todo!();
+        evts
+    }
+}
+
 /// MemManage fault status register
 #[bitfield(u8)]
 pub struct MMFSR {
@@ -855,6 +896,15 @@ pub struct MMFSR {
     __: bool,
     #[bits(1)]
     pub mmarvalid: bool,
+}
+
+impl MMFSR {
+    pub fn write_evt(&self, current_val: u8) -> Vec<Event> {
+        let mut evts = vec![];
+        let changed = Self::from_bits(self.into_bits() ^ current_val);
+        todo!();
+        evts
+    }
 }
 
 #[bitfield(u32)]
