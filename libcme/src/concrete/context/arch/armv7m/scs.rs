@@ -169,13 +169,15 @@ impl SysCtrlSpace {
                 Ok(cfsr.write_evt())
             }
             SCReg::SHCSR => {
-                todo!()
+                let hfsr = HFSR::from_bits(write_val);
+                Ok(hfsr.write_evt())
             }
             SCReg::CPACR => {
                 unimplemented!("coprocessor access not supported")
             }
             SCReg::STIR => {
-                todo!()
+                let stir = STIR::from_bits(write_val);
+                Ok(stir.write_evt())
             }
             SCReg::MPU(mpu_reg) => {
                 mpu_reg.write_evt(write_val)
@@ -190,6 +192,7 @@ impl SysCtrlSpace {
                     .map_err(Into::<context::Error>::into)
             }
             _ => {
+                // TODO: add logging to print out warning that some registers aren't implemented
                 let view = self.backing.view_bytes_mut(offset, src.len())
                     .map_err(context::Error::from)?;
                 view.copy_from_slice(src);
@@ -968,6 +971,22 @@ pub struct HFSR {
     pub debugevt: bool,
 }
 
+impl HFSR {
+    pub fn write_evt(&self) -> Vec<Event> {
+        let mut evts = vec![];
+        if self.vecttbl() {
+            evts.push(Event::FaultStatusClr(HardFault::VectorTableRead.into()));
+        }
+        if self.forced() {
+            evts.push(Event::FaultStatusClr(HardFault::EscalatedException.into()));
+        }
+        if self.debugevt() {
+            evts.push(Event::FaultStatusClr(HardFault::DebugEvent.into()));
+        }
+        evts
+    }
+}
+
 // writing 1 clears bit to 0.
 // read halted bit by instruction during stepping returns unknown 
 /// C1.6.1 debug fault status register
@@ -1081,7 +1100,11 @@ pub struct STIR {
 }
 
 impl STIR {
-    pub fn exception_number(&self) -> usize {
-        (self.intid() + 16) as usize
+    pub fn exception_number(&self) -> u32 {
+        (self.intid() + 16)
+    }
+
+    pub fn write_evt(&self) -> Vec<Event> {
+        vec![Event::ExceptionSetActive(ExceptionType::ExternalInterrupt(self.exception_number()), true)]
     }
 }
