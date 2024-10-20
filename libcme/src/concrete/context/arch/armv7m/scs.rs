@@ -7,6 +7,7 @@
  */
 
 use bitfield_struct::bitfield;
+use unwrap_enum::{EnumAs, EnumIs};
 
 use super::*;
 use context::Permission;
@@ -43,7 +44,7 @@ impl SysCtrlSpace {
 
     pub fn read_bytes(&mut self, offset: impl Into<usize>, dst: &mut [u8]) -> Result<Vec<Event>, context::Error> {
         let offset = offset.into();
-        if let Some(scr) = SCReg::lookup_offset(offset) {
+        if let Some(scr) = SCRegType::lookup_offset(offset) {
             self.read_reg(&scr, dst, Some(offset - scr.offset()))
         } else {
             Ok(vec![])
@@ -52,14 +53,20 @@ impl SysCtrlSpace {
 
     pub fn write_bytes(&mut self, offset: impl Into<usize>, src: &[u8]) -> Result<Vec<Event>, context::Error> {
         let offset = offset.into();
-        if let Some(scr) = SCReg::lookup_offset(offset) {
+        if let Some(scr) = SCRegType::lookup_offset(offset) {
             self.write_reg(&scr, src, Some(offset - scr.offset()))
         } else {
             Ok(vec![])
         }
     }
 
-    pub fn read_reg(&mut self, scr: &SCReg, dst: &mut [u8], byte_off: Option<usize>) -> Result<Vec<Event>, context::Error> {
+    pub fn get_reg(&self, scr: &SCRegType) -> Result<SCReg, context::Error> {
+        match scr {
+            _ => unimplemented!()
+        }
+    }
+
+    pub fn read_reg(&mut self, scr: &SCRegType, dst: &mut [u8], byte_off: Option<usize>) -> Result<Vec<Event>, context::Error> {
         let byte_off = byte_off.unwrap_or(0);
         let offset = scr.offset() + byte_off;
         let view = self.backing.view_bytes(offset, dst.len())
@@ -72,7 +79,7 @@ impl SysCtrlSpace {
                 val | (byte << (i * 8)) as u32
             });
         match scr {
-            SCReg::AIRCR => {
+            SCRegType::AIRCR => {
                 let prigroup = todo!("get prigroup value");
                 let aircr = AIRCR::new()
                     .with_vectkey_stat(0xFA05)
@@ -85,15 +92,18 @@ impl SysCtrlSpace {
                 dst.copy_from_slice(&aircr.to_le_bytes());
                 Ok(vec![])
             }
-            SCReg::MPU(mpu_reg) => {
+            SCRegType::VTOR => {
+                todo!()
+            }
+            SCRegType::MPU(mpu_reg) => {
                 mpu_reg.read_evt(read_val)
                     .map_err(Into::<context::Error>::into)
             }
-            SCReg::NVIC(nvic_reg) => {
+            SCRegType::NVIC(nvic_reg) => {
                 nvic_reg.read_evt(read_val)
                     .map_err(Into::<context::Error>::into)
             }
-            SCReg::SysTick(systick_reg) => {
+            SCRegType::SysTick(systick_reg) => {
                 systick_reg.read_evt(read_val)
                     .map_err(Into::<context::Error>::into)
             }
@@ -101,7 +111,7 @@ impl SysCtrlSpace {
         }
     }
 
-    pub fn write_reg(&mut self, sc_reg: &SCReg, src: &[u8], byte_off: Option<usize>) -> Result<Vec<Event>, context::Error> {
+    pub fn write_reg(&mut self, sc_reg: &SCRegType, src: &[u8], byte_off: Option<usize>) -> Result<Vec<Event>, context::Error> {
         let byte_off = byte_off.unwrap_or(0);
         assert!((src.len() != 3) && (src.len() <= 4), "access must be byte, half-word, or word aligned");
         assert!(((src.len() + byte_off) <= 4), "access must be within a single word-aligned region");
@@ -110,26 +120,25 @@ impl SysCtrlSpace {
         write_bytes[byte_off..].copy_from_slice(src);
         let write_val = bytes_as_u32_le(write_bytes);
         match sc_reg {
-            SCReg::ICSR => {
+            SCRegType::ICSR => {
                 let icsr = ICSR::from_bits(write_val);
                 let view = self.backing.view_bytes_mut(offset, src.len())
                     .map_err(context::Error::from)?;
                 view.copy_from_slice(src);
                 Ok(icsr.write_evt())
             }
-            SCReg::VTOR => {
+            SCRegType::VTOR => {
                 let write_val = write_val & 0xFFFFFF80;
                 let vtor = VTOR::from(write_val);
-                let view = self.backing.view_bytes_mut(offset, src.len())
-                    .map_err(context::Error::from)?;
-                view.copy_from_slice(&write_val.to_le_bytes());
                 Ok(vtor.write_evt())
             }
-            SCReg::AIRCR => {
+            SCRegType::AIRCR => {
+                // let current_val = self.nvic.priority_grouping;
+                let current_val = todo!();
                 let aircr = AIRCR::from_bits(write_val);
-                Ok(aircr.write_evt())
+                Ok(aircr.write_evt(current_val))
             }
-            SCReg::SCR => {
+            SCRegType::SCR => {
                 // don't want to create events for things that didn't change
                 let view = self.backing.view_bytes_mut(offset, src.len())
                     .map_err(context::Error::from)?;
@@ -138,7 +147,7 @@ impl SysCtrlSpace {
                 view.copy_from_slice(src);
                 Ok(scr.write_evt(current_val))
             }
-            SCReg::CCR => {
+            SCRegType::CCR => {
                 // don't want to create events for things that didn't change
                 let view = self.backing.view_bytes_mut(offset, src.len())
                     .map_err(context::Error::from)?;
@@ -148,7 +157,7 @@ impl SysCtrlSpace {
                 view.copy_from_slice(&write_val.to_le_bytes());
                 Ok(ccr.write_evt(current_val))
             }
-            SCReg::SHPR1(idx) | SCReg::SHPR2(idx) | SCReg::SHPR3(idx) => {
+            SCRegType::SHPR1(idx) | SCRegType::SHPR2(idx) | SCRegType::SHPR3(idx) => {
                 // note that `.offset()` of shpr registers returns the word-aligned register offset,
                 // but the access may be relative to a byte or halfword.
                 // in the future i may need to consider this for other registers as well.
@@ -164,30 +173,30 @@ impl SysCtrlSpace {
                 }
                 Ok(evts)
             }
-            SCReg::CFSR => {
+            SCRegType::CFSR => {
                 let cfsr = CFSR::from_bits(write_val);
                 Ok(cfsr.write_evt())
             }
-            SCReg::SHCSR => {
+            SCRegType::SHCSR => {
                 let hfsr = HFSR::from_bits(write_val);
                 Ok(hfsr.write_evt())
             }
-            SCReg::CPACR => {
+            SCRegType::CPACR => {
                 unimplemented!("coprocessor access not supported")
             }
-            SCReg::STIR => {
+            SCRegType::STIR => {
                 let stir = STIR::from_bits(write_val);
                 Ok(stir.write_evt())
             }
-            SCReg::MPU(mpu_reg) => {
+            SCRegType::MPU(mpu_reg) => {
                 mpu_reg.write_evt(write_val)
                     .map_err(Into::<context::Error>::into)
             }
-            SCReg::NVIC(nvic_reg) => {
+            SCRegType::NVIC(nvic_reg) => {
                 nvic_reg.write_evt(write_val)
                     .map_err(Into::<context::Error>::into)
             }
-            SCReg::SysTick(systick_reg) => {
+            SCRegType::SysTick(systick_reg) => {
                 systick_reg.write_evt(write_val)
                     .map_err(Into::<context::Error>::into)
             }
@@ -224,7 +233,7 @@ impl Default for SysCtrlConfig {
 
 /// system control register enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum SCReg {
+pub enum SCRegType {
     CPUID,      // cpuid base register
     ICSR,       // interrupt control and state register 
     VTOR,       // vector table offset register
@@ -279,13 +288,13 @@ pub enum SCReg {
 }
 
 #[derive(Debug, Clone)]
-struct SCRegData {
+struct SCRegTypeData {
     pub offset: usize,
     pub perms: u8,
     pub reset: Option<u32>,
 }
 
-impl SCReg {
+impl SCRegType {
 
     pub fn address(&self) -> Address {
         Address::from(0xe000e000_u64 + (self._data().offset as u64))
@@ -314,59 +323,59 @@ impl SCReg {
     pub fn lookup_offset(offset: usize) -> Option<Self> {
         assert!(offset < 0x1000, "address is not in scs!");
         match offset {
-            0xd00_usize => { Some(SCReg::CPUID) }
-            0xd04_usize => { Some(SCReg::ICSR) }
-            0xd08_usize => { Some(SCReg::VTOR) }
-            0xd0c_usize => { Some(SCReg::AIRCR) }
-            0xd10_usize => { Some(SCReg::SCR) }
-            0xd14_usize => { Some(SCReg::CCR) }
-            0xd18_usize..=0xd1b => { Some(SCReg::SHPR1((offset - 0xd18 +  4) as u8)) }
-            0xd1c_usize..=0xd1f => { Some(SCReg::SHPR2((offset - 0xd1c +  8) as u8)) }
-            0xd20_usize..=0xd23 => { Some(SCReg::SHPR3((offset - 0xd20 + 12) as u8)) }
-            0xd24_usize => { Some(SCReg::SHCSR) }
-            0xd28_usize => { Some(SCReg::CFSR) }
-            0xd2c_usize => { Some(SCReg::HFSR) }
-            0xd30_usize => { Some(SCReg::DFSR) }
-            0xd34_usize => { Some(SCReg::MMFAR) }
-            0xd38_usize => { Some(SCReg::BFAR) }
-            0xd3c_usize => { Some(SCReg::AFSR) }
-            0xd88_usize => { Some(SCReg::CPACR) }
+            0xd00_usize => { Some(SCRegType::CPUID) }
+            0xd04_usize => { Some(SCRegType::ICSR) }
+            0xd08_usize => { Some(SCRegType::VTOR) }
+            0xd0c_usize => { Some(SCRegType::AIRCR) }
+            0xd10_usize => { Some(SCRegType::SCR) }
+            0xd14_usize => { Some(SCRegType::CCR) }
+            0xd18_usize..=0xd1b => { Some(SCRegType::SHPR1((offset - 0xd18 +  4) as u8)) }
+            0xd1c_usize..=0xd1f => { Some(SCRegType::SHPR2((offset - 0xd1c +  8) as u8)) }
+            0xd20_usize..=0xd23 => { Some(SCRegType::SHPR3((offset - 0xd20 + 12) as u8)) }
+            0xd24_usize => { Some(SCRegType::SHCSR) }
+            0xd28_usize => { Some(SCRegType::CFSR) }
+            0xd2c_usize => { Some(SCRegType::HFSR) }
+            0xd30_usize => { Some(SCRegType::DFSR) }
+            0xd34_usize => { Some(SCRegType::MMFAR) }
+            0xd38_usize => { Some(SCRegType::BFAR) }
+            0xd3c_usize => { Some(SCRegType::AFSR) }
+            0xd88_usize => { Some(SCRegType::CPACR) }
             
-            0xf34_usize => { Some(SCReg::FPCCR) }
-            0xf38_usize => { Some(SCReg::FPCAR) }
-            0xf3c_usize => { Some(SCReg::FPDSCR) }
-            0xf40_usize => { Some(SCReg::MVFR0) }
-            0xf44_usize => { Some(SCReg::MVFR1) }
-            0xf48_usize => { Some(SCReg::MVFR2) }
+            0xf34_usize => { Some(SCRegType::FPCCR) }
+            0xf38_usize => { Some(SCRegType::FPCAR) }
+            0xf3c_usize => { Some(SCRegType::FPDSCR) }
+            0xf40_usize => { Some(SCRegType::MVFR0) }
+            0xf44_usize => { Some(SCRegType::MVFR1) }
+            0xf48_usize => { Some(SCRegType::MVFR2) }
 
-            0x000_usize => { Some(SCReg::MCR) }
-            0x004_usize => { Some(SCReg::ICTR) }
-            0x008_usize => { Some(SCReg::ACTLR) }
-            0xf00_usize => { Some(SCReg::STIR) }
-            0xfd0_usize => { Some(SCReg::PID4) }
-            0xfd4_usize => { Some(SCReg::PID5) }
-            0xfd8_usize => { Some(SCReg::PID6) }
-            0xfdc_usize => { Some(SCReg::PID7) }
-            0xfe0_usize => { Some(SCReg::PID0) }
-            0xfe4_usize => { Some(SCReg::PID1) }
-            0xfe8_usize => { Some(SCReg::PID2) }
-            0xfec_usize => { Some(SCReg::PID3) }
-            0xff0_usize => { Some(SCReg::CID0) }
-            0xff4_usize => { Some(SCReg::CID1) }
-            0xff8_usize => { Some(SCReg::CID2) }
-            0xffc_usize => { Some(SCReg::CID3) }
+            0x000_usize => { Some(SCRegType::MCR) }
+            0x004_usize => { Some(SCRegType::ICTR) }
+            0x008_usize => { Some(SCRegType::ACTLR) }
+            0xf00_usize => { Some(SCRegType::STIR) }
+            0xfd0_usize => { Some(SCRegType::PID4) }
+            0xfd4_usize => { Some(SCRegType::PID5) }
+            0xfd8_usize => { Some(SCRegType::PID6) }
+            0xfdc_usize => { Some(SCRegType::PID7) }
+            0xfe0_usize => { Some(SCRegType::PID0) }
+            0xfe4_usize => { Some(SCRegType::PID1) }
+            0xfe8_usize => { Some(SCRegType::PID2) }
+            0xfec_usize => { Some(SCRegType::PID3) }
+            0xff0_usize => { Some(SCRegType::CID0) }
+            0xff4_usize => { Some(SCRegType::CID1) }
+            0xff8_usize => { Some(SCRegType::CID2) }
+            0xffc_usize => { Some(SCRegType::CID3) }
 
             0x010 ..= 0x0ff => {
                 SysTickReg::lookup_offset(offset)
-                    .map(|systick_reg| SCReg::SysTick(systick_reg))
+                    .map(|systick_reg| SCRegType::SysTick(systick_reg))
             }
             0x100 ..= 0xcff => {
                 NVICReg::lookup_offset(offset)
-                    .map(|nvic_reg| SCReg::NVIC(nvic_reg))
+                    .map(|nvic_reg| SCRegType::NVIC(nvic_reg))
             }
             0xd90 ..= 0xdef => {
                 MPUReg::lookup_offset(offset)
-                    .map(|mpu_reg| SCReg::MPU(mpu_reg))
+                    .map(|mpu_reg| SCRegType::MPU(mpu_reg))
             }
 
             _ => { None }
@@ -374,56 +383,95 @@ impl SCReg {
     }
 }
 
-impl SCReg {
-    fn _data(&self) -> &SCRegData {
+impl SCRegType {
+    fn _data(&self) -> &SCRegTypeData {
         match self {
-            SCReg::CPUID    => { &SCRegData { offset: 0xd00_usize, perms: 0b100, reset: None } }
-            SCReg::ICSR     => { &SCRegData { offset: 0xd04_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::VTOR     => { &SCRegData { offset: 0xd08_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::AIRCR    => { &SCRegData { offset: 0xd0c_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::SCR      => { &SCRegData { offset: 0xd10_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::CCR      => { &SCRegData { offset: 0xd14_usize, perms: 0b110, reset: None } }
-            SCReg::SHPR1(_) => { &SCRegData { offset: 0xd18_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::SHPR2(_) => { &SCRegData { offset: 0xd1c_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::SHPR3(_) => { &SCRegData { offset: 0xd20_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::SHCSR    => { &SCRegData { offset: 0xd24_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::CFSR     => { &SCRegData { offset: 0xd28_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::HFSR     => { &SCRegData { offset: 0xd2c_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::DFSR     => { &SCRegData { offset: 0xd30_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::MMFAR    => { &SCRegData { offset: 0xd34_usize, perms: 0b110, reset: None } }
-            SCReg::BFAR     => { &SCRegData { offset: 0xd38_usize, perms: 0b110, reset: None } }
-            SCReg::AFSR     => { &SCRegData { offset: 0xd3c_usize, perms: 0b110, reset: None } }
-            SCReg::CPACR    => { &SCRegData { offset: 0xd88_usize, perms: 0b110, reset: None } }
+            SCRegType::CPUID    => { &SCRegTypeData { offset: 0xd00_usize, perms: 0b100, reset: None } }
+            SCRegType::ICSR     => { &SCRegTypeData { offset: 0xd04_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::VTOR     => { &SCRegTypeData { offset: 0xd08_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::AIRCR    => { &SCRegTypeData { offset: 0xd0c_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::SCR      => { &SCRegTypeData { offset: 0xd10_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::CCR      => { &SCRegTypeData { offset: 0xd14_usize, perms: 0b110, reset: None } }
+            SCRegType::SHPR1(_) => { &SCRegTypeData { offset: 0xd18_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::SHPR2(_) => { &SCRegTypeData { offset: 0xd1c_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::SHPR3(_) => { &SCRegTypeData { offset: 0xd20_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::SHCSR    => { &SCRegTypeData { offset: 0xd24_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::CFSR     => { &SCRegTypeData { offset: 0xd28_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::HFSR     => { &SCRegTypeData { offset: 0xd2c_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::DFSR     => { &SCRegTypeData { offset: 0xd30_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::MMFAR    => { &SCRegTypeData { offset: 0xd34_usize, perms: 0b110, reset: None } }
+            SCRegType::BFAR     => { &SCRegTypeData { offset: 0xd38_usize, perms: 0b110, reset: None } }
+            SCRegType::AFSR     => { &SCRegTypeData { offset: 0xd3c_usize, perms: 0b110, reset: None } }
+            SCRegType::CPACR    => { &SCRegTypeData { offset: 0xd88_usize, perms: 0b110, reset: None } }
             
-            // SCReg::FPCCR     => { &SCRegData { offset: 0xf34_usize, perms: 0b110, reset: Some(0x0) } }
-            // SCReg::FPCAR     => { &SCRegData { offset: 0xf38_usize, perms: 0b110, reset: None } }
-            // SCReg::FPDSCR    => { &SCRegData { offset: 0xf3c_usize, perms: 0b110, reset: Some(0x0) } }
-            // SCReg::MVFR0     => { &SCRegData { offset: 0xf40_usize, perms: 0b100, reset: Some(0x0) } }
-            // SCReg::MVFR1     => { &SCRegData { offset: 0xf44_usize, perms: 0b100, reset: Some(0x0) } }
-            // SCReg::MVFR2     => { &SCRegData { offset: 0xf48_usize, perms: 0b100, reset: Some(0x0) } }
+            // SCRegType::FPCCR     => { &SCRegTypeData { offset: 0xf34_usize, perms: 0b110, reset: Some(0x0) } }
+            // SCRegType::FPCAR     => { &SCRegTypeData { offset: 0xf38_usize, perms: 0b110, reset: None } }
+            // SCRegType::FPDSCR    => { &SCRegTypeData { offset: 0xf3c_usize, perms: 0b110, reset: Some(0x0) } }
+            // SCRegType::MVFR0     => { &SCRegTypeData { offset: 0xf40_usize, perms: 0b100, reset: Some(0x0) } }
+            // SCRegType::MVFR1     => { &SCRegTypeData { offset: 0xf44_usize, perms: 0b100, reset: Some(0x0) } }
+            // SCRegType::MVFR2     => { &SCRegTypeData { offset: 0xf48_usize, perms: 0b100, reset: Some(0x0) } }
             
-            SCReg::MCR      => { &SCRegData { offset: 0x000_usize, perms: 0b110, reset: Some(0x0) } }
-            SCReg::ICTR     => { &SCRegData { offset: 0x004_usize, perms: 0b100, reset: None } }
-            SCReg::ACTLR    => { &SCRegData { offset: 0x008_usize, perms: 0b110, reset: None } }
-            SCReg::STIR     => { &SCRegData { offset: 0xf00_usize, perms: 0b010, reset: None } }
-            SCReg::PID4     => { &SCRegData { offset: 0xfd0_usize, perms: 0b100, reset: None } }
-            SCReg::PID5     => { &SCRegData { offset: 0xfd4_usize, perms: 0b100, reset: None } }
-            SCReg::PID6     => { &SCRegData { offset: 0xfd8_usize, perms: 0b100, reset: None } }
-            SCReg::PID7     => { &SCRegData { offset: 0xfdc_usize, perms: 0b100, reset: None } }
-            SCReg::PID0     => { &SCRegData { offset: 0xfe0_usize, perms: 0b100, reset: None } }
-            SCReg::PID1     => { &SCRegData { offset: 0xfe4_usize, perms: 0b100, reset: None } }
-            SCReg::PID2     => { &SCRegData { offset: 0xfe8_usize, perms: 0b100, reset: None } }
-            SCReg::PID3     => { &SCRegData { offset: 0xfec_usize, perms: 0b100, reset: None } }
-            SCReg::CID0     => { &SCRegData { offset: 0xff0_usize, perms: 0b100, reset: None } }
-            SCReg::CID1     => { &SCRegData { offset: 0xff4_usize, perms: 0b100, reset: None } }
-            SCReg::CID2     => { &SCRegData { offset: 0xff8_usize, perms: 0b100, reset: None } }
-            SCReg::CID3     => { &SCRegData { offset: 0xffc_usize, perms: 0b100, reset: None } }
+            SCRegType::MCR      => { &SCRegTypeData { offset: 0x000_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::ICTR     => { &SCRegTypeData { offset: 0x004_usize, perms: 0b100, reset: None } }
+            SCRegType::ACTLR    => { &SCRegTypeData { offset: 0x008_usize, perms: 0b110, reset: None } }
+            SCRegType::STIR     => { &SCRegTypeData { offset: 0xf00_usize, perms: 0b010, reset: None } }
+            SCRegType::PID4     => { &SCRegTypeData { offset: 0xfd0_usize, perms: 0b100, reset: None } }
+            SCRegType::PID5     => { &SCRegTypeData { offset: 0xfd4_usize, perms: 0b100, reset: None } }
+            SCRegType::PID6     => { &SCRegTypeData { offset: 0xfd8_usize, perms: 0b100, reset: None } }
+            SCRegType::PID7     => { &SCRegTypeData { offset: 0xfdc_usize, perms: 0b100, reset: None } }
+            SCRegType::PID0     => { &SCRegTypeData { offset: 0xfe0_usize, perms: 0b100, reset: None } }
+            SCRegType::PID1     => { &SCRegTypeData { offset: 0xfe4_usize, perms: 0b100, reset: None } }
+            SCRegType::PID2     => { &SCRegTypeData { offset: 0xfe8_usize, perms: 0b100, reset: None } }
+            SCRegType::PID3     => { &SCRegTypeData { offset: 0xfec_usize, perms: 0b100, reset: None } }
+            SCRegType::CID0     => { &SCRegTypeData { offset: 0xff0_usize, perms: 0b100, reset: None } }
+            SCRegType::CID1     => { &SCRegTypeData { offset: 0xff4_usize, perms: 0b100, reset: None } }
+            SCRegType::CID2     => { &SCRegTypeData { offset: 0xff8_usize, perms: 0b100, reset: None } }
+            SCRegType::CID3     => { &SCRegTypeData { offset: 0xffc_usize, perms: 0b100, reset: None } }
 
-            screg => { panic!("data for {screg:?} not implemented!") }
+            sc_reg => { panic!("data for {sc_reg:?} not implemented!") }
         }
     }
 }
 
+
+#[derive(Debug, Clone, PartialEq, Eq, EnumAs, EnumIs)]
+pub enum SCReg {
+    CPUID(CPUID),
+    ICSR(ICSR),
+    VTOR(VTOR),
+    AIRCR(AIRCR),
+    SCR(SCR),
+    CCR(CCR),
+    SHPR1(SHPR1),
+    SHPR2(SHPR2),
+    SHPR3(SHPR3),
+    SHCSR(SHCSR),
+    CFSR(CFSR),
+    HFSR(HFSR),
+    DFSR(DFSR),
+    MMFAR(MMFAR),
+    BFAR(BFAR),
+    // AFSR(AFSR),
+    CPACR(CPACR),
+    
+    // FPCCR(FPCCR),
+    // FPCAR(FPCAR),
+    // FPDSCR(FPDSCR),
+    // MVFR0(MVFR0),
+    // MVFR1(MVFR1),
+    // MVFR2(MVFR2),
+
+    // MCR(MCR),
+    ICTR(ICTR),
+    // ACTLR(ACTLR),
+    STIR(STIR),
+
+    SysTick(SysTickReg),
+    NVIC(NVICReg),
+    MPU(MPUReg),
+    // todo: floating point extension scb registers
+    // todo: cache and branch predictor maintenance
+}
 
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
@@ -532,7 +580,7 @@ pub struct AIRCR {
 }
 
 impl AIRCR {
-    pub fn write_evt(&self) -> Vec<Event> {
+    pub fn write_evt(&self, current_val: u32) -> Vec<Event> {
         let mut evts = vec![];
         if self.vectreset() {
             evts.push(Event::LocalSysResetRequest);
@@ -545,6 +593,10 @@ impl AIRCR {
         }
         if self.vectkey_stat() == 0x05fa {
             evts.push(Event::VectorKeyWrite);
+        }
+        let current = Self::from_bits(current_val);
+        if self.prigroup() != current.prigroup() {
+            evts.push(Event::SetPriorityGrouping(self.prigroup() as u8));
         }
         evts
     }
@@ -750,7 +802,7 @@ impl SHCSR {
         let mut evts = vec![];
         let changed = Self::from_bits(self.into_bits() ^ current_val);
         if changed.memfaultact() {
-            evts.push(Event::ExceptionSetActive(ExceptionType::MemManage, self.memfaultact()));
+            evts.push(Event::ExceptionSetActive(ExceptionType::MemFault, self.memfaultact()));
         }
         if changed.busfaultact() {
             evts.push(Event::ExceptionSetActive(ExceptionType::BusFault, self.busfaultact()));
@@ -774,7 +826,7 @@ impl SHCSR {
             evts.push(Event::ExceptionSetPending(ExceptionType::UsageFault, self.usgfaultpended()));
         }
         if changed.memfaultpended() {
-            evts.push(Event::ExceptionSetPending(ExceptionType::MemManage, self.memfaultpended()));
+            evts.push(Event::ExceptionSetPending(ExceptionType::MemFault, self.memfaultpended()));
         }
         if changed.busfaultpended() {
             evts.push(Event::ExceptionSetPending(ExceptionType::BusFault, self.busfaultpended()));
@@ -783,7 +835,7 @@ impl SHCSR {
             evts.push(Event::ExceptionSetPending(ExceptionType::SVCall, self.svcallpended()));
         }
         if changed.memfaultena() {
-            evts.push(Event::ExceptionEnabled(ExceptionType::MemManage, self.memfaultena()));
+            evts.push(Event::ExceptionEnabled(ExceptionType::MemFault, self.memfaultena()));
         }
         if changed.busfaultena() {
             evts.push(Event::ExceptionEnabled(ExceptionType::BusFault, self.busfaultena()));
@@ -796,6 +848,7 @@ impl SHCSR {
 }
 
 #[bitfield(u32)]
+#[derive(PartialEq, Eq)]
 pub struct CFSR {
     #[bits(8)]
     pub memmanage: MMFSR,

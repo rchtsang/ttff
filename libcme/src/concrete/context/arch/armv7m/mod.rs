@@ -31,6 +31,7 @@ pub use crate::concrete::context::Context as ContextTrait;
 pub type TranslationCache<'irb> = IntMap<u64, LiftResult<'irb>>;
 
 mod userop;
+mod system;
 mod exception;
 pub use exception::*;
 mod scs;
@@ -72,10 +73,11 @@ pub enum Event {
     VectorTableOffsetWrite(u32),
 
     // AIRCR
-    ExternSysResetRequest,   // (SYSRESETREQ) external system reset request
-    LocalSysResetRequest,   // (VECTRESET) local system reset
-    ExceptionClrAllActive,  // (VECTCLRACTIVE) clear all active state info for fixed and configurable exceptions, clear ipsr to 0
-    VectorKeyWrite,         // (VECTKEY) 0x05fa written to vector key register
+    ExternSysResetRequest,      // (SYSRESETREQ) external system reset request
+    LocalSysResetRequest,       // (VECTRESET) local system reset
+    ExceptionClrAllActive,      // (VECTCLRACTIVE) clear all active state info for fixed and configurable exceptions, clear ipsr to 0
+    VectorKeyWrite,             // (VECTKEY) 0x05fa written to vector key register
+    SetPriorityGrouping(u8),    // (PRIGROUP) set the priority grouping according to Table B1-7
 
     // SCR keeps state that influences execution
     SetTransitionWakupEvent(bool),  // transitions from inactive to pending are/aren't wakeup events
@@ -108,7 +110,7 @@ pub enum Event {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Mode {
     /// entered on reset and/or as result of exception return
-    Thread { privileged: bool, main_sp: bool },
+    Thread,
     /// entered on exception. must be in handler mode to issue exception return.
     /// always privileged execution
     Handler,
@@ -144,6 +146,8 @@ pub struct Context<'irb> {
     main_sp: Option<u32>,
     /// banked process stack pointer (optionally used in thread mode)
     proc_sp: Option<u32>,
+    /// special-purpose CONTROL register (B1.4.4)
+    control: system::CONTROL,
 
     regs: FixedState,
     tmps: FixedState,
@@ -173,10 +177,11 @@ impl<'irb> Context<'irb> {
             pc: t.program_counter().clone(),
             sp: lang.convention().stack_pointer().varnode().clone(),
             endian: if t.is_big_endian() { Endian::Big } else { Endian::Little },
-            mode: Mode::Thread { privileged: false, main_sp: true },
+            mode: Mode::Thread,
             xpsr: 0u32,
             main_sp: None,
             proc_sp: None,
+            control: system::CONTROL::default(),
             apsr: t.register_by_name("cpsr").unwrap(),
             regs: FixedState::new(t.register_space_size()),
             tmps: FixedState::new(t.unique_space_size()),

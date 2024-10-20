@@ -2,17 +2,51 @@
 //! 
 //! exception structs and types
 
+use crate::utils::bytes_as_u32_le;
+
 use super::*;
 
 /// exception struct
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Exception {
-    num: u32,
-    typ: ExceptionType,
-    priority: u32,
-    // vector entry point defined in vector table
-    entry: Address,
-    state: FlagSet<ExceptionState>
+    pub num: u32,
+    pub typ: ExceptionType,
+    pub priority: i16,
+    // offset into vector table
+    pub offset: usize,
+    pub entry: Address,
+    pub state: FlagSet<ExceptionState>
+}
+
+impl Exception {
+    pub fn new_with(typ: ExceptionType, priority: i16, entry: &[u8]) -> Self {
+        assert_eq!(entry.len(), 4, "entry must be word-aligned");
+        let num = (&typ).into();
+        let offset = (num * 4) as usize;
+        let state = ExceptionState::Inactive.into();
+        let priority = match typ {
+            ExceptionType::Reset        => { -3 }
+            ExceptionType::NMI          => { -2 }
+            ExceptionType::HardFault    => { -1 }
+            _ => { priority }
+        };
+        let entry = Address::from(bytes_as_u32_le(entry));
+
+        Self { num, typ, priority, offset, entry, state }
+    }
+}
+
+impl Default for Exception {
+    fn default() -> Self {
+        Self {
+            num: 0,
+            typ: ExceptionType::Reserved(0),
+            priority: 256,
+            offset: 0,
+            entry: Address::default(),
+            state: FlagSet::default(),
+        }
+    }
 }
 
 /// exception type
@@ -21,7 +55,7 @@ pub enum ExceptionType {
     Reset,
     NMI,
     HardFault,
-    MemManage,
+    MemFault,
     BusFault,
     UsageFault,
     DebugMonitor,
@@ -29,24 +63,24 @@ pub enum ExceptionType {
     PendSV,
     SysTick,
     ExternalInterrupt(u32),
-    Reserved,
+    Reserved(u32),
 }
 
 impl From<u32> for ExceptionType {
     fn from(value: u32) -> Self {
         match value {
+            0  => { panic!("no system handler 0!") }
             1  => { ExceptionType::Reset }
             2  => { ExceptionType::NMI }
             3  => { ExceptionType::HardFault }
-            4  => { ExceptionType::MemManage }
+            4  => { ExceptionType::MemFault }
             5  => { ExceptionType::BusFault }
             6  => { ExceptionType::UsageFault }
-            7..=10 => { ExceptionType::Reserved }
             11 => { ExceptionType::SVCall }
             12 => { ExceptionType::DebugMonitor }
-            13 => { ExceptionType::Reserved }
             14 => { ExceptionType::PendSV }
             15 => { ExceptionType::SysTick }
+            (7..=10) | 13 => { ExceptionType::Reserved(value) }
             n => { ExceptionType::ExternalInterrupt(n) }
         }
     }
@@ -58,7 +92,7 @@ impl Into<u32> for &ExceptionType {
             ExceptionType::Reset => { 1 }
             ExceptionType::NMI => { 2 }
             ExceptionType::HardFault => { 3 }
-            ExceptionType::MemManage => { 4 }
+            ExceptionType::MemFault => { 4 }
             ExceptionType::BusFault => { 5 }
             ExceptionType::UsageFault => { 6 }
             ExceptionType::SVCall => { 11 }
@@ -66,9 +100,7 @@ impl Into<u32> for &ExceptionType {
             ExceptionType::PendSV => { 14 }
             ExceptionType::SysTick => { 15 }
             ExceptionType::ExternalInterrupt(n) => { *n }
-            _ => {
-                panic!("Reserved does not map to a single index!")
-            }
+            ExceptionType::Reserved(n) => { *n }
         }
     }
 }
