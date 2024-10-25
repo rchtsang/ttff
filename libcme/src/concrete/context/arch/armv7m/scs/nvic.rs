@@ -154,7 +154,7 @@ impl<'a> NVICRegs<'a> {
                 // upper bits ignored for n == 15
                 let write_val = if n == 15 { write_val & 0xFFFF } else { write_val };
                 
-                let iser = self.iser_mut(n);
+                let iser = self.get_iser_mut(n);
                 let masked_set_val  = (iser.0 ^ write_val) & write_val;
                 for bit_n in BitIter::from(masked_set_val) {
                     let ext_num = (32 * n as u32) + bit_n as u32;
@@ -164,7 +164,7 @@ impl<'a> NVICRegs<'a> {
                 iser.0 |= masked_set_val;
 
                 // update icer by setting changed bits (keep enable status consistent)
-                let icer = self.icer_mut(n);
+                let icer = self.get_icer_mut(n);
                 icer.0 |= masked_set_val;
             }
             NVICRegType::ICER(n) => {
@@ -172,7 +172,7 @@ impl<'a> NVICRegs<'a> {
                 // upper bits ignored for n == 15
                 let write_val = if n == 15 { write_val & 0xFFFF } else { write_val };
                 
-                let icer = self.icer_mut(n);
+                let icer = self.get_icer_mut(n);
                 let masked_set_val  = (icer.0 ^ write_val) & write_val;
                 for bit_n in BitIter::from(masked_set_val) {
                     let ext_num = (32 * n as u32) + bit_n as u32;
@@ -182,7 +182,7 @@ impl<'a> NVICRegs<'a> {
                 icer.0 &= !masked_set_val;
 
                 // update iser by clearing changed bits (keep enable status consistent)
-                let iser = self.iser_mut(n);
+                let iser = self.get_iser_mut(n);
                 iser.0 &= !masked_set_val;
 
             }
@@ -191,7 +191,7 @@ impl<'a> NVICRegs<'a> {
                 // upper bits ignored for n == 15
                 let write_val = if n == 15 { write_val & 0xFFFF } else { write_val };
                 
-                let ispr  = self.ispr_mut(n);
+                let ispr  = self.get_ispr_mut(n);
                 let masked_set_val  = (ispr.0 ^ write_val) & write_val;
                 for bit_n in BitIter::from(masked_set_val) {
                     let ext_num = (32 * n as u32) + bit_n as u32;
@@ -201,7 +201,7 @@ impl<'a> NVICRegs<'a> {
                 ispr.0 |= masked_set_val;
 
                 // update icpr by setting changed bits
-                let icpr = self.icpr_mut(n);
+                let icpr = self.get_icpr_mut(n);
                 icpr.0 |= masked_set_val;
             }
             NVICRegType::ICPR(n) => {
@@ -209,7 +209,7 @@ impl<'a> NVICRegs<'a> {
                 // upper bits ignored for n == 15
                 let write_val = if n == 15 { write_val & 0xFFFF } else { write_val };
                 
-                let icpr = self.icpr_mut(n);
+                let icpr = self.get_icpr_mut(n);
                 let masked_set_val = (icpr.0 ^ write_val) & write_val;
                 for bit_n in BitIter::from(masked_set_val) {
                     let ext_num = (32 * n as u32) + bit_n as u32;
@@ -219,7 +219,7 @@ impl<'a> NVICRegs<'a> {
                 icpr.0 &= !masked_set_val;
 
                 // update ispr by clearing changed bits
-                let ispr = self.ispr_mut(n);
+                let ispr = self.get_ispr_mut(n);
                 ispr.0 &= !masked_set_val;
             }
             NVICRegType::IABR(_n) => {
@@ -459,23 +459,23 @@ impl<'a> NVICRegs<'a> {
 
     pub fn get_reg_ref(&self, regtype: NVICRegType) -> NVICRegRef {
         match regtype {
-            NVICRegType::ISER(n) => { NVICRegRef::ISER(n, self.iser(n)) }
-            NVICRegType::ICER(n) => { NVICRegRef::ICER(n, self.icer(n)) }
-            NVICRegType::ISPR(n) => { NVICRegRef::ISPR(n, self.ispr(n)) }
-            NVICRegType::ICPR(n) => { NVICRegRef::ICPR(n, self.icpr(n)) }
-            NVICRegType::IABR(n) => { NVICRegRef::IABR(n, self.iabr(n)) }
-            NVICRegType::IPR(n) => { NVICRegRef::IPR(n, self.ipr(n)) }
+            NVICRegType::ISER(n) => { NVICRegRef::ISER(n, self.get_iser(n)) }
+            NVICRegType::ICER(n) => { NVICRegRef::ICER(n, self.get_icer(n)) }
+            NVICRegType::ISPR(n) => { NVICRegRef::ISPR(n, self.get_ispr(n)) }
+            NVICRegType::ICPR(n) => { NVICRegRef::ICPR(n, self.get_icpr(n)) }
+            NVICRegType::IABR(n) => { NVICRegRef::IABR(n, self.get_iabr(n)) }
+            NVICRegType::IPR(n) => { NVICRegRef::IPR(n, self.get_ipr(n)) }
         }
     }
 
     pub fn get_reg_mut(&mut self, regtype: NVICRegType) -> NVICRegMut {
         match regtype {
-            NVICRegType::ISER(n) => { NVICRegMut::ISER(n, self.iser_mut(n)) }
-            NVICRegType::ICER(n) => { NVICRegMut::ICER(n, self.icer_mut(n)) }
-            NVICRegType::ISPR(n) => { NVICRegMut::ISPR(n, self.ispr_mut(n)) }
-            NVICRegType::ICPR(n) => { NVICRegMut::ICPR(n, self.icpr_mut(n)) }
-            NVICRegType::IABR(n) => { NVICRegMut::IABR(n, self.iabr_mut(n)) }
-            NVICRegType::IPR(n) => { NVICRegMut::IPR(n, self.ipr_mut(n)) }
+            NVICRegType::ISER(n) => { NVICRegMut::ISER(n, self.get_iser_mut(n)) }
+            NVICRegType::ICER(n) => { NVICRegMut::ICER(n, self.get_icer_mut(n)) }
+            NVICRegType::ISPR(n) => { NVICRegMut::ISPR(n, self.get_ispr_mut(n)) }
+            NVICRegType::ICPR(n) => { NVICRegMut::ICPR(n, self.get_icpr_mut(n)) }
+            NVICRegType::IABR(n) => { NVICRegMut::IABR(n, self.get_iabr_mut(n)) }
+            NVICRegType::IPR(n) => { NVICRegMut::IPR(n, self.get_ipr_mut(n)) }
         }
     }
     
@@ -598,62 +598,62 @@ impl<'a> NVICRegs<'a> {
 
     // nvic registers
 
-    pub fn iser(&self, n: u8) -> &ISER {
+    pub fn get_iser(&self, n: u8) -> &ISER {
         let word_offset = NVICRegType::ISER(n).offset() / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const ISER) }
     }
 
-    pub fn icer(&self, n: u8) -> &ICER {
+    pub fn get_icer(&self, n: u8) -> &ICER {
         let word_offset = NVICRegType::ICER(n).offset() / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const ICER) }
     }
 
-    pub fn ispr(&self, n: u8) -> &ISPR {
+    pub fn get_ispr(&self, n: u8) -> &ISPR {
         let word_offset = NVICRegType::ISPR(n).offset() / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const ISPR) }
     }
 
-    pub fn icpr(&self, n: u8) -> &ICPR {
+    pub fn get_icpr(&self, n: u8) -> &ICPR {
         let word_offset = NVICRegType::ICPR(n).offset() / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const ICPR) }
     }
 
-    pub fn iabr(&self, n: u8) -> &IABR {
+    pub fn get_iabr(&self, n: u8) -> &IABR {
         let word_offset = NVICRegType::IABR(n).offset() / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const IABR) }
     }
 
-    pub fn ipr(&self, n: u8) -> &IPR {
+    pub fn get_ipr(&self, n: u8) -> &IPR {
         let word_offset = NVICRegType::IPR(n).offset() / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const IPR) }
     }
 
-    pub fn iser_mut(&mut self, n: u8) -> &mut ISER {
+    pub fn get_iser_mut(&mut self, n: u8) -> &mut ISER {
         let word_offset = NVICRegType::ISER(n).offset() / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ISER) }
     }
 
-    pub fn icer_mut(&mut self, n: u8) -> &mut ICER {
+    pub fn get_icer_mut(&mut self, n: u8) -> &mut ICER {
         let word_offset = NVICRegType::ICER(n).offset() / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ICER) }
     }
 
-    pub fn ispr_mut(&mut self, n: u8) -> &mut ISPR {
+    pub fn get_ispr_mut(&mut self, n: u8) -> &mut ISPR {
         let word_offset = NVICRegType::ISPR(n).offset() / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ISPR) }
     }
     
-    pub fn icpr_mut(&mut self, n: u8) -> &mut ICPR {
+    pub fn get_icpr_mut(&mut self, n: u8) -> &mut ICPR {
         let word_offset = NVICRegType::ICPR(n).offset() / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ICPR) }
     }
     
-    pub fn iabr_mut(&mut self, n: u8) -> &mut IABR {
+    pub fn get_iabr_mut(&mut self, n: u8) -> &mut IABR {
         let word_offset = NVICRegType::IABR(n).offset() / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut IABR) }
     }
     
-    pub fn ipr_mut(&mut self, n: u8) -> &mut IPR {
+    pub fn get_ipr_mut(&mut self, n: u8) -> &mut IPR {
         let word_offset = NVICRegType::IPR(n).offset() / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut IPR) }
     }

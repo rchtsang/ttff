@@ -71,7 +71,7 @@ pub enum SCRegType {
     NVIC(NVICRegType),
     /// mpu register
     MPU(MPURegType),
-    
+
     // todo: floating point extension scb registers
     // todo: cache and branch predictor maintenance
 
@@ -358,47 +358,6 @@ pub enum SCRegMut<'a> {
     SysTick(SysTickRegMut<'a>),
     NVIC(NVICRegMut<'a>),
     MPU(MPURegMut<'a>),
-}
-
-#[allow(unused)]
-impl SCReg {
-    fn _write_evt(&self, context: &mut Context) -> Result<(), context::Error> {
-        match self {
-            SCReg::CPUID(cpuid) => { todo!() }
-            SCReg::ICSR(icsr) => { todo!() }
-            SCReg::VTOR(vtor) => { todo!() }
-            SCReg::AIRCR(aircr) => { todo!() }
-            SCReg::SCR(scr) => { todo!() }
-            SCReg::CCR(ccr) => { todo!() }
-            SCReg::SHPR1(shpr1) => { todo!() }
-            SCReg::SHPR2(shpr2) => { todo!() }
-            SCReg::SHPR3(shpr3) => { todo!() }
-            SCReg::SHCSR(shcsr) => { todo!() }
-            SCReg::CFSR(cfsr) => { todo!() }
-            SCReg::HFSR(hfsr) => { todo!() }
-            SCReg::DFSR(dfsr) => { todo!() }
-            SCReg::MMFAR(mmfar) => { todo!() }
-            SCReg::BFAR(bfar) => { todo!() }
-            // SCReg::AFSR(afsr) => { todo!() }
-            SCReg::CPACR(cpacr) => { todo!() }
-            
-            // SCReg::FPCCR(fpccr) => { todo!() }
-            // SCReg::FPCAR(fpcar) => { todo!() }
-            // SCReg::FPDSCR(fpdscr) => { todo!() }
-            // SCReg::MVFR0(mvfr0) => { todo!() }
-            // SCReg::MVFR1(mvfr1) => { todo!() }
-            // SCReg::MVFR2(mvfr2) => { todo!() }
-        
-            // SCReg::MCR(mcr) => { todo!() }
-            SCReg::ICTR(ictr) => { todo!() }
-            // SCReg::ACTLR(actlr) => { todo!() }
-            SCReg::STIR(stir) => { todo!() }
-        
-            SCReg::SysTick(systickreg) => { todo!() }
-            SCReg::NVIC(nvicreg) => { todo!() }
-            SCReg::MPU(mpureg) => { todo!() }
-        }
-    }
 }
 
 /// provides identification information for the processor.

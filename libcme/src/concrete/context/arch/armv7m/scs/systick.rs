@@ -194,19 +194,19 @@ impl<'a> SysTickRegs<'a> {
 
     pub fn get_reg_ref(&self, regtype: SysTickRegType) -> SysTickRegRef {
         match regtype {
-            SysTickRegType::CSR => { SysTickRegRef::CSR(self.csr()) }
-            SysTickRegType::RVR => { SysTickRegRef::RVR(self.rvr()) }
-            SysTickRegType::CVR => { SysTickRegRef::CVR(self.cvr()) }
-            SysTickRegType::CALIB => { SysTickRegRef::CALIB(self.calib()) }
+            SysTickRegType::CSR => { SysTickRegRef::CSR(self.get_csr()) }
+            SysTickRegType::RVR => { SysTickRegRef::RVR(self.get_rvr()) }
+            SysTickRegType::CVR => { SysTickRegRef::CVR(self.get_cvr()) }
+            SysTickRegType::CALIB => { SysTickRegRef::CALIB(self.get_calib()) }
         }
     }
 
     pub fn get_reg_mut(&mut self, regtype: SysTickRegType) -> SysTickRegMut {
         match regtype {
-            SysTickRegType::CSR => { SysTickRegMut::CSR(self.csr_mut()) }
-            SysTickRegType::RVR => { SysTickRegMut::RVR(self.rvr_mut()) }
-            SysTickRegType::CVR => { SysTickRegMut::CVR(self.cvr_mut()) }
-            SysTickRegType::CALIB => { SysTickRegMut::CALIB(self.calib_mut()) }
+            SysTickRegType::CSR => { SysTickRegMut::CSR(self.get_csr_mut()) }
+            SysTickRegType::RVR => { SysTickRegMut::RVR(self.get_rvr_mut()) }
+            SysTickRegType::CVR => { SysTickRegMut::CVR(self.get_cvr_mut()) }
+            SysTickRegType::CALIB => { SysTickRegMut::CALIB(self.get_calib_mut()) }
         }
     }
 
@@ -218,8 +218,8 @@ impl<'a> SysTickRegs<'a> {
         if let Some(current) = maybe_current {
             self.backing[offset] = current;
             if current == 0 {
-                self.csr_mut().set_countflag(true);
-                return self.csr().tickint();
+                self.get_csr_mut().set_countflag(true);
+                return self.get_csr().tickint();
             }
         } else {
             let reload_offset = SysTickRegType::RVR.offset() / 4;
@@ -247,7 +247,7 @@ impl<'a> SysTickRegs<'a> {
                 };
                 dst.copy_from_slice(reg_slice);
                 // countflag is cleared to 0 by software read to register per B3.3.3
-                let csr = self.csr_mut();
+                let csr = self.get_csr_mut();
                 csr.set_countflag(false);
             }
             _ => {
@@ -279,7 +279,7 @@ impl<'a> SysTickRegs<'a> {
             });
         match reg {
             SysTickRegType::CSR => {
-                let csr = self.csr_mut();
+                let csr = self.get_csr_mut();
                 let tickint = csr.tickint();
                 let enable = csr.enable();
 
@@ -302,16 +302,19 @@ impl<'a> SysTickRegs<'a> {
             }
             SysTickRegType::RVR => {
                 // RVR only supports 24 bits
-                let rvr = self.rvr_mut();
+                let rvr = self.get_rvr_mut();
                 rvr.0 = write_val | 0x00FFFFFF;
             }
             SysTickRegType::CVR => {
                 // any write to CVR sets it to 0
-                let cvr = self.cvr_mut();
+                let cvr = self.get_cvr_mut();
                 cvr.0 = 0;
             }
             SysTickRegType::CALIB => {
                 // CALIB is read-only and implementation-defined
+                let address: Address = (BASE + offset as u32).into();
+                let err = Error::WriteAccessViolation(address);
+                return Err(ArchError::from(err).into());
             }
         }
         Ok(())
@@ -356,42 +359,42 @@ impl SysTickRegType {
 }
 
 impl<'a> SysTickRegs<'a> {
-    pub fn csr(&self) -> &CSR {
+    pub fn get_csr(&self) -> &CSR {
         let offset = SysTickRegType::CSR.offset() / 4;
         unsafe { &*(&self.backing[offset] as *const u32 as *const CSR) }
     }
 
-    pub fn rvr(&self) -> &RVR {
+    pub fn get_rvr(&self) -> &RVR {
         let offset = SysTickRegType::RVR.offset() / 4;
         unsafe { &*(&self.backing[offset] as *const u32 as *const RVR) }
     }
 
-    pub fn cvr(&self) -> &CVR {
+    pub fn get_cvr(&self) -> &CVR {
         let offset = SysTickRegType::CVR.offset() / 4;
         unsafe { &*(&self.backing[offset] as *const u32 as *const CVR) }
     }
 
-    pub fn calib(&self) -> &CALIB {
+    pub fn get_calib(&self) -> &CALIB {
         let offset = SysTickRegType::CALIB.offset() / 4;
         unsafe { &*(&self.backing[offset] as *const u32 as *const CALIB) }
     }
 
-    pub fn csr_mut(&mut self) -> &mut CSR {
+    pub fn get_csr_mut(&mut self) -> &mut CSR {
         let offset = SysTickRegType::CSR.offset() / 4;
         unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CSR) }
     }
 
-    pub fn rvr_mut(&mut self) -> &mut RVR {
+    pub fn get_rvr_mut(&mut self) -> &mut RVR {
         let offset = SysTickRegType::RVR.offset() / 4;
         unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut RVR) }
     }
 
-    pub fn cvr_mut(&mut self) -> &mut CVR {
+    pub fn get_cvr_mut(&mut self) -> &mut CVR {
         let offset = SysTickRegType::CVR.offset() / 4;
         unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CVR) }
     }
 
-    pub fn calib_mut(&mut self) -> &mut CALIB {
+    pub fn get_calib_mut(&mut self) -> &mut CALIB {
         let offset = SysTickRegType::CALIB.offset() / 4;
         unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CALIB) }
     }

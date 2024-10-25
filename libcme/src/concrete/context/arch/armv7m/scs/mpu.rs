@@ -67,7 +67,20 @@ impl MPURegType {
     }
 
     fn _data(&self) -> &'static MPURegData {
-        todo!()
+        match self {
+            MPURegType::TYPE    => { &MPURegData { offset: 0xd90, perms: 0b100, reset: None } }
+            MPURegType::CTRL    => { &MPURegData { offset: 0xd94, perms: 0b110, reset: Some(0) } }
+            MPURegType::RNR     => { &MPURegData { offset: 0xd98, perms: 0b110, reset: None } }
+            MPURegType::RBAR(0) => { &MPURegData { offset: 0xd9c, perms: 0b110, reset: None } }
+            MPURegType::RASR(0) => { &MPURegData { offset: 0xda0, perms: 0b110, reset: None } }
+            MPURegType::RBAR(1) => { &MPURegData { offset: 0xda4, perms: 0b110, reset: None } }
+            MPURegType::RASR(1) => { &MPURegData { offset: 0xda8, perms: 0b110, reset: None } }
+            MPURegType::RBAR(2) => { &MPURegData { offset: 0xdac, perms: 0b110, reset: None } }
+            MPURegType::RASR(2) => { &MPURegData { offset: 0xdb0, perms: 0b110, reset: None } }
+            MPURegType::RBAR(3) => { &MPURegData { offset: 0xdb4, perms: 0b110, reset: None } }
+            MPURegType::RASR(3) => { &MPURegData { offset: 0xdb8, perms: 0b110, reset: None } }
+            _ => { panic!("invalid reg type: {self:?}") }
+        }
     }
 }
 
@@ -101,6 +114,37 @@ pub enum MPURegMut<'a> {
     RASR(u8, &'a mut RASR),
 }
 
+/// mpu wrapper struct
+/// 
+/// used as temporary wrapper struct to interact with mpu registers
+/// and perform mpu-related register operations
+pub struct MPURegs<'a> {
+    backing: &'a mut [u32; 0xdec],
+}
+
+impl<'a> MPURegs<'a> {
+    pub fn new(backing: &'a mut [u32; 0xdec]) -> Self {
+        Self { backing }
+    }
+
+    /// perform an event-triggering read of mpu register bytes
+    pub fn read_bytes(&mut self,
+        offset: usize,
+        dst: &mut [u8],
+        _events: &mut VecDeque<Event>,
+    ) -> Result<(), context::Error> {
+        todo!()
+    }
+
+    /// perform an event-triggering write of mpu register bytes
+    pub fn write_bytes(&mut self,
+        offset: usize,
+        src: &[u8],
+        events: &mut VecDeque<Event>,
+    ) -> Result<(), context::Error> {
+        todo!()
+    }
+}
 
 /// The MPU Type Register indicates how many regions the MPU supports. 
 /// Software can use it to determine if the processor implements an MPU.
@@ -274,12 +318,134 @@ pub struct RASR {
 
 
 
+impl<'a> MPURegs<'a> {
+    fn _view_bytes(&self, word_offset: usize) -> &[u8; 4] {
+        assert!(word_offset < self.backing.len());
+        unsafe {
+            &*(&self.backing[word_offset] as *const u32 as *const [u8; 4])
+        }
+    }
+
+    fn _view_bytes_mut(&mut self, word_offset: usize) -> &mut [u8; 4] {
+        assert!(word_offset < self.backing.len());
+        unsafe {
+            &mut *(&mut self.backing[word_offset] as *mut u32 as *mut [u8; 4])
+        }
+    }
+
+    // get register references
+
+    pub fn get_reg_ref(&self, regtype: MPURegType) -> MPURegRef {
+        match regtype {
+            MPURegType::TYPE    => { MPURegRef::TYPE(self.get_type()) }
+            MPURegType::CTRL    => { MPURegRef::CTRL(self.get_ctrl()) }
+            MPURegType::RNR     => { MPURegRef::RNR(self.get_rnr()) }
+            MPURegType::RBAR(n) => { MPURegRef::RBAR(n, self.get_rbar(n)) }
+            MPURegType::RASR(n) => { MPURegRef::RASR(n, self.get_rasr(n)) }
+        }
+    }
+
+    pub fn get_reg_mut(&mut self, regtype: MPURegType) -> MPURegMut {
+        match regtype {
+            MPURegType::TYPE    => { MPURegMut::TYPE(self.get_type_mut()) }
+            MPURegType::CTRL    => { MPURegMut::CTRL(self.get_ctrl_mut()) }
+            MPURegType::RNR     => { MPURegMut::RNR(self.get_rnr_mut()) }
+            MPURegType::RBAR(n) => { MPURegMut::RBAR(n, self.get_rbar_mut(n)) }
+            MPURegType::RASR(n) => { MPURegMut::RASR(n, self.get_rasr_mut(n)) }
+        }
+    }
+
+    // register reference accessors
+
+    pub fn get_type(&self) -> &TYPE {
+        let word_offset = MPURegType::TYPE.offset() / 4;
+        unsafe { &*(&self.backing[word_offset] as *const u32 as *const TYPE) }
+    }
+
+    pub fn get_ctrl(&self) -> &CTRL {
+        let word_offset = MPURegType::CTRL.offset() / 4;
+        unsafe { &*(&self.backing[word_offset] as *const u32 as *const CTRL) }
+    }
+
+    pub fn get_rnr(&self) -> &RNR {
+        let word_offset = MPURegType::RNR.offset() / 4;
+        unsafe { &*(&self.backing[word_offset] as *const u32 as *const RNR) }
+    }
+
+    pub fn get_rbar(&self, n: u8) -> &RBAR {
+        let word_offset = MPURegType::RBAR(n).offset() / 4;
+        unsafe { &*(&self.backing[word_offset] as *const u32 as *const RBAR) }
+    }
+
+    pub fn get_rasr(&self, n: u8) -> &RASR {
+        let word_offset = MPURegType::RASR(n).offset() / 4;
+        unsafe { &*(&self.backing[word_offset] as *const u32 as *const RASR) }
+    }
+
+    pub fn get_type_mut(&mut self) -> &mut TYPE {
+        let word_offset = MPURegType::TYPE.offset() / 4;
+        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut TYPE) }
+    }
+
+    pub fn get_ctrl_mut(&mut self) -> &mut CTRL {
+        let word_offset = MPURegType::CTRL.offset() / 4;
+        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut CTRL) }
+    }
+
+    pub fn get_rnr_mut(&mut self) -> &mut RNR {
+        let word_offset = MPURegType::RNR.offset() / 4;
+        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut RNR) }
+    }
+
+    pub fn get_rbar_mut(&mut self, n: u8) -> &mut RBAR {
+        let word_offset = MPURegType::RBAR(n).offset() / 4;
+        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut RBAR) }
+    }
+    pub fn get_rasr_mut(&mut self, n: u8) -> &mut RASR {
+        let word_offset = MPURegType::RASR(n).offset() / 4;
+        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut RASR) }
+    }
+
+}
+
 impl MPURegType {
     pub(super) unsafe fn to_reg_ref<'a>(&self, int_ref: &'a u32) -> MPURegRef<'a> {
-        todo!()
+        match self {
+            MPURegType::TYPE => {
+                MPURegRef::try_from(&*(int_ref as *const u32 as *const TYPE)).unwrap()
+            }
+            MPURegType::CTRL => {
+                MPURegRef::try_from(&*(int_ref as *const u32 as *const CTRL)).unwrap()
+            }
+            MPURegType::RNR => {
+                MPURegRef::try_from(&*(int_ref as *const u32 as *const RNR)).unwrap()
+            }
+            MPURegType::RBAR(n) => {
+                MPURegRef::try_from((*n, &*(int_ref as *const u32 as *const RBAR))).unwrap()
+            }
+            MPURegType::RASR(n) => {
+                MPURegRef::try_from((*n, &*(int_ref as *const u32 as *const RASR))).unwrap()
+            }
+        }
     }
 
     pub(super) unsafe fn to_reg_mut<'a>(&self, int_ref: &'a mut u32) -> MPURegMut<'a> {
-        todo!()
+        match self {
+            MPURegType::TYPE => {
+                MPURegMut::try_from(&mut *(int_ref as *mut u32 as *mut TYPE)).unwrap()
+            }
+            MPURegType::CTRL => {
+                MPURegMut::try_from(&mut *(int_ref as *mut u32 as *mut CTRL)).unwrap()
+            }
+            MPURegType::RNR => {
+                MPURegMut::try_from(&mut *(int_ref as *mut u32 as *mut RNR)).unwrap()
+            }
+            MPURegType::RBAR(n) => {
+                MPURegMut::try_from((*n, &mut *(int_ref as *mut u32 as *mut RBAR))).unwrap()
+            }
+            MPURegType::RASR(n) => {
+                MPURegMut::try_from((*n, &mut *(int_ref as *mut u32 as *mut RASR))).unwrap()
+            }
+        }
     }
 }
