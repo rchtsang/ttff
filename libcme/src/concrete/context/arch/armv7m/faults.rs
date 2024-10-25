@@ -2,6 +2,7 @@
 //! 
 //! architecture-defined faults
 
+#[allow(unused)]
 use super::*;
 
 /// fault types

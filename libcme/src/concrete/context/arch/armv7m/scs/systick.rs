@@ -189,39 +189,21 @@ impl<'a> SysTickRegs<'a> {
         Self { backing }
     }
 
-    pub fn get_reg(&self, offset: usize) -> Option<SysTickRegRef> {
-        let regtype = SysTickRegType::lookup_offset(offset)?;
+    pub fn get_reg(&self, regtype: SysTickRegType) -> SysTickRegRef {
         match regtype {
-            SysTickRegType::CSR => {
-                Some(SysTickRegRef::CSR(self.csr()))
-            }
-            SysTickRegType::RVR => {
-                Some(SysTickRegRef::RVR(self.rvr()))
-            }
-            SysTickRegType::CVR => {
-                Some(SysTickRegRef::CVR(self.cvr()))
-            }
-            SysTickRegType::CALIB => {
-                Some(SysTickRegRef::CALIB(self.calib()))
-            }
+            SysTickRegType::CSR => { SysTickRegRef::CSR(self.csr()) }
+            SysTickRegType::RVR => { SysTickRegRef::RVR(self.rvr()) }
+            SysTickRegType::CVR => { SysTickRegRef::CVR(self.cvr()) }
+            SysTickRegType::CALIB => { SysTickRegRef::CALIB(self.calib()) }
         }
     }
 
-    pub fn get_reg_mut(&mut self, offset: usize) -> Option<SysTickRegMut> {
-        let regtype = SysTickRegType::lookup_offset(offset)?;
+    pub fn get_reg_mut(&mut self, regtype: SysTickRegType) -> SysTickRegMut {
         match regtype {
-            SysTickRegType::CSR => {
-                Some(SysTickRegMut::CSR(self.csr_mut()))
-            }
-            SysTickRegType::RVR => {
-                Some(SysTickRegMut::RVR(self.rvr_mut()))
-            }
-            SysTickRegType::CVR => {
-                Some(SysTickRegMut::CVR(self.cvr_mut()))
-            }
-            SysTickRegType::CALIB => {
-                Some(SysTickRegMut::CALIB(self.calib_mut()))
-            }
+            SysTickRegType::CSR => { SysTickRegMut::CSR(self.csr_mut()) }
+            SysTickRegType::RVR => { SysTickRegMut::RVR(self.rvr_mut()) }
+            SysTickRegType::CVR => { SysTickRegMut::CVR(self.cvr_mut()) }
+            SysTickRegType::CALIB => { SysTickRegMut::CALIB(self.calib_mut()) }
         }
     }
 

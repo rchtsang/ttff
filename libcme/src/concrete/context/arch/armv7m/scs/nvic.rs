@@ -103,10 +103,26 @@ impl<'a> NVICRegs<'a> {
     pub fn read_bytes(&mut self,
         offset: usize,
         dst: &mut [u8],
-        events: &mut VecDeque<Event>,
+        _events: &mut VecDeque<Event>,
     ) -> Result<(), context::Error> {
-        check_alignment(BASE + offset as u32, dst.len(), Alignment::Any)?;
-        todo!()
+        let word_offset = offset / 4;
+        let address = BASE + offset as u32;
+        let reg_type = NVICRegType::lookup_offset(offset)
+            .ok_or_else(| | {
+                ArchError::from(Error::InvalidSysCtrlReg(address.into()))
+            })?;
+        match reg_type {
+            NVICRegType::IPR(_n) => {
+                check_alignment(address, dst.len(), Alignment::Any)?;
+            }
+            _ => {
+                check_alignment(address, dst.len(), Alignment::Word)?;
+            }
+        }
+        let reg_slice = self._view_bytes(word_offset);
+        let byte_offset = offset & 0b11;
+        dst.copy_from_slice(&reg_slice[byte_offset..]);
+        Ok(())
     }
 
     /// perform an event-triggering write of nvic register bytes
@@ -436,6 +452,30 @@ impl<'a> NVICRegs<'a> {
         assert!(word_offset < self.backing.len());
         unsafe {
             &mut *(&mut self.backing[word_offset] as *mut u32 as *mut [u8; 4])
+        }
+    }
+
+    // get register references
+
+    pub fn get_reg_ref(&self, regtype: NVICRegType) -> NVICRegRef {
+        match regtype {
+            NVICRegType::ISER(n) => { NVICRegRef::ISER(n, self.iser(n)) }
+            NVICRegType::ICER(n) => { NVICRegRef::ICER(n, self.icer(n)) }
+            NVICRegType::ISPR(n) => { NVICRegRef::ISPR(n, self.ispr(n)) }
+            NVICRegType::ICPR(n) => { NVICRegRef::ICPR(n, self.icpr(n)) }
+            NVICRegType::IABR(n) => { NVICRegRef::IABR(n, self.iabr(n)) }
+            NVICRegType::IPR(n) => { NVICRegRef::IPR(n, self.ipr(n)) }
+        }
+    }
+
+    pub fn get_reg_mut(&mut self, regtype: NVICRegType) -> NVICRegMut {
+        match regtype {
+            NVICRegType::ISER(n) => { NVICRegMut::ISER(n, self.iser_mut(n)) }
+            NVICRegType::ICER(n) => { NVICRegMut::ICER(n, self.icer_mut(n)) }
+            NVICRegType::ISPR(n) => { NVICRegMut::ISPR(n, self.ispr_mut(n)) }
+            NVICRegType::ICPR(n) => { NVICRegMut::ICPR(n, self.icpr_mut(n)) }
+            NVICRegType::IABR(n) => { NVICRegMut::IABR(n, self.iabr_mut(n)) }
+            NVICRegType::IPR(n) => { NVICRegMut::IPR(n, self.ipr_mut(n)) }
         }
     }
     
