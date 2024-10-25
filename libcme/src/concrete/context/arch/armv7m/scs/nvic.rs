@@ -105,7 +105,7 @@ impl<'a> NVICRegs<'a> {
         dst: &mut [u8],
         events: &mut VecDeque<Event>,
     ) -> Result<(), context::Error> {
-        assert_ne!(offset & 0b11, 0b11, "offset must be word, halfword, or byte aligned");
+        check_alignment(BASE + offset as u32, dst.len(), Alignment::Any)?;
         todo!()
     }
 
@@ -115,7 +115,7 @@ impl<'a> NVICRegs<'a> {
         src: &[u8],
         events: &mut VecDeque<Event>,
     ) -> Result<(), context::Error> {
-        assert_ne!(offset & 0b11, 0b11, "offset must be word, halfword, or byte aligned");
+        check_alignment(BASE + offset as u32, src.len(), Alignment::Any)?;
         let word_offset = offset / 4;
         let reg_type = NVICRegType::lookup_offset(offset)
             .ok_or_else( | | {
@@ -128,38 +128,96 @@ impl<'a> NVICRegs<'a> {
             });
         match reg_type {
             NVICRegType::IPR(_n) => {
-                assert!( // check access alignment
-                    // byte aligned on odd offset
-                    ((offset & 0b1 == 0b1) && (src.len() == 1))
-                    // halfword aligned on offset (mod 2) == 2
-                    || ((offset & 0b10 == 0b10) && (src.len() == 2))
-                    // word or halfword aligned on offset (mod 4) == 0
-                    || ((offset & 0b11 == 0b00) && (src.len() == 4))
-                );
                 let byte_offset = offset & 0b11;
                 let slice = self._view_bytes_mut(word_offset);
                 let slice = &mut slice[byte_offset..];
                 slice.copy_from_slice(src);
             }
             NVICRegType::ISER(n) => {
-                assert_eq!(offset & 0b11, 0, "offset must be word-aligned");
+                check_alignment(BASE + offset as u32, src.len(), Alignment::Word)?;
+                // upper bits ignored for n == 15
+                let write_val = if n == 15 { write_val & 0xFFFF } else { write_val };
+                
                 let iser = self.iser_mut(n);
-                iser.0 = write_val;
-                for bit_n in BitIter::from(write_val) {
-                    let excp = ExceptionType::from(16 + bit_n as u32);
+                let masked_set_val  = (iser.0 ^ write_val) & write_val;
+                for bit_n in BitIter::from(masked_set_val) {
+                    let ext_num = (32 * n as u32) + bit_n as u32;
+                    let excp = ExceptionType::from(16 + ext_num);
                     events.push_back(Event::ExceptionEnabled(excp, true));
                 }
+                iser.0 |= masked_set_val;
+
+                // update icer by setting changed bits (keep enable status consistent)
+                let icer = self.icer_mut(n);
+                icer.0 |= masked_set_val;
             }
-            NVICRegType::ICER(n) => { todo!() }
-            NVICRegType::ISPR(n) => { todo!() }
-            NVICRegType::ICPR(n) => { todo!() }
-            NVICRegType::IABR(n) => { todo!() }
+            NVICRegType::ICER(n) => {
+                check_alignment(BASE + offset as u32, src.len(), Alignment::Word)?;
+                // upper bits ignored for n == 15
+                let write_val = if n == 15 { write_val & 0xFFFF } else { write_val };
+                
+                let icer = self.icer_mut(n);
+                let masked_set_val  = (icer.0 ^ write_val) & write_val;
+                for bit_n in BitIter::from(masked_set_val) {
+                    let ext_num = (32 * n as u32) + bit_n as u32;
+                    let excp = ExceptionType::from(16 + ext_num);
+                    events.push_back(Event::ExceptionEnabled(excp, false));
+                }
+                icer.0 &= !masked_set_val;
+
+                // update iser by clearing changed bits (keep enable status consistent)
+                let iser = self.iser_mut(n);
+                iser.0 &= !masked_set_val;
+
+            }
+            NVICRegType::ISPR(n) => {
+                check_alignment(BASE + offset as u32, src.len(), Alignment::Word)?;
+                // upper bits ignored for n == 15
+                let write_val = if n == 15 { write_val & 0xFFFF } else { write_val };
+                
+                let ispr  = self.ispr_mut(n);
+                let masked_set_val  = (ispr.0 ^ write_val) & write_val;
+                for bit_n in BitIter::from(masked_set_val) {
+                    let ext_num = (32 * n as u32) + bit_n as u32;
+                    let excp = ExceptionType::from(16 + ext_num);
+                    events.push_back(Event::ExceptionSetPending(excp, true));
+                }
+                ispr.0 |= masked_set_val;
+
+                // update icpr by setting changed bits
+                let icpr = self.icpr_mut(n);
+                icpr.0 |= masked_set_val;
+            }
+            NVICRegType::ICPR(n) => {
+                check_alignment(BASE + offset as u32, src.len(), Alignment::Word)?;
+                // upper bits ignored for n == 15
+                let write_val = if n == 15 { write_val & 0xFFFF } else { write_val };
+                
+                let icpr = self.icpr_mut(n);
+                let masked_set_val = (icpr.0 ^ write_val) & write_val;
+                for bit_n in BitIter::from(masked_set_val) {
+                    let ext_num = (32 * n as u32) + bit_n as u32;
+                    let excp = ExceptionType::from(16 + ext_num);
+                    events.push_back(Event::ExceptionSetPending(excp, false));
+                }
+                icpr.0 &= !masked_set_val;
+
+                // update ispr by clearing changed bits
+                let ispr = self.ispr_mut(n);
+                ispr.0 &= !masked_set_val;
+            }
+            NVICRegType::IABR(_n) => {
+                // iabr is read-only
+                let address: Address = (BASE + offset as u32).into();
+                let err = Error::WriteAccessViolation(address);
+                return Err(ArchError::from(err).into());
+            }
         }
         Ok(())
     }
 }
 
-
+#[allow(unused)]
 /// state for nested vector interrupt controller
 #[derive(Debug, Clone)]
 pub struct NVICState {

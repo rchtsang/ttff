@@ -5,7 +5,9 @@
 //! implement the minimum necessary peripherals to emulate a cortex-m3
 //! microprocessor.
 use std::{
-    collections::{vec_deque, VecDeque}, ops::Range, sync::Arc
+    collections::VecDeque,
+    ops::Range,
+    sync::Arc,
 };
 
 use thiserror::Error;
@@ -23,7 +25,12 @@ use fugue_core::eval::fixed_state::FixedState;
 
 use crate::concrete::{
     types::*,
-    context::{self, CtxRequest, CtxResponse},
+    context::{
+        self,
+        CtxRequest,
+        CtxResponse,
+        Alignment,
+    },
 };
 use crate::peripheral::Peripheral;
 
@@ -47,15 +54,48 @@ pub use faults::*;
 pub enum Error {
     #[error("invalid userop id: {0}")]
     InvalidUserOp(usize),
-    #[error("invalid system control register: {0}")]
+    #[error("invalid system control register: {0:#x?}")]
     InvalidSysCtrlReg(Address),
     #[error("unimplemented system control register: {0:?}")]
     UnimplementedSysCtrlReg(SCRegType),
+    #[error("attempted to write to read-only address: {0:#x?}")]
+    WriteAccessViolation(Address),
+    #[error("attempted to read to write-only address: {0:#x?}")]
+    ReadAccessViolation(Address),
+    #[error("illegal access alignment @ [{0:#x?}; {1}], expected: {2:?}")]
+    AlignmentViolation(Address, usize, Alignment),
 }
 
 impl Into<context::Error> for Error {
     fn into(self) -> context::Error {
         context::Error::from(super::Error::from(self))
+    }
+}
+
+/// helper function to check for an expected alignment
+pub fn check_alignment(address: u32, size: usize, expected: Alignment) -> Result<(), ArchError> {
+    match expected {
+        Alignment::Byte if (
+            (size == 1)
+        ) => { Ok(()) }
+        Alignment::Half if (
+            (address & 1 == 0) && (size == 2)
+        ) => { Ok(()) }
+        Alignment::Word if (
+            (address & 0b11 == 0) && (size == 4)
+        ) => { Ok(()) }
+        Alignment::Even if (
+            ((address & 0b11 == 2) && (size == 2))
+            || ((address & 1 == 0) && (size & 1 == 0))
+        ) => { Ok(()) }
+        Alignment::Any if (
+            ((address & 1 == 1) && (size == 1))
+            || ((address & 0b11 == 2) && (size == 2))
+            || ((address & 0b11 == 0) && (size & 1 == 0))
+        ) => { Ok(()) }
+        _ => {
+            Err(Error::AlignmentViolation(address.into(), size, expected).into())
+        }
     }
 }
 

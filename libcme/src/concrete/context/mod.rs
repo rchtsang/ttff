@@ -84,6 +84,16 @@ flags! {
     }
 }
 
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Alignment {
+    Byte = 0b001,
+    Half = 0b010,
+    Word = 0b100,
+    Even = 0b110,
+    Any  = 0b111,
+}
+
 /// context request
 /// 
 /// evaluator interacts with context using message passing pattern
