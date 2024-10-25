@@ -2,7 +2,7 @@
 //! 
 //! implementation of the nested vector interrupt controller for armv7m
 use bitfield_struct::bitfield;
-use derive_more::derive::{TryFrom, TryInto};
+use derive_more::derive::{From, TryFrom, TryInto};
 
 use super::*;
 
@@ -56,7 +56,7 @@ impl NVICRegType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, TryFrom, TryInto)]
+#[derive(Debug, Clone, PartialEq, Eq, From, TryFrom, TryInto)]
 #[try_into(owned, ref, ref_mut)]
 pub enum NVICReg {
     ISER(u8, ISER),
@@ -67,7 +67,7 @@ pub enum NVICReg {
     IPR(u8, IPR),
 }
 
-#[derive(Debug, TryFrom, TryInto, Clone)]
+#[derive(Debug, From, TryFrom, TryInto, Clone)]
 #[try_into(owned, ref, ref_mut)]
 pub enum NVICRegRef<'a> {
     ISER(u8, &'a ISER),
@@ -78,7 +78,7 @@ pub enum NVICRegRef<'a> {
     IPR(u8, &'a IPR),
 }
 
-#[derive(Debug, TryFrom, TryInto)]
+#[derive(Debug, From, TryFrom, TryInto)]
 #[try_into(owned, ref, ref_mut)]
 pub enum NVICRegMut<'a> {
     ISER(u8, &'a mut ISER),
@@ -656,5 +656,29 @@ impl<'a> NVICRegs<'a> {
     pub fn ipr_mut(&mut self, n: u8) -> &mut IPR {
         let word_offset = NVICRegType::IPR(n).offset() / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut IPR) }
+    }
+}
+
+impl NVICRegType {
+    pub(super) unsafe fn to_reg_ref<'a>(&self, int_ref: &'a u32) -> NVICRegRef<'a> {
+        match self {
+            NVICRegType::ISER(n) => { NVICRegRef::try_from((*n, &*(int_ref as *const u32 as *const ISER))).unwrap() }
+            NVICRegType::ICER(n) => { NVICRegRef::try_from((*n, &*(int_ref as *const u32 as *const ICER))).unwrap() }
+            NVICRegType::ISPR(n) => { NVICRegRef::try_from((*n, &*(int_ref as *const u32 as *const ISPR))).unwrap() }
+            NVICRegType::ICPR(n) => { NVICRegRef::try_from((*n, &*(int_ref as *const u32 as *const ICPR))).unwrap() }
+            NVICRegType::IABR(n) => { NVICRegRef::try_from((*n, &*(int_ref as *const u32 as *const IABR))).unwrap() }
+            NVICRegType::IPR(n) => { NVICRegRef::try_from((*n, &*(int_ref as *const u32 as *const IPR))).unwrap() }
+        }
+    }
+
+    pub(super) unsafe fn to_reg_mut<'a>(&self, int_ref: &'a mut u32) -> NVICRegMut<'a> {
+        match self {
+            NVICRegType::ISER(n) => { NVICRegMut::try_from((*n, &mut *(int_ref as *mut u32 as *mut ISER))).unwrap() }
+            NVICRegType::ICER(n) => { NVICRegMut::try_from((*n, &mut *(int_ref as *mut u32 as *mut ICER))).unwrap() }
+            NVICRegType::ISPR(n) => { NVICRegMut::try_from((*n, &mut *(int_ref as *mut u32 as *mut ISPR))).unwrap() }
+            NVICRegType::ICPR(n) => { NVICRegMut::try_from((*n, &mut *(int_ref as *mut u32 as *mut ICPR))).unwrap() }
+            NVICRegType::IABR(n) => { NVICRegMut::try_from((*n, &mut *(int_ref as *mut u32 as *mut IABR))).unwrap() }
+            NVICRegType::IPR(n) => { NVICRegMut::try_from((*n, &mut *(int_ref as *mut u32 as *mut IPR))).unwrap() }
+        }
     }
 }

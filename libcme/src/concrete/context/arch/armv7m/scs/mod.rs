@@ -78,7 +78,7 @@ impl SysCtrlSpace {
             let address = Address::from(BASE + offset as u32);
             return Err(Error::InvalidSysCtrlReg(address));
         };
-        reg_type.to_reg_ref(&self.backing[offset / 4])
+        unsafe { reg_type.to_reg_ref(&self.backing[offset / 4]) }
     }
 
     /// get byte offset as a mutable register reference (if applicable)
@@ -88,7 +88,7 @@ impl SysCtrlSpace {
             let address = Address::from(BASE + offset as u32);
             return Err(Error::InvalidSysCtrlReg(address))
         };
-        reg_type.to_reg_mut(&mut self.backing[offset / 4])
+        unsafe { reg_type.to_reg_mut(&mut self.backing[offset / 4]) }
     }
 
     #[instrument]

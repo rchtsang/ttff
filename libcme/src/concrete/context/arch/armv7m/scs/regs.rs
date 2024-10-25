@@ -40,7 +40,7 @@ pub enum SCRegType {
 
     SysTick(SysTickRegType),    // systick register
     NVIC(NVICRegType),          // nvic register
-    MPU(MPUReg),            // mpu register
+    MPU(MPURegType),            // mpu register
     // todo: floating point extension scb registers
     // todo: cache and branch predictor maintenance
 
@@ -148,149 +148,11 @@ impl SCRegType {
                     .map(|nvic_reg| SCRegType::NVIC(nvic_reg))
             }
             0xd90 ..= 0xdef => {
-                MPUReg::lookup_offset(offset)
+                MPURegType::lookup_offset(offset)
                     .map(|mpu_reg| SCRegType::MPU(mpu_reg))
             }
 
             _ => { None }
-        }
-    }
-
-    pub(super) unsafe fn to_reg_ref<'a>(&self, int_ref: &'a u32) -> Result<SCRegRef<'a>, Error> {
-        match self {
-            SCRegType::CPUID => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const CPUID)).unwrap())
-            }
-            SCRegType::ICSR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const ICSR)).unwrap())
-            }
-            SCRegType::VTOR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const VTOR)).unwrap())
-            }
-            SCRegType::AIRCR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const AIRCR)).unwrap())
-            }
-            SCRegType::SCR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const SCR)).unwrap())
-            }
-            SCRegType::CCR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const CCR)).unwrap())
-            }
-            SCRegType::SHPR1(_) => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const SHPR1)).unwrap())
-            }
-            SCRegType::SHPR2(_) => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const SHPR2)).unwrap())
-            }
-            SCRegType::SHPR3(_) => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const SHPR3)).unwrap())
-            }
-            SCRegType::SHCSR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const SHCSR)).unwrap())
-            }
-            SCRegType::CFSR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const CFSR)).unwrap())
-            }
-            SCRegType::HFSR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const HFSR)).unwrap())
-            }
-            SCRegType::DFSR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const DFSR)).unwrap())
-            }
-            SCRegType::MMFAR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const MMFAR)).unwrap())
-            }
-            SCRegType::BFAR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const BFAR)).unwrap())
-            }
-            SCRegType::CPACR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const CPACR)).unwrap())
-            }
-            SCRegType::ICTR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const ICTR)).unwrap())
-            }
-            SCRegType::STIR => {
-                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const STIR)).unwrap())
-            }
-            // SCRegType::SysTick(_)   => { 
-            //     
-            // }
-            // SCRegType::NVIC(_)      => { 
-            //     
-            // }
-            // SCRegType::MPU(_)       => { 
-            //     
-            // }                
-            _ => { Err(Error::UnimplementedSysCtrlReg(self.clone())) }
-        }
-    }
-
-    pub(super) unsafe fn to_reg_mut<'a>(&self, int_ref: &'a mut u32) -> Result<SCRegMut<'a>, Error> {
-        match self {
-            SCRegType::CPUID => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CPUID)).unwrap())
-            }
-            SCRegType::ICSR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut ICSR)).unwrap())
-            }
-            SCRegType::VTOR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut VTOR)).unwrap())
-            }
-            SCRegType::AIRCR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut AIRCR)).unwrap())
-            }
-            SCRegType::SCR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut SCR)).unwrap())
-            }
-            SCRegType::CCR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CCR)).unwrap())
-            }
-            SCRegType::SHPR1(_) => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut SHPR1)).unwrap())
-            }
-            SCRegType::SHPR2(_) => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut SHPR2)).unwrap())
-            }
-            SCRegType::SHPR3(_) => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut SHPR3)).unwrap())
-            }
-            SCRegType::SHCSR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut SHCSR)).unwrap())
-            }
-            SCRegType::CFSR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CFSR)).unwrap())
-            }
-            SCRegType::HFSR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut HFSR)).unwrap())
-            }
-            SCRegType::DFSR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut DFSR)).unwrap())
-            }
-            SCRegType::MMFAR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut MMFAR)).unwrap())
-            }
-            SCRegType::BFAR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut BFAR)).unwrap())
-            }
-            SCRegType::CPACR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CPACR)).unwrap())
-            }
-            SCRegType::ICTR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut ICTR)).unwrap())
-            }
-            SCRegType::STIR => {
-                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut STIR)).unwrap())
-            }
-            // SCRegType::SysTick(_)   => { 
-            //     
-            // }
-            // SCRegType::NVIC(_)      => { 
-            //     
-            // }
-            // SCRegType::MPU(_)       => { 
-            //     
-            // }                
-            _ => { Err(Error::UnimplementedSysCtrlReg(self.clone())) }
         }
     }
 }
@@ -417,9 +279,9 @@ pub enum SCRegRef<'a> {
     ICTR(&'a ICTR),
     // ACTLR(&'a ACTLR),
     STIR(&'a STIR),
-    SysTick(&'a SysTickReg),
-    NVIC(&'a NVICReg),
-    MPU(&'a MPUReg),    
+    SysTick(SysTickRegRef<'a>),
+    NVIC(NVICRegRef<'a>),
+    MPU(MPURegRef<'a>),
 }
 
 #[derive(Debug, From, TryInto, TryFrom)]
@@ -452,9 +314,9 @@ pub enum SCRegMut<'a> {
     ICTR(&'a mut ICTR),
     // ACTLR(&'a mut ACTLR),
     STIR(&'a mut STIR),
-    SysTick(&'a mut SysTickReg),
-    NVIC(&'a mut NVICReg),
-    MPU(&'a mut MPUReg),    
+    SysTick(SysTickRegMut<'a>),
+    NVIC(NVICRegMut<'a>),
+    MPU(MPURegMut<'a>),
 }
 
 #[allow(unused)]
@@ -1246,5 +1108,149 @@ impl STIR {
 
     pub fn write_evt(&self) -> Vec<Event> {
         vec![Event::ExceptionSetActive(ExceptionType::ExternalInterrupt(self.exception_number()), true)]
+    }
+}
+
+
+
+
+
+impl SCRegType {
+    pub(super) unsafe fn to_reg_ref<'a>(&self, int_ref: &'a u32) -> Result<SCRegRef<'a>, Error> {
+        match self {
+            SCRegType::CPUID => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const CPUID)).unwrap())
+            }
+            SCRegType::ICSR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const ICSR)).unwrap())
+            }
+            SCRegType::VTOR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const VTOR)).unwrap())
+            }
+            SCRegType::AIRCR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const AIRCR)).unwrap())
+            }
+            SCRegType::SCR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const SCR)).unwrap())
+            }
+            SCRegType::CCR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const CCR)).unwrap())
+            }
+            SCRegType::SHPR1(_) => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const SHPR1)).unwrap())
+            }
+            SCRegType::SHPR2(_) => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const SHPR2)).unwrap())
+            }
+            SCRegType::SHPR3(_) => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const SHPR3)).unwrap())
+            }
+            SCRegType::SHCSR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const SHCSR)).unwrap())
+            }
+            SCRegType::CFSR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const CFSR)).unwrap())
+            }
+            SCRegType::HFSR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const HFSR)).unwrap())
+            }
+            SCRegType::DFSR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const DFSR)).unwrap())
+            }
+            SCRegType::MMFAR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const MMFAR)).unwrap())
+            }
+            SCRegType::BFAR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const BFAR)).unwrap())
+            }
+            SCRegType::CPACR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const CPACR)).unwrap())
+            }
+            SCRegType::ICTR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const ICTR)).unwrap())
+            }
+            SCRegType::STIR => {
+                Ok(SCRegRef::try_from(&*(int_ref as *const u32 as *const STIR)).unwrap())
+            }
+            SCRegType::SysTick(systick_regtype) => {
+                Ok(SCRegRef::SysTick(systick_regtype.to_reg_ref(int_ref)))
+            }
+            SCRegType::NVIC(nvic_regtype) => {
+                Ok(SCRegRef::NVIC(nvic_regtype.to_reg_ref(int_ref)))
+            }
+            SCRegType::MPU(mpu_regtype) => {
+                Ok(SCRegRef::MPU(mpu_regtype.to_reg_ref(int_ref)))
+            }
+            _ => { Err(Error::UnimplementedSysCtrlReg(self.clone())) }
+        }
+    }
+
+    pub(super) unsafe fn to_reg_mut<'a>(&self, int_ref: &'a mut u32) -> Result<SCRegMut<'a>, Error> {
+        match self {
+            SCRegType::CPUID => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CPUID)).unwrap())
+            }
+            SCRegType::ICSR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut ICSR)).unwrap())
+            }
+            SCRegType::VTOR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut VTOR)).unwrap())
+            }
+            SCRegType::AIRCR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut AIRCR)).unwrap())
+            }
+            SCRegType::SCR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut SCR)).unwrap())
+            }
+            SCRegType::CCR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CCR)).unwrap())
+            }
+            SCRegType::SHPR1(_) => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut SHPR1)).unwrap())
+            }
+            SCRegType::SHPR2(_) => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut SHPR2)).unwrap())
+            }
+            SCRegType::SHPR3(_) => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut SHPR3)).unwrap())
+            }
+            SCRegType::SHCSR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut SHCSR)).unwrap())
+            }
+            SCRegType::CFSR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CFSR)).unwrap())
+            }
+            SCRegType::HFSR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut HFSR)).unwrap())
+            }
+            SCRegType::DFSR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut DFSR)).unwrap())
+            }
+            SCRegType::MMFAR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut MMFAR)).unwrap())
+            }
+            SCRegType::BFAR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut BFAR)).unwrap())
+            }
+            SCRegType::CPACR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CPACR)).unwrap())
+            }
+            SCRegType::ICTR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut ICTR)).unwrap())
+            }
+            SCRegType::STIR => {
+                Ok(SCRegMut::try_from(&mut *(int_ref as *mut u32 as *mut STIR)).unwrap())
+            }
+            SCRegType::SysTick(systick_regtype) => {
+                Ok(SCRegMut::SysTick(systick_regtype.to_reg_mut(int_ref)))
+            }
+            SCRegType::NVIC(nvic_regtype) => {
+                Ok(SCRegMut::NVIC(nvic_regtype.to_reg_mut(int_ref)))
+            }
+            SCRegType::MPU(mpu_regtype) => {
+                Ok(SCRegMut::MPU(mpu_regtype.to_reg_mut(int_ref)))
+            }
+            _ => { Err(Error::UnimplementedSysCtrlReg(self.clone())) }
+        }
     }
 }

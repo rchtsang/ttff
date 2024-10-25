@@ -5,7 +5,7 @@
 //! note: assumes implementation MUST be little endian
 //! which _should_ be Rust's default endianness (i think. big assumption...)
 
-use derive_more::{TryFrom, TryInto};
+use derive_more::{From, TryFrom, TryInto};
 use bitfield_struct::bitfield;
 
 use super::*;
@@ -62,7 +62,8 @@ impl SysTickRegType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, TryFrom, TryInto)]
+#[derive(Debug, Clone, PartialEq, Eq, From, TryFrom, TryInto)]
+#[try_into(owned, ref, ref_mut)]
 pub enum SysTickReg {
     CSR(CSR),       // systick control and status register
     RVR(RVR),       // systick reload value register
@@ -70,7 +71,8 @@ pub enum SysTickReg {
     CALIB(CALIB),   // systick calibration value register
 }
 
-#[derive(Debug, Clone, TryFrom, TryInto)]
+#[derive(Debug, Clone, From, TryFrom, TryInto)]
+#[try_into(owned, ref, ref_mut)]
 pub enum SysTickRegRef<'a> {
     CSR(&'a CSR),
     RVR(&'a RVR),
@@ -78,7 +80,8 @@ pub enum SysTickRegRef<'a> {
     CALIB(&'a CALIB),
 }
 
-#[derive(Debug, TryFrom, TryInto)]
+#[derive(Debug, From, TryFrom, TryInto)]
+#[try_into(owned, ref, ref_mut)]
 pub enum SysTickRegMut<'a> {
     CSR(&'a mut CSR),
     RVR(&'a mut RVR),
@@ -189,7 +192,7 @@ impl<'a> SysTickRegs<'a> {
         Self { backing }
     }
 
-    pub fn get_reg(&self, regtype: SysTickRegType) -> SysTickRegRef {
+    pub fn get_reg_ref(&self, regtype: SysTickRegType) -> SysTickRegRef {
         match regtype {
             SysTickRegType::CSR => { SysTickRegRef::CSR(self.csr()) }
             SysTickRegType::RVR => { SysTickRegRef::RVR(self.rvr()) }
@@ -205,46 +208,6 @@ impl<'a> SysTickRegs<'a> {
             SysTickRegType::CVR => { SysTickRegMut::CVR(self.cvr_mut()) }
             SysTickRegType::CALIB => { SysTickRegMut::CALIB(self.calib_mut()) }
         }
-    }
-
-    pub fn csr(&self) -> &CSR {
-        let offset = SysTickRegType::CSR.offset() / 4;
-        unsafe { &*(&self.backing[offset] as *const u32 as *const CSR) }
-    }
-
-    pub fn rvr(&self) -> &RVR {
-        let offset = SysTickRegType::RVR.offset() / 4;
-        unsafe { &*(&self.backing[offset] as *const u32 as *const RVR) }
-    }
-
-    pub fn cvr(&self) -> &CVR {
-        let offset = SysTickRegType::CVR.offset() / 4;
-        unsafe { &*(&self.backing[offset] as *const u32 as *const CVR) }
-    }
-
-    pub fn calib(&self) -> &CALIB {
-        let offset = SysTickRegType::CALIB.offset() / 4;
-        unsafe { &*(&self.backing[offset] as *const u32 as *const CALIB) }
-    }
-
-    pub fn csr_mut(&mut self) -> &mut CSR {
-        let offset = SysTickRegType::CSR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CSR) }
-    }
-
-    pub fn rvr_mut(&mut self) -> &mut RVR {
-        let offset = SysTickRegType::RVR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut RVR) }
-    }
-
-    pub fn cvr_mut(&mut self) -> &mut CVR {
-        let offset = SysTickRegType::CVR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CVR) }
-    }
-
-    pub fn calib_mut(&mut self) -> &mut CALIB {
-        let offset = SysTickRegType::CALIB.offset() / 4;
-        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CALIB) }
     }
 
     /// decrement the systick counter, reload if necessary.
@@ -352,5 +315,84 @@ impl<'a> SysTickRegs<'a> {
             }
         }
         Ok(())
+    }
+}
+
+
+impl SysTickRegType {
+    pub(super) unsafe fn to_reg_ref<'a>(&self, int_ref: &'a u32) -> SysTickRegRef<'a> {
+        match self {
+            SysTickRegType::CSR => {
+                SysTickRegRef::try_from(&*(int_ref as *const u32 as *const CSR)).unwrap()
+            }
+            SysTickRegType::RVR => {
+                SysTickRegRef::try_from(&*(int_ref as *const u32 as *const RVR)).unwrap()
+            }
+            SysTickRegType::CVR => {
+                SysTickRegRef::try_from(&*(int_ref as *const u32 as *const CVR)).unwrap()
+            }
+            SysTickRegType::CALIB => {
+                SysTickRegRef::try_from(&*(int_ref as *const u32 as *const CALIB)).unwrap()
+            }
+        }
+    }
+
+    pub(super) unsafe fn to_reg_mut<'a>(&self, int_ref: &'a mut u32) -> SysTickRegMut<'a> {
+        match self {
+            SysTickRegType::CSR => {
+                SysTickRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CSR)).unwrap()
+            }
+            SysTickRegType::RVR => {
+                SysTickRegMut::try_from(&mut *(int_ref as *mut u32 as *mut RVR)).unwrap()
+            }
+            SysTickRegType::CVR => {
+                SysTickRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CVR)).unwrap()
+            }
+            SysTickRegType::CALIB => {
+                SysTickRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CALIB)).unwrap()
+            }
+        }
+    }
+}
+
+impl<'a> SysTickRegs<'a> {
+    pub fn csr(&self) -> &CSR {
+        let offset = SysTickRegType::CSR.offset() / 4;
+        unsafe { &*(&self.backing[offset] as *const u32 as *const CSR) }
+    }
+
+    pub fn rvr(&self) -> &RVR {
+        let offset = SysTickRegType::RVR.offset() / 4;
+        unsafe { &*(&self.backing[offset] as *const u32 as *const RVR) }
+    }
+
+    pub fn cvr(&self) -> &CVR {
+        let offset = SysTickRegType::CVR.offset() / 4;
+        unsafe { &*(&self.backing[offset] as *const u32 as *const CVR) }
+    }
+
+    pub fn calib(&self) -> &CALIB {
+        let offset = SysTickRegType::CALIB.offset() / 4;
+        unsafe { &*(&self.backing[offset] as *const u32 as *const CALIB) }
+    }
+
+    pub fn csr_mut(&mut self) -> &mut CSR {
+        let offset = SysTickRegType::CSR.offset() / 4;
+        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CSR) }
+    }
+
+    pub fn rvr_mut(&mut self) -> &mut RVR {
+        let offset = SysTickRegType::RVR.offset() / 4;
+        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut RVR) }
+    }
+
+    pub fn cvr_mut(&mut self) -> &mut CVR {
+        let offset = SysTickRegType::CVR.offset() / 4;
+        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CVR) }
+    }
+
+    pub fn calib_mut(&mut self) -> &mut CALIB {
+        let offset = SysTickRegType::CALIB.offset() / 4;
+        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CALIB) }
     }
 }
