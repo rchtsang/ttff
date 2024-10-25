@@ -275,11 +275,11 @@ pub struct RASR {
 
 
 impl MPURegType {
-    pub(super) unsafe fn to_reg_ref<'a>(&self, int_ref: &'a u32) -> MPURegRef {
+    pub(super) unsafe fn to_reg_ref<'a>(&self, int_ref: &'a u32) -> MPURegRef<'a> {
         todo!()
     }
 
-    pub(super) unsafe fn to_reg_mut<'a>(&self, int_ref: &'a mut u32) -> MPURegMut {
+    pub(super) unsafe fn to_reg_mut<'a>(&self, int_ref: &'a mut u32) -> MPURegMut<'a> {
         todo!()
     }
 }
