@@ -4,8 +4,9 @@
 //! 
 //! implement the minimum necessary peripherals to emulate a cortex-m3
 //! microprocessor.
-use std::sync::Arc;
-use std::ops::Range;
+use std::{
+    collections::{vec_deque, VecDeque}, ops::Range, sync::Arc
+};
 
 use thiserror::Error;
 use nohash::IntMap;
@@ -22,26 +23,23 @@ use fugue_core::eval::fixed_state::FixedState;
 
 use crate::concrete::{
     types::*,
-    context,
-    context::{CtxRequest, CtxResponse},
+    context::{self, CtxRequest, CtxResponse},
 };
 use crate::peripheral::Peripheral;
+
+use super::Error as ArchError;
 
 pub use crate::concrete::context::Context as ContextTrait;
 pub type TranslationCache<'irb> = IntMap<u64, LiftResult<'irb>>;
 
 mod userop;
 mod system;
+mod events;
+pub use events::*;
 mod exception;
 pub use exception::*;
 mod scs;
 pub use scs::*;
-mod systick;
-pub use systick::*;
-mod nvic;
-pub use nvic::*;
-mod mpu;
-pub use mpu::*;
 mod faults;
 pub use faults::*;
 
@@ -49,57 +47,16 @@ pub use faults::*;
 pub enum Error {
     #[error("invalid userop id: {0}")]
     InvalidUserOp(usize),
+    #[error("invalid system control register: {0}")]
+    InvalidSysCtrlReg(Address),
+    #[error("unimplemented system control register: {0:?}")]
+    UnimplementedSysCtrlReg(SCRegType),
 }
 
 impl Into<context::Error> for Error {
     fn into(self) -> context::Error {
         context::Error::from(super::Error::from(self))
     }
-}
-
-/// armv7m architecture event
-/// 
-/// these events can be triggered on writes to system control
-/// and must be dealt with immediately with an update to the
-/// context state if necessary
-#[derive(Debug, Clone)]
-pub enum Event {
-    // ICSR and SHCSR
-    ExceptionSetActive(ExceptionType, bool),
-    ExceptionSetPending(ExceptionType, bool),
-    ExceptionEnabled(ExceptionType, bool),
-
-    // VTOR
-    VectorTableOffsetWrite(u32),
-
-    // AIRCR
-    ExternSysResetRequest,      // (SYSRESETREQ) external system reset request
-    LocalSysResetRequest,       // (VECTRESET) local system reset
-    ExceptionClrAllActive,      // (VECTCLRACTIVE) clear all active state info for fixed and configurable exceptions, clear ipsr to 0
-    VectorKeyWrite,             // (VECTKEY) 0x05fa written to vector key register
-    SetPriorityGrouping(u8),    // (PRIGROUP) set the priority grouping according to Table B1-7
-
-    // SCR keeps state that influences execution
-    SetTransitionWakupEvent(bool),  // transitions from inactive to pending are/aren't wakeup events
-    SetDeepSleep(bool),             // selected sleep state is/isn't deep sleep
-    SetSleepOnExit(bool),           // enter/don't enter sleep state
-
-    // CCR keeps state that influences executon
-    ThreadModeExceptionsEnabled(bool),      // (NONBASETHRDENA) allow/disallow enter/return to thread mode with active exceptions (except priority boosting)
-    STIRUnprivilegedAccessAllowed(bool),    // (USERSETMPEND) allow/disallow unprivileged access to the STIR
-    UnalignedAccessTrapEnabled(bool),       // (UNALIGN_TRP) enable/disable trapping on unaligned word/halfword accesses
-    DivideByZeroTrapEnabled(bool),          // (DIV_0_TRP) enable/disable trapping on divide by 0
-    PreciseDataAccessFaultIgnored(bool),    // (BFHFNMIGN) set lockup/ignored for precise data access faults at priorities -1 or -2
-    Stack8ByteAligned(bool),                // (STKALIGN) guarantee 4-byte/8-byte stack alignment w/ SP adjustment
-    DataCacheEnabled(bool),                 // (DC) enable/disable data and unified caches
-    InsnCacheEnabled(bool),                 // (IC) enable/disable instruction caches
-    BranchPredictionEnabled(bool),          // (BP) enable/disable program flow prediction
-
-    // SHPR sets system handler priorities, needed by exception/interrupt handling system
-    SetSystemHandlerPriority { id: u8, priority: u8}, // (PRI_x in SHPR1, SHPR2, or SHPR3) set system handler x's priority level
-    
-    // CFSR, MMFSR, BFSR, UFSR, HFSR
-    FaultStatusClr(Fault),
 }
 
 /// armv7m operation mode
@@ -157,6 +114,8 @@ pub struct Context<'irb> {
     mmio: Vec<Peripheral>,
     irb: &'irb IRBuilderArena,
     cache: Arc<RwLock<TranslationCache<'irb>>>,
+
+    events: VecDeque<Event>,
 }
 
 
@@ -190,6 +149,7 @@ impl<'irb> Context<'irb> {
             mem: vec![],
             mmio: vec![],
             cache: Arc::new(RwLock::new(TranslationCache::default())),
+            events: VecDeque::new(),
             irb,
             lang,
         })
@@ -476,10 +436,7 @@ impl<'irb> Context<'irb> {
             }
             MapIx::Scs => {
                 // viewing bytes in SCS will not trigger any arch events
-                let state = self.scs.as_ref();
-                let offset = (*address - range.start).offset() as usize;
-                state.view_bytes(offset, size)
-                    .map_err(context::Error::from)
+                todo!()
             }
         }
     }
@@ -519,12 +476,7 @@ impl<'irb> Context<'irb> {
                     .map_err(context::Error::from)
             }
             MapIx::Scs => {
-                let offset = (*address - range.start).offset() as usize;
-                let maybe_evts = self.scs.read_bytes(offset, dst)
-                    .map_err(context::Error::from)?;
-                for evt in maybe_evts {
-                    todo!("deal with generated events");
-                }
+                todo!("implement scs read bytes (needs to generate events)");
                 Ok(())
             }
         }
@@ -546,12 +498,7 @@ impl<'irb> Context<'irb> {
                     .map_err(context::Error::from)
             }
             MapIx::Scs => {
-                let offset = (*address - range.start).offset() as usize;
-                let maybe_evts = self.scs.write_bytes(offset, src)
-                    .map_err(context::Error::from)?;
-                for evt in maybe_evts {
-                    todo!("deal with generated events");
-                }
+                todo!("implement scs write bytes (needs to generate events)");
                 Ok(())
             }
         }

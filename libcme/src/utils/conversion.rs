@@ -11,5 +11,6 @@ pub fn bytes_as_u32_be(src: &[u8]) -> u32 {
 }
 
 pub unsafe fn cast_as_u32_ref(src: &[u8]) -> &u32 {
-    std::mem::transmute::<&[u8; 4], &u32>(src.try_into().unwrap())
+    assert_eq!(src.len(), 4, "slice must be 4 bytes to cast as u32");
+    &*(src as *const [u8] as *const [u8; 4] as *const u32)
 }

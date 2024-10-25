@@ -1,235 +1,9 @@
-//! scs.rs
-
-/*
- * TODO:
- * - implement endian sensitivity
- * - replace struct/int/byte conversions with unsafe std::mem::transmute for performance
- */
-
-use bitfield_struct::bitfield;
-use unwrap_enum::{EnumAs, EnumIs};
+//! regs.rs
+//! 
+//! system control registers
+use derive_more::{Into, From, TryFrom, TryInto};
 
 use super::*;
-use context::Permission;
-
-use crate::utils::*;
-
-/// system control space
-/// 
-/// memory-mapped 4kb address space containing 32-bit registers for
-/// configuration, status, and control [0xe000e000, 0xe000efff]
-/// 
-/// ARM DDI 0403E.e B3.2
-#[derive(Clone)]
-pub struct SysCtrlSpace {
-    backing: FixedState,
-}
-
-impl AsRef<FixedState> for SysCtrlSpace {
-    fn as_ref(&self) -> &FixedState {
-        &self.backing
-    }
-}
-
-impl AsMut<FixedState> for SysCtrlSpace {
-    fn as_mut(&mut self) -> &mut FixedState {
-        &mut self.backing
-    }
-}
-
-impl SysCtrlSpace {
-    pub fn new_from(config: SysCtrlConfig) -> Self {
-        todo!("implement scs constructor")
-    }
-
-    pub fn read_bytes(&mut self, offset: impl Into<usize>, dst: &mut [u8]) -> Result<Vec<Event>, context::Error> {
-        let offset = offset.into();
-        if let Some(scr) = SCRegType::lookup_offset(offset) {
-            self.read_reg(&scr, dst, Some(offset - scr.offset()))
-        } else {
-            Ok(vec![])
-        }
-    }
-
-    pub fn write_bytes(&mut self, offset: impl Into<usize>, src: &[u8]) -> Result<Vec<Event>, context::Error> {
-        let offset = offset.into();
-        if let Some(scr) = SCRegType::lookup_offset(offset) {
-            self.write_reg(&scr, src, Some(offset - scr.offset()))
-        } else {
-            Ok(vec![])
-        }
-    }
-
-    pub fn get_reg(&self, scr: &SCRegType) -> Result<SCReg, context::Error> {
-        match scr {
-            _ => unimplemented!()
-        }
-    }
-
-    pub fn read_reg(&mut self, scr: &SCRegType, dst: &mut [u8], byte_off: Option<usize>) -> Result<Vec<Event>, context::Error> {
-        let byte_off = byte_off.unwrap_or(0);
-        let offset = scr.offset() + byte_off;
-        let view = self.backing.view_bytes(offset, dst.len())
-            .map_err(context::Error::from)?;
-        let read_val = view.iter()
-            .enumerate()
-            .take(4)
-            .fold(0u32, |val, (i, &byte)| {
-                dst[i] = byte; // read val into dst during fold
-                val | (byte << (i * 8)) as u32
-            });
-        match scr {
-            SCRegType::AIRCR => {
-                let prigroup = todo!("get prigroup value");
-                let aircr = AIRCR::new()
-                    .with_vectkey_stat(0xFA05)
-                    .with_endianness(0)
-                    .with_prigroup(prigroup)
-                    .with_sysresetreq(false)
-                    .with_vectclractive(false)
-                    .with_vectreset(false)
-                    .into_bits();
-                dst.copy_from_slice(&aircr.to_le_bytes());
-                Ok(vec![])
-            }
-            SCRegType::VTOR => {
-                todo!()
-            }
-            SCRegType::MPU(mpu_reg) => {
-                mpu_reg.read_evt(read_val)
-                    .map_err(Into::<context::Error>::into)
-            }
-            SCRegType::NVIC(nvic_reg) => {
-                nvic_reg.read_evt(read_val)
-                    .map_err(Into::<context::Error>::into)
-            }
-            SCRegType::SysTick(systick_reg) => {
-                systick_reg.read_evt(read_val)
-                    .map_err(Into::<context::Error>::into)
-            }
-            _ => { Ok(vec![]) }
-        }
-    }
-
-    pub fn write_reg(&mut self, sc_reg: &SCRegType, src: &[u8], byte_off: Option<usize>) -> Result<Vec<Event>, context::Error> {
-        let byte_off = byte_off.unwrap_or(0);
-        assert!((src.len() != 3) && (src.len() <= 4), "access must be byte, half-word, or word aligned");
-        assert!(((src.len() + byte_off) <= 4), "access must be within a single word-aligned region");
-        let offset = sc_reg.offset();
-        let write_bytes = &mut [0u8; 4];
-        write_bytes[byte_off..].copy_from_slice(src);
-        let write_val = bytes_as_u32_le(write_bytes);
-        match sc_reg {
-            SCRegType::ICSR => {
-                let icsr = ICSR::from_bits(write_val);
-                let view = self.backing.view_bytes_mut(offset, src.len())
-                    .map_err(context::Error::from)?;
-                view.copy_from_slice(src);
-                Ok(icsr.write_evt())
-            }
-            SCRegType::VTOR => {
-                let write_val = write_val & 0xFFFFFF80;
-                let vtor = VTOR::from(write_val);
-                Ok(vtor.write_evt())
-            }
-            SCRegType::AIRCR => {
-                // let current_val = self.nvic.priority_grouping;
-                let current_val = todo!();
-                let aircr = AIRCR::from_bits(write_val);
-                Ok(aircr.write_evt(current_val))
-            }
-            SCRegType::SCR => {
-                // don't want to create events for things that didn't change
-                let view = self.backing.view_bytes_mut(offset, src.len())
-                    .map_err(context::Error::from)?;
-                let current_val = bytes_as_u32_le(view);
-                let scr = SCR::from_bits(write_val);
-                view.copy_from_slice(src);
-                Ok(scr.write_evt(current_val))
-            }
-            SCRegType::CCR => {
-                // don't want to create events for things that didn't change
-                let view = self.backing.view_bytes_mut(offset, src.len())
-                    .map_err(context::Error::from)?;
-                let current_val = bytes_as_u32_le(view);
-                let ccr = CCR::from(write_val);
-                // TODO: implement RAO/WI and RAZ/WI for relvant bits as necessary. this will need config information
-                view.copy_from_slice(&write_val.to_le_bytes());
-                Ok(ccr.write_evt(current_val))
-            }
-            SCRegType::SHPR1(idx) | SCRegType::SHPR2(idx) | SCRegType::SHPR3(idx) => {
-                // note that `.offset()` of shpr registers returns the word-aligned register offset,
-                // but the access may be relative to a byte or halfword.
-                // in the future i may need to consider this for other registers as well.
-                let view = self.backing.view_bytes_mut(offset, src.len())
-                    .map_err(context::Error::from)?;
-                let mut evts = vec![];
-                for (i, &byte) in src.iter().enumerate().take(4 - byte_off) {
-                    let i = i + byte_off;
-                    if view[i] != byte {
-                        view[i] = byte;
-                        evts.push(Event::SetSystemHandlerPriority { id: *idx + i as u8, priority: byte });
-                    }
-                }
-                Ok(evts)
-            }
-            SCRegType::CFSR => {
-                let cfsr = CFSR::from_bits(write_val);
-                Ok(cfsr.write_evt())
-            }
-            SCRegType::SHCSR => {
-                let hfsr = HFSR::from_bits(write_val);
-                Ok(hfsr.write_evt())
-            }
-            SCRegType::CPACR => {
-                unimplemented!("coprocessor access not supported")
-            }
-            SCRegType::STIR => {
-                let stir = STIR::from_bits(write_val);
-                Ok(stir.write_evt())
-            }
-            SCRegType::MPU(mpu_reg) => {
-                mpu_reg.write_evt(write_val)
-                    .map_err(Into::<context::Error>::into)
-            }
-            SCRegType::NVIC(nvic_reg) => {
-                nvic_reg.write_evt(write_val)
-                    .map_err(Into::<context::Error>::into)
-            }
-            SCRegType::SysTick(systick_reg) => {
-                systick_reg.write_evt(write_val)
-                    .map_err(Into::<context::Error>::into)
-            }
-            _ => {
-                // TODO: add logging to print out warning that some registers aren't implemented
-                let view = self.backing.view_bytes_mut(offset, src.len())
-                    .map_err(context::Error::from)?;
-                view.copy_from_slice(src);
-                Ok(vec![])
-            }
-        }
-    }
-}
-
-impl Default for SysCtrlSpace {
-    fn default() -> Self {
-        Self {
-            backing: FixedState::new(0x1000),
-        }
-    }
-}
-
-/// config containing reset values for scs registers
-#[derive(Debug)]
-pub struct SysCtrlConfig {
-    // todo
-}
-
-impl Default for SysCtrlConfig {
-    fn default() -> Self {
-        todo!("need to implement default scs values")
-    }
-}
 
 /// system control register enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -264,8 +38,8 @@ pub enum SCRegType {
     ACTLR,      // auxiliary control register
     STIR,       // software triggered interrupt register
 
-    SysTick(SysTickReg),    // systick register
-    NVIC(NVICReg),          // nvic register
+    SysTick(SysTickRegType),    // systick register
+    NVIC(NVICRegType),          // nvic register
     MPU(MPUReg),            // mpu register
     // todo: floating point extension scb registers
     // todo: cache and branch predictor maintenance
@@ -366,11 +140,11 @@ impl SCRegType {
             0xffc_usize => { Some(SCRegType::CID3) }
 
             0x010 ..= 0x0ff => {
-                SysTickReg::lookup_offset(offset)
+                SysTickRegType::lookup_offset(offset)
                     .map(|systick_reg| SCRegType::SysTick(systick_reg))
             }
             0x100 ..= 0xcff => {
-                NVICReg::lookup_offset(offset)
+                NVICRegType::lookup_offset(offset)
                     .map(|nvic_reg| SCRegType::NVIC(nvic_reg))
             }
             0xd90 ..= 0xdef => {
@@ -381,10 +155,148 @@ impl SCRegType {
             _ => { None }
         }
     }
+
+    pub fn to_reg_ref<'a>(&self, int_ref: &'a u32) -> Result<SCRegRef<'a>, Error> {
+        match self {
+            SCRegType::CPUID => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const CPUID) }).unwrap())
+            }
+            SCRegType::ICSR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const ICSR) }).unwrap())
+            }
+            SCRegType::VTOR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const VTOR) }).unwrap())
+            }
+            SCRegType::AIRCR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const AIRCR) }).unwrap())
+            }
+            SCRegType::SCR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const SCR) }).unwrap())
+            }
+            SCRegType::CCR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const CCR) }).unwrap())
+            }
+            SCRegType::SHPR1(_) => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const SHPR1) }).unwrap())
+            }
+            SCRegType::SHPR2(_) => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const SHPR2) }).unwrap())
+            }
+            SCRegType::SHPR3(_) => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const SHPR3) }).unwrap())
+            }
+            SCRegType::SHCSR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const SHCSR) }).unwrap())
+            }
+            SCRegType::CFSR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const CFSR) }).unwrap())
+            }
+            SCRegType::HFSR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const HFSR) }).unwrap())
+            }
+            SCRegType::DFSR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const DFSR) }).unwrap())
+            }
+            SCRegType::MMFAR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const MMFAR) }).unwrap())
+            }
+            SCRegType::BFAR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const BFAR) }).unwrap())
+            }
+            SCRegType::CPACR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const CPACR) }).unwrap())
+            }
+            SCRegType::ICTR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const ICTR) }).unwrap())
+            }
+            SCRegType::STIR => {
+                Ok(SCRegRef::try_from(unsafe { &*(int_ref as *const u32 as *const STIR) }).unwrap())
+            }
+            // SCRegType::SysTick(_)   => { 
+            //     
+            // }
+            // SCRegType::NVIC(_)      => { 
+            //     
+            // }
+            // SCRegType::MPU(_)       => { 
+            //     
+            // }                
+            _ => { Err(Error::UnimplementedSysCtrlReg(self.clone())) }
+        }
+    }
+
+    pub fn to_reg_mut<'a>(&self, int_ref: &'a mut u32) -> Result<SCRegMut<'a>, Error> {
+        match self {
+            SCRegType::CPUID => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut CPUID) }).unwrap())
+            }
+            SCRegType::ICSR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut ICSR) }).unwrap())
+            }
+            SCRegType::VTOR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut VTOR) }).unwrap())
+            }
+            SCRegType::AIRCR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut AIRCR) }).unwrap())
+            }
+            SCRegType::SCR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut SCR) }).unwrap())
+            }
+            SCRegType::CCR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut CCR) }).unwrap())
+            }
+            SCRegType::SHPR1(_) => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut SHPR1) }).unwrap())
+            }
+            SCRegType::SHPR2(_) => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut SHPR2) }).unwrap())
+            }
+            SCRegType::SHPR3(_) => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut SHPR3) }).unwrap())
+            }
+            SCRegType::SHCSR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut SHCSR) }).unwrap())
+            }
+            SCRegType::CFSR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut CFSR) }).unwrap())
+            }
+            SCRegType::HFSR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut HFSR) }).unwrap())
+            }
+            SCRegType::DFSR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut DFSR) }).unwrap())
+            }
+            SCRegType::MMFAR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut MMFAR) }).unwrap())
+            }
+            SCRegType::BFAR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut BFAR) }).unwrap())
+            }
+            SCRegType::CPACR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut CPACR) }).unwrap())
+            }
+            SCRegType::ICTR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut ICTR) }).unwrap())
+            }
+            SCRegType::STIR => {
+                Ok(SCRegMut::try_from(unsafe { &mut *(int_ref as *mut u32 as *mut STIR) }).unwrap())
+            }
+            // SCRegType::SysTick(_)   => { 
+            //     
+            // }
+            // SCRegType::NVIC(_)      => { 
+            //     
+            // }
+            // SCRegType::MPU(_)       => { 
+            //     
+            // }                
+            _ => { Err(Error::UnimplementedSysCtrlReg(self.clone())) }
+        }
+    }
 }
 
 impl SCRegType {
-    fn _data(&self) -> &SCRegTypeData {
+    fn _data(&self) -> &'static SCRegTypeData {
         match self {
             SCRegType::CPUID    => { &SCRegTypeData { offset: 0xd00_usize, perms: 0b100, reset: None } }
             SCRegType::ICSR     => { &SCRegTypeData { offset: 0xd04_usize, perms: 0b110, reset: Some(0x0) } }
@@ -433,8 +345,10 @@ impl SCRegType {
     }
 }
 
-
-#[derive(Debug, Clone, PartialEq, Eq, EnumAs, EnumIs)]
+// todo: write a proc-macro that can generate the Ref and Mut versions of this
+// since i seem to be using this pattern quite a bit.
+#[derive(Debug, Clone, PartialEq, Eq, From, TryInto, TryFrom)]
+#[try_into(owned, ref, ref_mut)]
 pub enum SCReg {
     CPUID(CPUID),
     ICSR(ICSR),
@@ -473,49 +387,217 @@ pub enum SCReg {
     // todo: cache and branch predictor maintenance
 }
 
+#[derive(Debug, Clone, From, TryInto, TryFrom)]
+#[try_into(owned, ref, ref_mut)]
+pub enum SCRegRef<'a> {
+    CPUID(&'a CPUID),
+    ICSR(&'a ICSR),
+    VTOR(&'a VTOR),
+    AIRCR(&'a AIRCR),
+    SCR(&'a SCR),
+    CCR(&'a CCR),
+    SHPR1(&'a SHPR1),
+    SHPR2(&'a SHPR2),
+    SHPR3(&'a SHPR3),
+    SHCSR(&'a SHCSR),
+    CFSR(&'a CFSR),
+    HFSR(&'a HFSR),
+    DFSR(&'a DFSR),
+    MMFAR(&'a MMFAR),
+    BFAR(&'a BFAR),
+    // AFSR(&'a AFSR),
+    CPACR(&'a CPACR),
+    // FPCCR(&'a FPCCR),
+    // FPCAR(&'a FPCAR),
+    // FPDSCR(&'a FPDSCR),
+    // MVFR0(&'a MVFR0),
+    // MVFR1(&'a MVFR1),
+    // MVFR2(&'a MVFR2),
+    // MCR(&'a MCR),
+    ICTR(&'a ICTR),
+    // ACTLR(&'a ACTLR),
+    STIR(&'a STIR),
+    SysTick(&'a SysTickReg),
+    NVIC(&'a NVICReg),
+    MPU(&'a MPUReg),    
+}
+
+#[derive(Debug, From, TryInto, TryFrom)]
+#[try_into(owned, ref, ref_mut)]
+pub enum SCRegMut<'a> {
+    CPUID(&'a mut CPUID),
+    ICSR(&'a mut ICSR),
+    VTOR(&'a mut VTOR),
+    AIRCR(&'a mut AIRCR),
+    SCR(&'a mut SCR),
+    CCR(&'a mut CCR),
+    SHPR1(&'a mut SHPR1),
+    SHPR2(&'a mut SHPR2),
+    SHPR3(&'a mut SHPR3),
+    SHCSR(&'a mut SHCSR),
+    CFSR(&'a mut CFSR),
+    HFSR(&'a mut HFSR),
+    DFSR(&'a mut DFSR),
+    MMFAR(&'a mut MMFAR),
+    BFAR(&'a mut BFAR),
+    // AFSR(&'a mut AFSR),
+    CPACR(&'a mut CPACR),
+    // FPCCR(&'a mut FPCCR),
+    // FPCAR(&'a mut FPCAR),
+    // FPDSCR(&'a mut FPDSCR),
+    // MVFR0(&'a mut MVFR0),
+    // MVFR1(&'a mut MVFR1),
+    // MVFR2(&'a mut MVFR2),
+    // MCR(&'a mut MCR),
+    ICTR(&'a mut ICTR),
+    // ACTLR(&'a mut ACTLR),
+    STIR(&'a mut STIR),
+    SysTick(&'a mut SysTickReg),
+    NVIC(&'a mut NVICReg),
+    MPU(&'a mut MPUReg),    
+}
+
+#[allow(unused)]
+impl SCReg {
+    fn _write_evt(&self, context: &mut Context) -> Result<(), context::Error> {
+        match self {
+            SCReg::CPUID(cpuid) => { todo!() }
+            SCReg::ICSR(icsr) => { todo!() }
+            SCReg::VTOR(vtor) => { todo!() }
+            SCReg::AIRCR(aircr) => { todo!() }
+            SCReg::SCR(scr) => { todo!() }
+            SCReg::CCR(ccr) => { todo!() }
+            SCReg::SHPR1(shpr1) => { todo!() }
+            SCReg::SHPR2(shpr2) => { todo!() }
+            SCReg::SHPR3(shpr3) => { todo!() }
+            SCReg::SHCSR(shcsr) => { todo!() }
+            SCReg::CFSR(cfsr) => { todo!() }
+            SCReg::HFSR(hfsr) => { todo!() }
+            SCReg::DFSR(dfsr) => { todo!() }
+            SCReg::MMFAR(mmfar) => { todo!() }
+            SCReg::BFAR(bfar) => { todo!() }
+            // SCReg::AFSR(afsr) => { todo!() }
+            SCReg::CPACR(cpacr) => { todo!() }
+            
+            // SCReg::FPCCR(fpccr) => { todo!() }
+            // SCReg::FPCAR(fpcar) => { todo!() }
+            // SCReg::FPDSCR(fpdscr) => { todo!() }
+            // SCReg::MVFR0(mvfr0) => { todo!() }
+            // SCReg::MVFR1(mvfr1) => { todo!() }
+            // SCReg::MVFR2(mvfr2) => { todo!() }
+        
+            // SCReg::MCR(mcr) => { todo!() }
+            SCReg::ICTR(ictr) => { todo!() }
+            // SCReg::ACTLR(actlr) => { todo!() }
+            SCReg::STIR(stir) => { todo!() }
+        
+            SCReg::SysTick(systickreg) => { todo!() }
+            SCReg::NVIC(nvicreg) => { todo!() }
+            SCReg::MPU(mpureg) => { todo!() }
+        }
+    }
+}
+
+/// provides identification information for the processor.
+/// software can use CPUID registers to find out more about the processor.
+/// word-accessible only. read-only. implementation-defined.
+/// 
+/// see B3.2.3
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct CPUID {
+    /// implementation-defined revision number
     #[bits(4)]
     pub revision: u32,
+    /// implementation-defined part number
     #[bits(12)]
     pub partno: u32,
+    /// architecture (always reads as 0xF)
     #[bits(4, default = 0xF)]
     pub architecture: u32,
+    /// implementation defined variant number
     #[bits(4)]
     pub variant: u32,
+    /// implmentor code assigned by Arm (reads as 0x41 if Arm-implemented)
     #[bits(8, default = 0x41)]
     pub implementer: u32,
 }
 
+/// provides software control of the NMI, PendSV, and SysTick Exceptions
+/// and provides interrupt status information.
+/// 
+/// see B3.2.4
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct ICSR {
+    /// exception number of current executing exception.
+    /// (0 if in thread mode)
+    /// read-only.
     #[bits(9)]
     pub vectactive: u32,
     #[bits(2)]
     __: u32,
+    /// in handler mode, indicates whether there is an active exception other
+    /// than the exception indicated by the current value of the IPSR.
+    /// (0 = other active exception, 1 = no other active exception)
+    /// in thread mode, unknown value.
+    /// read-only.
     #[bits(1)]
     pub rettobase: bool,
+    /// exception number of the highest prioirty pending and enabled interrupt.
+    /// (0 = no pending exception)
+    /// note: if DHCSR.C_MASKINTS is set, then PendSV, SysTick, and configurable
+    /// external interrupts are masked and will not be shown as pending.
+    /// read-only.
     #[bits(9)]
     pub vectpending: u32,
     #[bits(1)]
     __: bool,
+    /// indicates whether an external interrupt, generated by the NVIC, is pending.
+    /// (0 = no pending, 1 = pending)
+    /// read-only.
     #[bits(1)]
     pub isrpending: bool,
+    /// indicates whether a pending exception will be serviced on exit from debug
+    /// halt state.
+    /// (0 = will not service, 1 = will service)
+    /// read-only.
     #[bits(1)]
     pub isrpreempt: bool,
+    #[bits(1)]
     __: bool,
+    /// removes pending status of the SysTick exception
+    /// (0 = no effect, 1 = remove pending status)
+    /// write-only
     #[bits(1)]
     pub pendstclr: bool,
+    /// on writes, sets SysTick exception as pending. on reads, indicates
+    /// the current state of the exception.
+    /// write (0 = no effect, 1 = set SysTick pending)
+    /// read (0 = SysTick not pending, 1 = SysTick pending)
     #[bits(1)]
     pub pendstset: bool,
+    /// removes pending status of PendSV exception
+    /// (0 = no effect, 1 = remove pending status)
+    /// write-only
     #[bits(1)]
     pub pendsvclr: bool,
+    /// on writes, sets PendSV exception as pending. on reads, indicates
+    /// the current state of the exception.
+    /// write (0 = no effect, 1 = set PendSV pending)
+    /// read (0 = PendSV not pending, 1 = PendSV pending)
     #[bits(1)]
     pub pendsvset: bool,
     #[bits(2)]
     __: u32,
+    /// on writes, makes NMI exception active. on reads, indicates
+    /// current state of the exception.
+    /// write (0 = no effect, 1 = set NMI active)
+    /// read (0 = NMI inactive, 1 = NMI active)
+    /// 
+    /// since NMI is highest priority, if processor not already executing
+    /// in the NMI handler, it enters NMI exception handler as soon as 
+    /// it recognizes the write to this bit.
     #[bits(1)]
     pub nmipendset: bool,
 }
@@ -1125,9 +1207,14 @@ impl CPACRAccess {
     }
 }
 
+/// Provides information about the interrupt controller. 
+/// Word-accessible only. Read-only.
+///
+/// See B3.4
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct ICTR {
+    /// Number of interrupt lines supported by the implementation.
     #[bits(4)]
     pub intlinesnum: usize,
     #[bits(28)]
@@ -1154,7 +1241,7 @@ pub struct STIR {
 
 impl STIR {
     pub fn exception_number(&self) -> u32 {
-        (self.intid() + 16)
+        self.intid() + 16
     }
 
     pub fn write_evt(&self) -> Vec<Event> {
