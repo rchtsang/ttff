@@ -8,56 +8,97 @@ use super::*;
 /// system control register enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SCRegType {
-    CPUID,      // cpuid base register
-    ICSR,       // interrupt control and state register 
-    VTOR,       // vector table offset register
-    AIRCR,      // application interrupt and reset control register
-    SCR,        // system control register
-    CCR,        // configuration and control register
-    SHPR1(u8),  // system handler priority register 1 (with handler number)
-    SHPR2(u8),  // system handler priority register 2 (with handler number)
-    SHPR3(u8),  // system handler priority register 3 (with handler number)
-    SHCSR,      // system handler control and state register
-    CFSR,       // configurable fault status register (with offset to bus subregisters)
-    HFSR,       // hardfault status register
-    DFSR,       // debug fault status register
-    MMFAR,      // memmanage fault address register
-    BFAR,       // busfault address register
-    AFSR,       // auxiliary fault status register
-    CPACR,      // coprocessor access control register
+    /// cpuid base register
+    CPUID,
+    /// interrupt control and state register 
+    ICSR,
+    /// vector table offset register
+    VTOR,
+    /// application interrupt and reset control register
+    AIRCR,
+    /// system control register
+    SCR,
+    /// configuration and control register
+    CCR,
+    /// system handler priority register 1 (with handler number)
+    SHPR1(u8),
+    /// system handler priority register 2 (with handler number)
+    SHPR2(u8),
+    /// system handler priority register 3 (with handler number)
+    SHPR3(u8),
+    /// system handler control and state register
+    SHCSR,
+    /// configurable fault status register (with offset to bus subregisters)
+    CFSR,
+    /// hardfault status register
+    HFSR,
+    /// debug fault status register
+    DFSR,
+    /// memmanage fault address register
+    MMFAR,
+    /// busfault address register
+    BFAR,
+    /// auxiliary fault status register
+    AFSR,
+    /// coprocessor access control register
+    CPACR,
     
-    FPCCR,      // floating point context control register
-    FPCAR,      // floating point context address register
-    FPDSCR,     // floating point default status control register
-    MVFR0,      // media and fp feature register 0
-    MVFR1,      // media and fp feature register 1
-    MVFR2,      // media and fp feature register 2
+    /// floating point context control register
+    FPCCR,
+    /// floating point context address register
+    FPCAR,
+    /// floating point default status control register
+    FPDSCR,
+    /// media and fp feature register 0
+    MVFR0,
+    /// media and fp feature register 1
+    MVFR1,
+    /// media and fp feature register 2
+    MVFR2,
 
-    MCR,        // main control register, reserved
-    ICTR,       // interrupt controller type register
-    ACTLR,      // auxiliary control register
-    STIR,       // software triggered interrupt register
+    /// main control register, reserved
+    MCR,
+    /// interrupt controller type register
+    ICTR,
+    /// auxiliary control register
+    ACTLR,
+    /// software triggered interrupt register
+    STIR,
 
-    SysTick(SysTickRegType),    // systick register
-    NVIC(NVICRegType),          // nvic register
-    MPU(MPURegType),            // mpu register
+    /// systick register
+    SysTick(SysTickRegType),
+    /// nvic register
+    NVIC(NVICRegType),
+    /// mpu register
+    MPU(MPURegType),
+    
     // todo: floating point extension scb registers
     // todo: cache and branch predictor maintenance
 
-    // peripheral identification registers
+    /// peripheral identification register 4
     PID4,
+    /// peripheral identification register 5
     PID5,
+    /// peripheral identification register 6
     PID6,
+    /// peripheral identification register 7
     PID7,
+    /// peripheral identification register 0
     PID0,
+    /// peripheral identification register 1
     PID1,
+    /// peripheral identification register 2
     PID2,
+    /// peripheral identification register 3
     PID3,
 
-    // component identification registers
+    /// component identification register 0
     CID0,
+    /// component identification register 1
     CID1,
+    /// component identification register 2
     CID2,
+    /// component identification register 3
     CID3,
 }
 
