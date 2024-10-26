@@ -246,6 +246,16 @@ impl SysCtrlSpace {
         };
         SysTickRegs::new(backing)
     }
+
+    /// get wrapper for interacting with mpu registers
+    pub fn mpu_regs(&mut self) -> MPURegs {
+        let slice = &mut self.backing[..0xdec];
+        assert_eq!(slice.len(), 0xdec);
+        let backing = unsafe {
+            &mut *(slice as *mut [u32] as *mut [u32; 0xdec])
+        };
+        MPURegs::new(backing)
+    }
 }
 
 impl Default for SysCtrlSpace {
