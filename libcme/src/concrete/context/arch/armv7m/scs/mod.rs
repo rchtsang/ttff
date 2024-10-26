@@ -97,7 +97,9 @@ impl SysCtrlSpace {
         dst: &mut [u8],
         events: &mut VecDeque<Event>,
     ) -> Result<(), context::Error> {
+        let address = BASE + offset as u32;
         let word_offset = offset / 4;
+        let byte_offset = offset & 0b11;
         if let Err(err) = self.get_reg_ref(offset) {
             // if register isn't implemented as a struct yet, just treat it as
             // memory and issue a warning, returning the error that
@@ -111,8 +113,7 @@ impl SysCtrlSpace {
         }
         let reg_type = SCRegType::lookup_offset(offset)
             .ok_or_else( | | {
-                let address = Address::from(BASE + offset as u32);
-                ArchError::from(Error::InvalidSysCtrlReg(address))
+                ArchError::from(Error::InvalidSysCtrlReg(address.into()))
             })?;
         match reg_type {
             SCRegType::ICSR => {
@@ -144,9 +145,10 @@ impl SysCtrlSpace {
             SCRegType::ACTLR => todo!(),
             SCRegType::STIR => todo!(),
             SCRegType::SysTick(streg_type) => todo!(),
-            // SCRegType::NVIC(nvicreg) => todo!(),
-            // SCRegType::MPU(mpureg) => todo!(),
+            SCRegType::NVIC(nvicreg_type) => todo!(),
+            SCRegType::MPU(mpureg_type) => todo!(),
             _ => {
+                check_alignment(address, dst.len(), Alignment::Any)?;
                 let slice = unsafe {
                     &*(&self.backing[word_offset] as *const u32 as *const [u8; 4])
                 };
@@ -156,31 +158,72 @@ impl SysCtrlSpace {
         Ok(())
     }
 
+    #[instrument]
     pub fn write_bytes(&mut self,
         offset: usize,
         src: &[u8],
         events: &mut VecDeque<Event>,
     ) -> Result<(), context::Error> {
-        assert_eq!(src.len(), 4, "val must be word-aligned (for now)");
+        let address = BASE + offset as u32;
         let word_offset = offset / 4;
-        let maybe_reg_mut = self.get_reg_mut(offset);
-        if let Err(err) = maybe_reg_mut {
+        let byte_offset = offset & 0b11;
+        if let Err(err) = self.get_reg_mut(offset) {
             warn!("{err:?}");
             let slice = unsafe {
                 &mut *(&mut self.backing[word_offset] as *mut u32 as *mut [u8; 4])
             };
-            slice.copy_from_slice(src);
-            return Ok(());
+            (&mut slice[byte_offset..]).copy_from_slice(src);
+            return Err(err.into());
         }
         let write_val = src.iter()
             .enumerate().take(4)
             .fold(0u32, |val, (i, &byte)| {
                 val | ((byte as u32) << i)
             });
-        let reg_mut = maybe_reg_mut.unwrap();
-        // match reg_mut {
-            
-        // }
+        let reg_type = SCRegType::lookup_offset(offset)
+            .ok_or_else( | | {
+                ArchError::from(Error::InvalidSysCtrlReg(address.into()))
+            })?;
+        match reg_type {
+            SCRegType::ICSR => {
+
+            }
+            SCRegType::VTOR => todo!(),
+            SCRegType::AIRCR => todo!(),
+            SCRegType::SCR => todo!(),
+            SCRegType::CCR => todo!(),
+            SCRegType::SHPR1(_) => todo!(),
+            SCRegType::SHPR2(_) => todo!(),
+            SCRegType::SHPR3(_) => todo!(),
+            SCRegType::SHCSR => todo!(),
+            SCRegType::CFSR => todo!(),
+            SCRegType::HFSR => todo!(),
+            SCRegType::DFSR => todo!(),
+            SCRegType::MMFAR => todo!(),
+            SCRegType::BFAR => todo!(),
+            SCRegType::AFSR => todo!(),
+            SCRegType::CPACR => todo!(),
+            SCRegType::FPCCR => todo!(),
+            SCRegType::FPCAR => todo!(),
+            SCRegType::FPDSCR => todo!(),
+            SCRegType::MVFR0 => todo!(),
+            SCRegType::MVFR1 => todo!(),
+            SCRegType::MVFR2 => todo!(),
+            SCRegType::MCR => todo!(),
+            SCRegType::ICTR => todo!(),
+            SCRegType::ACTLR => todo!(),
+            SCRegType::STIR => todo!(),
+            SCRegType::SysTick(streg_type) => todo!(),
+            SCRegType::NVIC(nvicreg_type) => todo!(),
+            SCRegType::MPU(mpureg_type) => todo!(),
+            _ => {
+                check_alignment(address, src.len(), Alignment::Any)?;
+                let slice = unsafe {
+                    &mut *(&mut self.backing[word_offset] as *mut u32 as *mut [u8; 4])
+                };
+                (&mut slice[byte_offset..]).copy_from_slice(src);
+            }
+        }
         Ok(())
     }
 
