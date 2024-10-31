@@ -36,6 +36,11 @@ impl SysTickRegType {
         }
     }
 
+    /// returns the register's address
+    pub fn address(&self) -> Address {
+        (0xe000e000 + self.offset() as u32).into()
+    }
+
     /// returns the byte offset into the system control space of the 
     /// systick register type
     pub fn offset(&self) -> usize {
@@ -289,21 +294,21 @@ impl<'a> SysTickRegs<'a> {
                 let new_tickint = new_csr.tickint();
                 let new_enable = new_csr.enable();
 
+                if enable ^ new_enable {
+                    // enable/disable systick module
+                    csr.set_enable(new_enable);
+                }
+
                 if new_enable && (tickint ^ new_tickint) {
                     // enable/disable systick exceptions
                     events.push_back(Event::ExceptionEnabled(ExceptionType::SysTick, new_tickint));
                     csr.set_tickint(new_tickint);
                 }
-                if enable ^ new_enable {
-                    // enable/disable systick module
-                    events.push_back(Event::ExceptionEnabled(ExceptionType::SysTick, new_enable));
-                    csr.set_enable(new_enable);
-                }
             }
             SysTickRegType::RVR => {
                 // RVR only supports 24 bits
                 let rvr = self.get_rvr_mut();
-                rvr.0 = write_val | 0x00FFFFFF;
+                rvr.0 = write_val & 0x00FFFFFF;
             }
             SysTickRegType::CVR => {
                 // any write to CVR sets it to 0

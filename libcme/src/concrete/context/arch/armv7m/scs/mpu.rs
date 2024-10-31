@@ -23,6 +23,17 @@ pub enum MPURegType {
     RASR(u8),
 }
 
+#[derive(Clone, Debug)]
+pub struct MPUState {
+
+}
+
+impl Default for MPUState {
+    fn default() -> Self {
+        Self { }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct MPURegData {
     pub offset: usize,

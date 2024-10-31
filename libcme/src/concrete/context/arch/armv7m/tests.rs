@@ -77,3 +77,25 @@ fn test_requests() -> Result<(), context::Error> {
 
     Ok(())
 }
+
+#[test]
+fn test_systick_registers() -> Result<(), context::Error> {
+    let builder = LanguageBuilder::new("data/processors")?;
+    let irb = IRBuilderArena::with_capacity(0x1000);
+    let mut context = Context::new_with(&builder, &irb, None)?;
+    context.map_mem(0x0u64, 0x1000usize)?;
+
+    let address = SysTickRegType::CSR.address();
+    let bytes = u32::to_le_bytes(0b11);
+    context.store_bytes(address, &bytes)?;
+
+    assert_eq!(context.events.len(), 1);
+    assert_eq!(context.events[0], Event::ExceptionEnabled(ExceptionType::SysTick, true));
+
+    let mut dst = [0u8; 4];
+    context.load_bytes(address, &mut dst)?;
+
+    assert_eq!(u32::from_le_bytes(dst), 0b11);
+
+    Ok(())
+}

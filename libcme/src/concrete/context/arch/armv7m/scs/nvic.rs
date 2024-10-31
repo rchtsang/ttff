@@ -244,41 +244,63 @@ pub struct NVICState {
     pub(crate) queue: Vec<ExceptionType>,
 }
 
-impl NVICState {
-    /// construct a new nvic instance from a given vector table slice
-    pub fn new_with(vt: &[u8]) -> Self {
-        assert!(vt.len() >= 16 * 4, "vector table must have arch-defined exceptions");
-        let vtsize = vt.len();
+impl Default for NVICState {
+    fn default() -> Self {
+        let vtsize = 16;
         let internal = [
             Exception::default(),
-            Exception::new_with(ExceptionType::Reset,         -3, &vt[( 1 * 4)..(( 1 + 1) * 4)]),
-            Exception::new_with(ExceptionType::NMI,           -2, &vt[( 2 * 4)..(( 2 + 1) * 4)]),
-            Exception::new_with(ExceptionType::HardFault,     -1, &vt[( 3 * 4)..(( 3 + 1) * 4)]),
-            Exception::new_with(ExceptionType::MemFault,       0, &vt[( 4 * 4)..(( 4 + 1) * 4)]),
-            Exception::new_with(ExceptionType::BusFault,       0, &vt[( 5 * 4)..(( 5 + 1) * 4)]),
-            Exception::new_with(ExceptionType::UsageFault,     0, &vt[( 6 * 4)..(( 6 + 1) * 4)]),
-            Exception::new_with(ExceptionType::Reserved(7),    0, &vt[( 7 * 4)..(( 7 + 1) * 4)]),
-            Exception::new_with(ExceptionType::Reserved(8),    0, &vt[( 8 * 4)..(( 8 + 1) * 4)]),
-            Exception::new_with(ExceptionType::Reserved(9),    0, &vt[( 9 * 4)..(( 9 + 1) * 4)]),
-            Exception::new_with(ExceptionType::Reserved(10),   0, &vt[(10 * 4)..((10 + 1) * 4)]),
-            Exception::new_with(ExceptionType::SVCall,         0, &vt[(11 * 4)..((11 + 1) * 4)]),
-            Exception::new_with(ExceptionType::DebugMonitor,   0, &vt[(12 * 4)..((12 + 1) * 4)]),
-            Exception::new_with(ExceptionType::Reserved(13),   0, &vt[(13 * 4)..((13 + 1) * 4)]),
-            Exception::new_with(ExceptionType::PendSV,         0, &vt[(14 * 4)..((14 + 1) * 4)]),
-            Exception::new_with(ExceptionType::SysTick,        0, &vt[(15 * 4)..((15 + 1) * 4)]),
+            Exception::new_with(ExceptionType::Reset,         -3, None),
+            Exception::new_with(ExceptionType::NMI,           -2, None),
+            Exception::new_with(ExceptionType::HardFault,     -1, None),
+            Exception::new_with(ExceptionType::MemFault,       0, None),
+            Exception::new_with(ExceptionType::BusFault,       0, None),
+            Exception::new_with(ExceptionType::UsageFault,     0, None),
+            Exception::new_with(ExceptionType::Reserved(7),    0, None),
+            Exception::new_with(ExceptionType::Reserved(8),    0, None),
+            Exception::new_with(ExceptionType::Reserved(9),    0, None),
+            Exception::new_with(ExceptionType::Reserved(10),   0, None),
+            Exception::new_with(ExceptionType::SVCall,         0, None),
+            Exception::new_with(ExceptionType::DebugMonitor,   0, None),
+            Exception::new_with(ExceptionType::Reserved(13),   0, None),
+            Exception::new_with(ExceptionType::PendSV,         0, None),
+            Exception::new_with(ExceptionType::SysTick,        0, None),
         ];
-        let mut external = vec![];
-        for (i, entry) in vt.chunks(4).skip(16).enumerate() {
-            let typ = ExceptionType::ExternalInterrupt(i as u32 + 16);
-            let priority = 0;
-            let e = Exception::new_with(typ, priority, entry);
-            external.push(e);
-        }
+        let external = vec![];
         let queue = vec![];
         Self { vtsize, internal, external, queue }
     }
+}
 
-    /// update vectors from vector table
+impl NVICState {
+    pub fn new_with(vt: &[u8]) -> Self {
+        let mut state = Self::default();
+        state.update(vt);
+        state
+    }
+
+    /// update vectors in the saved nvic state from a vector table.
+    /// note that this does _not_ update the exception queue.
+    pub fn update(&mut self, vt: &[u8]) -> &mut Self {
+        assert!(vt.len() >= 16 * 4, "vector table must have arch-defined exceptions");
+        for (i, exception) in self.internal.iter_mut()
+            .skip(1).enumerate()
+        {
+            let address = unsafe {
+                let offset = i * 4;
+                *(&vt[offset..] as *const [u8] as *const [u8; 4] as *const u32)
+            };
+            exception.entry = Some(address.into())
+        }
+        self.external.clear();
+        for (i, entry) in vt.chunks(4)
+            .skip(16).enumerate()
+        {
+            let typ = ExceptionType::ExternalInterrupt(16 + i as u32);
+            let excp = Exception::new_with(typ, 0, Some(entry));
+            self.external.push(excp);
+        }
+        self
+    }
 
     /// add an exception to the pending queue,
     /// reordering the queue as necessary based on priority

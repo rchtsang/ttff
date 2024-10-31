@@ -52,6 +52,8 @@ pub use faults::*;
 
 #[derive(Debug, Error, Clone)]
 pub enum Error {
+    #[error("unpredictable behavior: {0}")]
+    UnpredictableBehavior(&'static str),
     #[error("invalid userop id: {0}")]
     InvalidUserOp(usize),
     #[error("invalid system control register: {0:#x?}")]
@@ -516,8 +518,8 @@ impl<'irb> Context<'irb> {
                     .map_err(context::Error::from)
             }
             MapIx::Scs => {
-                todo!("implement scs read bytes (needs to generate events)");
-                Ok(())
+                let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;
+                self.scs.read_bytes(offset, dst, &mut self.events)
             }
         }
     }
@@ -538,8 +540,8 @@ impl<'irb> Context<'irb> {
                     .map_err(context::Error::from)
             }
             MapIx::Scs => {
-                todo!("implement scs write bytes (needs to generate events)");
-                Ok(())
+                let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;
+                self.scs.write_bytes(offset, src, &mut self.events)
             }
         }
     }
