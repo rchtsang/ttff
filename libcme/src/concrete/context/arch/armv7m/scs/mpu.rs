@@ -43,7 +43,7 @@ struct MPURegData {
 
 impl MPURegType {
     pub fn lookup_offset(offset: usize) -> Option<MPURegType> {
-        assert!((offset < 0xd90) || (offset > 0xdec), "offset not in mpu");
+        assert!((offset >= 0xd90) && (offset <= 0xdec), "offset not in mpu");
         match offset {
             0xd90 => { Some(MPURegType::TYPE) }
             0xd94 => { Some(MPURegType::CTRL) }

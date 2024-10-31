@@ -19,6 +19,7 @@ pub enum NVICRegType {
 impl NVICRegType {
     /// lookup register corresponding to given byte offset
     pub fn lookup_offset(offset: usize) -> Option<Self> {
+        assert!(((offset >= 0x100) && (offset <= 0xd00)), "offset not in nvic!");
         match offset {
             0x100..=0x13c => { Some(NVICRegType::ISER(((offset - 0x100) / 4) as u8)) }
             0x180..=0x1bc => { Some(NVICRegType::ICER(((offset - 0x180) / 4) as u8)) }

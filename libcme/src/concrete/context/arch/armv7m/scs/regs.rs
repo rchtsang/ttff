@@ -137,7 +137,7 @@ impl SCRegType {
         Self::lookup_offset(offset as usize)
     }
 
-    pub fn iter() -> impl Iterator {
+    pub fn iter() -> impl Iterator<Item=Self> {
         (0x0..0x1000).step_by(4).filter_map(Self::lookup_offset)
     }
 
@@ -1323,5 +1323,19 @@ impl SCRegType {
             }
             _ => { Err(Error::UnimplementedSysCtrlReg(self.clone())) }
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_type_iter() -> Result<(), ()> {
+        for sc_regtype in SCRegType::iter() {
+            println!("{sc_regtype:?}");
+        }
+        Ok(())
     }
 }
