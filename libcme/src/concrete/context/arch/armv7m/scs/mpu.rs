@@ -34,13 +34,6 @@ impl Default for MPUState {
     }
 }
 
-#[derive(Debug, Clone)]
-struct MPURegData {
-    pub offset: usize,
-    pub perms: u8,
-    pub reset: Option<u32>,
-}
-
 impl MPURegType {
     pub fn lookup_offset(offset: usize) -> Option<MPURegType> {
         assert!((offset >= 0xd90) && (offset <= 0xdec), "offset not in mpu");
@@ -77,19 +70,19 @@ impl MPURegType {
         self._data().reset
     }
 
-    fn _data(&self) -> &'static MPURegData {
+    fn _data(&self) -> &'static SCRegTypeData {
         match self {
-            MPURegType::TYPE    => { &MPURegData { offset: 0xd90, perms: 0b100, reset: None } }
-            MPURegType::CTRL    => { &MPURegData { offset: 0xd94, perms: 0b110, reset: Some(0) } }
-            MPURegType::RNR     => { &MPURegData { offset: 0xd98, perms: 0b110, reset: None } }
-            MPURegType::RBAR(0) => { &MPURegData { offset: 0xd9c, perms: 0b110, reset: None } }
-            MPURegType::RASR(0) => { &MPURegData { offset: 0xda0, perms: 0b110, reset: None } }
-            MPURegType::RBAR(1) => { &MPURegData { offset: 0xda4, perms: 0b110, reset: None } }
-            MPURegType::RASR(1) => { &MPURegData { offset: 0xda8, perms: 0b110, reset: None } }
-            MPURegType::RBAR(2) => { &MPURegData { offset: 0xdac, perms: 0b110, reset: None } }
-            MPURegType::RASR(2) => { &MPURegData { offset: 0xdb0, perms: 0b110, reset: None } }
-            MPURegType::RBAR(3) => { &MPURegData { offset: 0xdb4, perms: 0b110, reset: None } }
-            MPURegType::RASR(3) => { &MPURegData { offset: 0xdb8, perms: 0b110, reset: None } }
+            MPURegType::TYPE    => { &SCRegTypeData { offset: 0xd90, perms: 0b100, reset: None } }
+            MPURegType::CTRL    => { &SCRegTypeData { offset: 0xd94, perms: 0b110, reset: Some(0) } }
+            MPURegType::RNR     => { &SCRegTypeData { offset: 0xd98, perms: 0b110, reset: None } }
+            MPURegType::RBAR(0) => { &SCRegTypeData { offset: 0xd9c, perms: 0b110, reset: None } }
+            MPURegType::RASR(0) => { &SCRegTypeData { offset: 0xda0, perms: 0b110, reset: None } }
+            MPURegType::RBAR(1) => { &SCRegTypeData { offset: 0xda4, perms: 0b110, reset: None } }
+            MPURegType::RASR(1) => { &SCRegTypeData { offset: 0xda8, perms: 0b110, reset: None } }
+            MPURegType::RBAR(2) => { &SCRegTypeData { offset: 0xdac, perms: 0b110, reset: None } }
+            MPURegType::RASR(2) => { &SCRegTypeData { offset: 0xdb0, perms: 0b110, reset: None } }
+            MPURegType::RBAR(3) => { &SCRegTypeData { offset: 0xdb4, perms: 0b110, reset: None } }
+            MPURegType::RASR(3) => { &SCRegTypeData { offset: 0xdb8, perms: 0b110, reset: None } }
             _ => { panic!("invalid reg type: {self:?}") }
         }
     }

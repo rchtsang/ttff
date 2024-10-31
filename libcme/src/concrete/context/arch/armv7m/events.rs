@@ -79,6 +79,7 @@ impl<'irb> Context<'irb> {
                 todo!()
             }
             Event::ExceptionClrAllActive => {
+                // TODO: this must also clear the IPSR
                 todo!()
             }
             Event::VectorKeyWrite => {

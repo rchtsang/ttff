@@ -285,9 +285,7 @@ impl SysCtrlSpace {
                 events.push_back(evt);
             }
             SCRegType::AIRCR => {
-                let aircr = self.get_aircr_mut();
-                
-                let masked_write_val = write_val & 0xffff8707;
+                let masked_write_val = write_val & 0xffff0707;
                 let new_aircr = AIRCR::from(masked_write_val);
                 let new_vectreset = new_aircr.vectreset();
                 let new_vectclractive = new_aircr.vectclractive();
@@ -295,7 +293,57 @@ impl SysCtrlSpace {
                 let new_prigroup = new_aircr.prigroup();
                 let new_vectkey = new_aircr.vectkey_stat();
 
+                let dbg_state = self.debug_regs().get_debug_state();
 
+                let aircr = self.get_aircr_mut();
+
+                if new_vectreset {
+                    if !dbg_state {
+                        let err_str = "Write to VECTRESET while not halted in Debug state";
+                        let err = Error::UnpredictableBehavior(err_str);
+                        warn!("{err:?}");
+                        return Err(ArchError::from(err).into());
+                    }
+                    events.push_back(Event::LocalSysResetRequest);
+                }
+                if new_vectclractive {
+                    if !dbg_state {
+                        let err_str = "Write to VECTCLRACTIVE while not halted in Debug state";
+                        let err = Error::UnpredictableBehavior(err_str);
+                        warn!("{err:?}");
+                        return Err(ArchError::from(err).into());
+                    }
+                    events.push_back(Event::ExceptionClrAllActive);
+                }
+                if new_sysresetreq ^ aircr.sysresetreq() {
+                    if new_sysresetreq {
+                        // make local system reset request
+                        events.push_back(Event::LocalSysResetRequest);
+                    } else {
+                        // clear local system reset request
+                        // assuming it hasn't happened yet.
+                        // don't know if this is actually correct behavior.
+                        // arch doesn't specify.
+                        let maybe_idx = events.iter()
+                            .enumerate()
+                            .find(|&(_, evt)| {
+                                *evt == Event::LocalSysResetRequest
+                            }).map(|(i, _)| i);
+                        if let Some(idx) = maybe_idx {
+                            let removed = events.remove(idx).unwrap();
+                            assert_eq!(removed, Event::LocalSysResetRequest,
+                                "removed the wrong event!");
+                        }
+                    }
+                    aircr.set_sysresetreq(new_sysresetreq);
+                }
+                if new_prigroup != aircr.prigroup() {
+                    events.push_back(Event::SetPriorityGrouping(new_prigroup));
+                    aircr.set_prigroup(new_prigroup);
+                }
+                if new_vectkey == 0x05FA {
+                    events.push_back(Event::VectorKeyWrite);
+                }
             }
             SCRegType::SCR => todo!(),
             SCRegType::CCR => todo!(),
@@ -371,6 +419,17 @@ impl SysCtrlSpace {
             &mut *(slice as *mut [u32] as *mut [u32; 0xdec])
         };
         MPURegs::new(backing)
+    }
+
+    /// get wrapper for interacting with dbg registers
+    pub fn debug_regs(&mut self) -> DebugRegs {
+        let slice = &mut self.backing[..0x3c0];
+        assert_eq!(slice.len(), 0x3c0);
+        let backing = unsafe {
+            &mut *(slice as *mut [u32] as *mut [u32; 0x3c0])
+        };
+        DebugRegs::new(backing)
+
     }
 }
 

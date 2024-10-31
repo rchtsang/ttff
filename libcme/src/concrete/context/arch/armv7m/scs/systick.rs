@@ -18,13 +18,6 @@ pub enum SysTickRegType {
     CALIB,   // systick calibration value register
 }
 
-#[derive(Debug, Clone)]
-struct SysTickRegData {
-    pub offset: usize,
-    pub perms: u8,
-    pub reset: Option<u32>,
-}
-
 impl SysTickRegType {
     pub fn lookup_offset(offset: usize) -> Option<SysTickRegType> {
         match offset {
@@ -57,12 +50,12 @@ impl SysTickRegType {
         self._data().reset
     }
 
-    fn _data(&self) -> &'static SysTickRegData {
+    fn _data(&self) -> &'static SCRegTypeData {
         match self {
-            SysTickRegType::CSR     => { &SysTickRegData { offset: 0x010, perms: 0b110, reset: None } }
-            SysTickRegType::RVR     => { &SysTickRegData { offset: 0x014, perms: 0b110, reset: None } }
-            SysTickRegType::CVR     => { &SysTickRegData { offset: 0x018, perms: 0b110, reset: None } }
-            SysTickRegType::CALIB   => { &SysTickRegData { offset: 0x01C, perms: 0b110, reset: None } }
+            SysTickRegType::CSR     => { &SCRegTypeData { offset: 0x010, perms: 0b110, reset: None } }
+            SysTickRegType::RVR     => { &SCRegTypeData { offset: 0x014, perms: 0b110, reset: None } }
+            SysTickRegType::CVR     => { &SCRegTypeData { offset: 0x018, perms: 0b110, reset: None } }
+            SysTickRegType::CALIB   => { &SCRegTypeData { offset: 0x01C, perms: 0b110, reset: None } }
         }
     }
 }

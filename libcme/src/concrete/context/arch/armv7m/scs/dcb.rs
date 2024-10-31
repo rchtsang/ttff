@@ -19,13 +19,6 @@ pub enum DebugRegType {
     DEMCR,
 }
 
-#[derive(Debug, Clone)]
-struct DebugRegData {
-    pub offset: usize,
-    pub perms: u8,
-    pub reset: Option<u32>,
-}
-
 impl DebugRegType {
     pub fn lookup_offset(offset: usize) -> Option<DebugRegType> {
         match offset {
@@ -58,12 +51,12 @@ impl DebugRegType {
         self._data().reset
     }
 
-    fn _data(&self) -> &'static DebugRegData {
+    fn _data(&self) -> &'static SCRegTypeData {
         match self {
-            DebugRegType::DHCSR => { &DebugRegData { offset: 0xdf0, perms: 0b110, reset: None } }
-            DebugRegType::DCRSR => { &DebugRegData { offset: 0xdf4, perms: 0b010, reset: None } }
-            DebugRegType::DCRDR => { &DebugRegData { offset: 0xdf8, perms: 0b110, reset: None } }
-            DebugRegType::DEMCR => { &DebugRegData { offset: 0xdfc, perms: 0b110, reset: None } }
+            DebugRegType::DHCSR => { &SCRegTypeData { offset: 0xdf0, perms: 0b110, reset: None } }
+            DebugRegType::DCRSR => { &SCRegTypeData { offset: 0xdf4, perms: 0b010, reset: None } }
+            DebugRegType::DCRDR => { &SCRegTypeData { offset: 0xdf8, perms: 0b110, reset: None } }
+            DebugRegType::DEMCR => { &SCRegTypeData { offset: 0xdfc, perms: 0b110, reset: None } }
         }
     }
 }
@@ -455,6 +448,11 @@ pub struct DebugRegs<'a> {
 impl<'a> DebugRegs<'a> {
     pub fn new(backing: &'a mut [u32; 0x3c0]) -> Self {
         Self { backing }
+    }
+
+    /// returns true if in debug state
+    pub fn get_debug_state(&self) -> bool {
+        self.get_dhcsr().s_halt()
     }
 
     pub fn get_reg_ref(&self, regtype: DebugRegType) -> DebugRegRef {

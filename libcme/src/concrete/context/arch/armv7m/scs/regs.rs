@@ -105,7 +105,7 @@ pub enum SCRegType {
 }
 
 #[derive(Debug, Clone)]
-struct SCRegTypeData {
+pub(super) struct SCRegTypeData {
     pub offset: usize,
     pub perms: u8,
     pub reset: Option<u32>,
@@ -553,7 +553,7 @@ pub struct AIRCR {
     /// see B1-527.
     /// this field resets to 0.
     #[bits(3, default = 0)]
-    pub prigroup: u32,
+    pub prigroup: u8,
     #[bits(4)]
     __: u32,
     /// indicates memory system endianness.
