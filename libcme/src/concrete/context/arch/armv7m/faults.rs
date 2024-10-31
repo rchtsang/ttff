@@ -6,7 +6,7 @@
 use super::*;
 
 /// fault types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Fault {
     Mem(MemFault),
     Bus(BusFault),
@@ -15,7 +15,7 @@ pub enum Fault {
 }
 
 /// MemManage faults
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MemFault {
     InsnAccessViolation,    // (MMFSR.IACCVIOL)
     DataAccessViolation,    // (MMFSR.DACCVIOL)
@@ -25,7 +25,7 @@ pub enum MemFault {
 }
 
 /// Bus faults
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BusFault {
     InsnPrefetch,           // (BFSR.IBUSERR)
     PreciseDataAccess,      // (BFSR.PRECISERR)
@@ -36,7 +36,7 @@ pub enum BusFault {
 }
 
 /// Usage faults
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UsgFault {
     UndefinedInsn,          // (UFSR.UNDEFINSTR)
     InvalidState,           // (UFSR.INVSTATE) invlid EPSR.T or EPSR.IT field
@@ -47,7 +47,7 @@ pub enum UsgFault {
 }
 
 /// Hard fault
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HardFault {
     VectorTableRead,        // (HFSR.VECTTBL) vector table read error on exception processing
     EscalatedException,     // (HFSR.FORCED) escalated from configurable-priority exception

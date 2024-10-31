@@ -9,7 +9,7 @@ use super::*;
 /// these events can be triggered on writes to system control
 /// and must be dealt with immediately with an update to the
 /// context state if necessary
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     // ICSR and SHCSR
     ExceptionSetActive(ExceptionType, bool),

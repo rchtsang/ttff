@@ -14,13 +14,12 @@ pub struct Exception {
     pub priority: i16,
     // offset into vector table
     pub offset: usize,
-    pub entry: Address,
+    pub entry: Option<Address>,
     pub state: FlagSet<ExceptionState>
 }
 
 impl Exception {
-    pub fn new_with(typ: ExceptionType, priority: i16, entry: &[u8]) -> Self {
-        assert_eq!(entry.len(), 4, "entry must be word-aligned");
+    pub fn new_with(typ: ExceptionType, priority: i16, entry: Option<&[u8]>) -> Self {
         let num = (&typ).into();
         let offset = (num * 4) as usize;
         let state = ExceptionState::Inactive.into();
@@ -30,7 +29,10 @@ impl Exception {
             ExceptionType::HardFault    => { -1 }
             _ => { priority }
         };
-        let entry = Address::from(bytes_as_u32_le(entry));
+        let entry = entry.map(|slice| {
+            assert_eq!(slice.len(), 4, "entry must be word-aligned");
+            Address::from(bytes_as_u32_le(slice))
+        });
 
         Self { num, typ, priority, offset, entry, state }
     }
@@ -43,7 +45,7 @@ impl Default for Exception {
             typ: ExceptionType::Reserved(0),
             priority: 256,
             offset: 0,
-            entry: Address::default(),
+            entry: None,
             state: FlagSet::default(),
         }
     }
