@@ -593,106 +593,125 @@ impl AIRCR {
     }
 }
 
+/// sets or returns system control data
+/// 
+/// see B3.2.7
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct SCR {
     #[bits(1)]
     __: bool,
+    /// determines whether processor enters sleep state after ISR exits and returns
+    /// to base level of execution.
+    /// (0 = don't enter, 1 = enter sleep)
+    /// 
+    /// see power management on page B1-559
     #[bits(1)]
     pub sleeponexit: bool,
+    /// provides a qualifying hint indicating that waking from sleep might take
+    /// longer. implementation can use this bit to select between sleep states:
+    /// (0 = not deep sleep, 1 = deep sleep)
+    /// 
+    /// details are IMPLEMENTATION DEFINED.
+    /// if not implemented, RAZ/WI.
     #[bits(1)]
     pub sleepdeep: bool,
     #[bits(1)]
     __: bool,
+    /// determines whether an interrupt transition from inactive state to pending
+    /// is a wakeup event:
+    /// (0 = not wakeup, 1 = wakeup)
+    /// 
+    /// see WFE wakeup events on page B1-591
     #[bits(1)]
     pub sevonpend: bool,
     #[bits(27)]
     __: u32,
 }
 
-impl SCR {
-    pub fn write_evt(&self, current_val: u32) -> Vec<Event> {
-        let mut evts = vec![];
-        let changed = Self::from(self.into_bits() ^ current_val);
-        if changed.sleeponexit() {
-            evts.push(Event::SetSleepOnExit(self.sleeponexit()));
-        }
-        if changed.sleepdeep() {
-            evts.push(Event::SetDeepSleep(self.sleepdeep()));
-        }
-        if changed.sevonpend() {
-            evts.push(Event::SetTransitionWakupEvent(self.sevonpend()));
-        }
-        evts
-    }
-}
-
+/// sets or returns configuration and control data, provides control over
+/// caching and branch prediction.
+/// 
+/// see B3.2.8
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct CCR {
+    /// controls whether processor can enter thread mode with exception active
+    /// - 0: any attempt to return to thread mode results in exception if the
+    ///      number of active exceptions is non-zero and does not rely on 
+    ///      execution prioirty boosting, including BASEPRI, FAULTMASK, PRIMASK
+    /// - 1: processor can enter thread mode with exceptions active because of
+    ///      a controlled return value (see page B1-539)
     #[bits(1)]
     pub nonbasethrdena: bool,
+    /// controls whether unprivileged software can access the STIR
+    /// (0 = cannot access, 1 = can access)
+    /// (see B3-619 for further info)
     #[bits(1)]
     pub usersetmpend: bool,
     #[bits(1)]
     __: bool,
+    /// controls trapping of unaligned word or halfword accesses:
+    /// (0 = trapping disabled, 1 = trapping enabled)
+    /// Unaligned load-store multiple and word/halfword exclusive accesses
+    /// always fault.
     #[bits(1)]
     pub unalign_trp: bool,
+    /// controls trapping on divide-by-zero
+    /// (0 = trapping disabled, 1 = trapping enabled)
     #[bits(1)]
     pub div_0_trp: bool,
     #[bits(3)]
     __: u32,
+    /// determines effect of precise data access faults on handlers running
+    /// at priority -1 or -2.
+    /// (0 = precise data access fault causes lockup, 1 = handler ignores fault)
+    /// (see Unrecoverable exception cases on page B1-555)
     #[bits(1)]
     pub bfhfnmign: bool,
+    /// determines whether the exception entry sequence guarantees 8-byte stack
+    /// frame alignment, adjusting SP if necessary before saving state.
+    /// (0 = guaranteed 4-byte, no SP adjustment; 1 = guaranteed 8-byte, 
+    /// SP adjusted as necessary)
+    /// 
+    /// whether bit is read-write or read-only is IMPLEMENTATION DEFINED
+    /// (pick read-write as default)
+    /// reset value of bit is IMPLEMENTATION DEFINED (1 recommended)
+    /// (see Stack alignment on exception entry on page B1-535)
     #[bits(1)]
     pub stkalign: bool,
     #[bits(6)]
     __: u32,
+    /// cache enable bit. global enable for data and unified caches.
+    /// (0 = disabled, 1 = enabled)
+    /// 
+    /// if system doesn't implement caches that are processor-accessible,
+    /// bit is RAZ/WI.
+    /// if system implements such caches, it _must_ be possible to disable
+    /// them by clearing this bit.
     #[bits(1)]
     pub dc: bool,
+    /// instruction cache enable bit. global enable for instruction caches.
+    /// (0 = disabled, 1 = enabled)
+    /// 
+    /// if system does not implement caches that are processor-accessible,
+    /// bit is RAZ/WI.
+    /// if system implements such caches, it _must_ be possible to disable
+    /// them by clearing this bit.
     #[bits(1)]
     pub ic: bool,
+    /// branch prediction enable bit.
+    /// (0 = disabled, 1 = enabled)
+    /// 
+    /// if prediction cannot be disabled, this bit is RAO/WI.
+    /// if prediction is not supported, this bit is RAZ/WI.
     #[bits(1)]
     pub bp: bool,
     #[bits(13)]
     __: u32,
 }
 
-impl CCR {
-    pub fn write_evt(&self, current_val: u32) -> Vec<Event> {
-        let mut evts = vec![];
-        let changed = Self::from(self.into_bits() ^ current_val);
-        if changed.nonbasethrdena() {
-            evts.push(Event::ThreadModeExceptionsEnabled(self.nonbasethrdena()));
-        }
-        if changed.usersetmpend() {
-            evts.push(Event::STIRUnprivilegedAccessAllowed(self.usersetmpend()));
-        }
-        if changed.unalign_trp() {
-            evts.push(Event::UnalignedAccessTrapEnabled(self.unalign_trp()));
-        }
-        if changed.div_0_trp() {
-            evts.push(Event::DivideByZeroTrapEnabled(self.div_0_trp()));
-        }
-        if changed.bfhfnmign() {
-            evts.push(Event::PreciseDataAccessFaultIgnored(self.bfhfnmign()));
-        }
-        if changed.stkalign() {
-            evts.push(Event::Stack8ByteAligned(self.stkalign()));
-        }
-        if changed.dc() {
-            evts.push(Event::DataCacheEnabled(self.dc()));
-        }
-        if changed.ic() {
-            evts.push(Event::InsnCacheEnabled(self.ic()));
-        }
-        if changed.bp() {
-            evts.push(Event::BranchPredictionEnabled(self.bp()));
-        }
-        evts
-    }
-}
-
+/// sets or returns priority for system handlers 4-7
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct SHPR1 {
@@ -706,11 +725,7 @@ pub struct SHPR1 {
     pub pri_7: u8,
 }
 
-impl SHPR1 {
-    #[inline]
-    pub fn base() -> usize { 0xd18_usize }
-}
-
+/// sets or returns priority for system handlers 8-11
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct SHPR2 {
@@ -724,11 +739,7 @@ pub struct SHPR2 {
     pub pri_11: u8,
 }
 
-impl SHPR2 {
-    #[inline]
-    pub fn base() -> usize { 0xd1c_usize }
-}
-
+/// sets or returns priority for system handlers 12-15
 #[bitfield(u32)]
 #[derive(PartialEq, Eq)]
 pub struct SHPR3 {
@@ -740,11 +751,6 @@ pub struct SHPR3 {
     pub pri_14: u8,
     #[bits(8)]
     pub pri_15: u8,
-}
-
-impl SHPR3 {
-    #[inline]
-    pub fn base() -> usize { 0xd20_usize }
 }
 
 #[bitfield(u32)]

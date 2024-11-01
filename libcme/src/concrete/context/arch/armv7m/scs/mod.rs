@@ -345,11 +345,117 @@ impl SysCtrlSpace {
                     events.push_back(Event::VectorKeyWrite);
                 }
             }
-            SCRegType::SCR => todo!(),
-            SCRegType::CCR => todo!(),
-            SCRegType::SHPR1(_) => todo!(),
-            SCRegType::SHPR2(_) => todo!(),
-            SCRegType::SHPR3(_) => todo!(),
+            SCRegType::SCR => {
+                let masked_write_val = write_val & 0b10110;
+                let new_scr = SCR::from_bits(masked_write_val);
+                let new_sleeponexit = new_scr.sleeponexit();
+                let new_sleepdeep = new_scr.sleepdeep();
+                let new_sevonpend = new_scr.sevonpend();
+
+                let scr = self.get_scr_mut();
+
+                if new_sleeponexit ^ scr.sleeponexit() {
+                    let evt = Event::SetSleepOnExit(new_sleeponexit);
+                    events.push_back(evt);
+                    scr.set_sleeponexit(new_sleeponexit);
+                }
+                if new_sleepdeep ^ scr.sleepdeep() {
+                    let evt = Event::SetDeepSleep(new_sleepdeep);
+                    events.push_back(evt);
+                    scr.set_sleepdeep(new_sleepdeep);
+                }
+                if new_sevonpend ^ scr.sevonpend() {
+                    let evt = Event::SetTransitionWakupEvent(new_sevonpend);
+                    events.push_back(evt);
+                    scr.set_sevonpend(new_sevonpend);
+                }
+            }
+            SCRegType::CCR => {
+                let masked_write_val = write_val & 0x0007031b;
+                let new_ccr = CCR::from_bits(masked_write_val);
+                let new_nonbasethrdena = new_ccr.nonbasethrdena();
+                let new_usersetmpend = new_ccr.usersetmpend();
+                let new_unalign_trp = new_ccr.unalign_trp();
+                let new_div_0_trp = new_ccr.div_0_trp();
+                let new_bfhfnmign = new_ccr.bfhfnmign();
+                let new_stkalign = new_ccr.stkalign();
+                let new_dc = new_ccr.dc();
+                let new_ic = new_ccr.ic();
+                let new_bp = new_ccr.bp();
+
+                let ccr = self.get_ccr_mut();
+
+                if new_nonbasethrdena ^ ccr.nonbasethrdena() {
+                    let evt = Event::ThreadModeExceptionsEnabled(new_nonbasethrdena);
+                    events.push_back(evt);
+                    ccr.set_nonbasethrdena(new_nonbasethrdena);
+                }
+                if new_usersetmpend ^ ccr.usersetmpend() {
+                    let evt = Event::STIRUnprivilegedAccessAllowed(new_usersetmpend);
+                    events.push_back(evt);
+                    ccr.set_usersetmpend(new_usersetmpend);
+                }
+                if new_unalign_trp ^ ccr.unalign_trp() {
+                    let evt = Event::UnalignedAccessTrapEnabled(new_unalign_trp);
+                    events.push_back(evt);
+                    ccr.set_unalign_trp(new_unalign_trp);
+                }
+                if new_div_0_trp ^ ccr.div_0_trp() {
+                    let evt = Event::DivideByZeroTrapEnabled(new_div_0_trp);
+                    events.push_back(evt);
+                    ccr.set_div_0_trp(new_div_0_trp);
+                }
+                if new_bfhfnmign ^ ccr.bfhfnmign() {
+                    let evt = Event::PreciseDataAccessFaultIgnored(new_bfhfnmign);
+                    events.push_back(evt);
+                    ccr.set_bfhfnmign(new_bfhfnmign);
+                }
+                if new_stkalign ^ ccr.stkalign() {
+                    let evt = Event::PreciseDataAccessFaultIgnored(new_stkalign);
+                    events.push_back(evt);
+                    // TODO: have some configuration that makes this RO/RW
+                    ccr.set_stkalign(new_stkalign);
+                }
+                if new_dc ^ ccr.dc() {
+                    let evt = Event::DataCacheEnabled(new_dc);
+                    events.push_back(evt);
+                    // TODO: have config that makes this RAZ/WI
+                    ccr.set_dc(new_dc);
+                }
+                if new_ic ^ ccr.ic() {
+                    let evt = Event::InsnCacheEnabled(new_ic);
+                    events.push_back(evt);
+                    // TODO: have config that makes this RAZ/WI
+                    ccr.set_ic(new_ic);
+                }
+                if new_bp ^ ccr.bp() {
+                    let evt = Event::BranchPredictionEnabled(new_bp);
+                    events.push_back(evt);
+                    // TODO: have config that makes this RAO/WI or RAZ/WI.
+                    ccr.set_bp(new_bp);
+                }
+            }
+            SCRegType::SHPR1(id)
+            | SCRegType::SHPR2(id)
+            | SCRegType::SHPR3(id) => {
+                check_alignment(address, src.len(), Alignment::Any)?;
+                let slice = unsafe {
+                    &mut *(&mut self.backing[word_offset] as *mut u32 as *mut [u8; 4])
+                };
+                let slice = &mut slice[byte_offset..];
+                for (i, val) in src.iter().enumerate() {
+                    if slice[i] == *val {
+                        continue;
+                    }
+
+                    let evt = Event::SetSystemHandlerPriority {
+                        id: id + i as u8,
+                        priority: *val
+                    };
+                    events.push_back(evt);
+                    slice[i] = *val;
+                }
+            }
             SCRegType::SHCSR => todo!(),
             SCRegType::CFSR => todo!(),
             SCRegType::HFSR => todo!(),
