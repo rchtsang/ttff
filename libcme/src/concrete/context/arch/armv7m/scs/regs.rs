@@ -477,29 +477,6 @@ pub struct ICSR {
     pub nmipendset: bool,
 }
 
-impl ICSR {
-    pub fn write_evt(&self) -> Vec<Event> {
-        let mut evts = vec![];
-        if self.pendstclr() {
-            evts.push(Event::ExceptionSetPending(ExceptionType::SysTick, false));
-        }
-        if self.pendstset() {
-            evts.push(Event::ExceptionSetPending(ExceptionType::SysTick, true));
-        }
-        if self.pendsvclr() {
-            evts.push(Event::ExceptionSetPending(ExceptionType::PendSV, false));
-        }
-        if self.pendsvset() {
-            // writing 1 should be a way of requesting context switch
-            evts.push(Event::ExceptionSetPending(ExceptionType::PendSV, true));
-        }
-        if self.nmipendset() {
-            evts.push(Event::ExceptionSetActive(ExceptionType::NMI, self.nmipendset()));
-        }
-        evts
-    }
-}
-
 /// holds the vector table address.
 /// one or two of the high-order bits of the TBLOFF field can be implemented
 /// as RAZ/WI, reducing the supported address range.
@@ -792,56 +769,6 @@ pub struct SHCSR {
     pub usgfaultena: bool,
     #[bits(13)]
     __: u32,
-}
-
-impl SHCSR {
-    pub fn write_evt(&self, current_val: u32) -> Vec<Event> {
-        let mut evts = vec![];
-        let changed = Self::from_bits(self.into_bits() ^ current_val);
-        if changed.memfaultact() {
-            evts.push(Event::ExceptionSetActive(ExceptionType::MemFault, self.memfaultact()));
-        }
-        if changed.busfaultact() {
-            evts.push(Event::ExceptionSetActive(ExceptionType::BusFault, self.busfaultact()));
-        }
-        if changed.usgfaultact() {
-            evts.push(Event::ExceptionSetActive(ExceptionType::UsageFault, self.usgfaultact()));
-        }
-        if changed.svcallact() {
-            evts.push(Event::ExceptionSetActive(ExceptionType::SVCall, self.svcallact()));
-        }
-        if changed.monitoract() {
-            evts.push(Event::ExceptionSetActive(ExceptionType::DebugMonitor, self.monitoract()));
-        }
-        if changed.pendsvact() {
-            evts.push(Event::ExceptionSetActive(ExceptionType::PendSV, self.pendsvact()));
-        }
-        if changed.systickact() {
-            evts.push(Event::ExceptionSetActive(ExceptionType::SysTick, self.systickact()));
-        }
-        if changed.usgfaultpended() {
-            evts.push(Event::ExceptionSetPending(ExceptionType::UsageFault, self.usgfaultpended()));
-        }
-        if changed.memfaultpended() {
-            evts.push(Event::ExceptionSetPending(ExceptionType::MemFault, self.memfaultpended()));
-        }
-        if changed.busfaultpended() {
-            evts.push(Event::ExceptionSetPending(ExceptionType::BusFault, self.busfaultpended()));
-        }
-        if changed.svcallpended() {
-            evts.push(Event::ExceptionSetPending(ExceptionType::SVCall, self.svcallpended()));
-        }
-        if changed.memfaultena() {
-            evts.push(Event::ExceptionEnabled(ExceptionType::MemFault, self.memfaultena()));
-        }
-        if changed.busfaultena() {
-            evts.push(Event::ExceptionEnabled(ExceptionType::BusFault, self.busfaultena()));
-        }
-        if changed.usgfaultena() {
-            evts.push(Event::ExceptionEnabled(ExceptionType::UsageFault, self.usgfaultena()));
-        }
-        evts
-    }
 }
 
 #[bitfield(u32)]

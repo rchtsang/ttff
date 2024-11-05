@@ -383,52 +383,55 @@ impl SysCtrlSpace {
                 let new_ic = new_ccr.ic();
                 let new_bp = new_ccr.bp();
 
+                let current_val = self.backing[SCRegType::CCR.offset() / 4];
+                let changed = CCR::from_bits(masked_write_val ^ current_val);
+
                 let ccr = self.get_ccr_mut();
 
-                if new_nonbasethrdena ^ ccr.nonbasethrdena() {
+                if changed.nonbasethrdena() {
                     let evt = Event::ThreadModeExceptionsEnabled(new_nonbasethrdena);
                     events.push_back(evt);
                     ccr.set_nonbasethrdena(new_nonbasethrdena);
                 }
-                if new_usersetmpend ^ ccr.usersetmpend() {
+                if changed.usersetmpend() {
                     let evt = Event::STIRUnprivilegedAccessAllowed(new_usersetmpend);
                     events.push_back(evt);
                     ccr.set_usersetmpend(new_usersetmpend);
                 }
-                if new_unalign_trp ^ ccr.unalign_trp() {
+                if changed.unalign_trp() {
                     let evt = Event::UnalignedAccessTrapEnabled(new_unalign_trp);
                     events.push_back(evt);
                     ccr.set_unalign_trp(new_unalign_trp);
                 }
-                if new_div_0_trp ^ ccr.div_0_trp() {
+                if changed.div_0_trp() {
                     let evt = Event::DivideByZeroTrapEnabled(new_div_0_trp);
                     events.push_back(evt);
                     ccr.set_div_0_trp(new_div_0_trp);
                 }
-                if new_bfhfnmign ^ ccr.bfhfnmign() {
+                if changed.bfhfnmign() {
                     let evt = Event::PreciseDataAccessFaultIgnored(new_bfhfnmign);
                     events.push_back(evt);
                     ccr.set_bfhfnmign(new_bfhfnmign);
                 }
-                if new_stkalign ^ ccr.stkalign() {
+                if changed.stkalign() {
                     let evt = Event::PreciseDataAccessFaultIgnored(new_stkalign);
                     events.push_back(evt);
                     // TODO: have some configuration that makes this RO/RW
                     ccr.set_stkalign(new_stkalign);
                 }
-                if new_dc ^ ccr.dc() {
+                if changed.dc() {
                     let evt = Event::DataCacheEnabled(new_dc);
                     events.push_back(evt);
                     // TODO: have config that makes this RAZ/WI
                     ccr.set_dc(new_dc);
                 }
-                if new_ic ^ ccr.ic() {
+                if changed.ic() {
                     let evt = Event::InsnCacheEnabled(new_ic);
                     events.push_back(evt);
                     // TODO: have config that makes this RAZ/WI
                     ccr.set_ic(new_ic);
                 }
-                if new_bp ^ ccr.bp() {
+                if changed.bp() {
                     let evt = Event::BranchPredictionEnabled(new_bp);
                     events.push_back(evt);
                     // TODO: have config that makes this RAO/WI or RAZ/WI.
@@ -456,7 +459,104 @@ impl SysCtrlSpace {
                     slice[i] = *val;
                 }
             }
-            SCRegType::SHCSR => todo!(),
+            SCRegType::SHCSR => {
+                check_alignment(address, src.len(), Alignment::Word)?;
+
+                let masked_write_val = write_val & 0x0007ff8f;
+                let new_shcsr = SHCSR::from_bits(masked_write_val);
+                let new_memfaultact = new_shcsr.memfaultact();
+                let new_busfaultact = new_shcsr.busfaultact();
+                let new_usgfaultact = new_shcsr.usgfaultact();
+                let new_svcallact = new_shcsr.svcallact();
+                let new_monitoract = new_shcsr.monitoract();
+                let new_pendsvact = new_shcsr.pendsvact();
+                let new_systickact = new_shcsr.systickact();
+                let new_usgfaultpended = new_shcsr.usgfaultpended();
+                let new_memfaultpended = new_shcsr.memfaultpended();
+                let new_busfaultpended = new_shcsr.busfaultpended();
+                let new_svcallpended = new_shcsr.svcallpended();
+                let new_memfaultena = new_shcsr.memfaultena();
+                let new_busfaultena = new_shcsr.busfaultena();
+                let new_usgfaultena = new_shcsr.usgfaultena();
+
+                let current_val = self.backing[SCRegType::SHCSR.offset() / 4];
+                let changed = SHCSR::from_bits(masked_write_val ^ current_val);
+
+                // let shcsr = self.get_shcsr_mut();
+
+                if changed.memfaultact() {
+                    let excp = ExceptionType::MemFault;
+                    let evt = Event::ExceptionSetActive(excp, new_memfaultact);
+                    events.push_back(evt);
+                }
+                if changed.busfaultact() {
+                    let excp = ExceptionType::BusFault;
+                    let evt = Event::ExceptionSetActive(excp, new_busfaultact);
+                    events.push_back(evt);
+                }
+                if changed.usgfaultact() {
+                    let excp = ExceptionType::UsageFault;
+                    let evt = Event::ExceptionSetActive(excp, new_usgfaultact);
+                    events.push_back(evt);
+                }
+                if changed.svcallact() {
+                    let excp = ExceptionType::SVCall;
+                    let evt = Event::ExceptionSetActive(excp, new_svcallact);
+                    events.push_back(evt);
+                }
+                if changed.monitoract() {
+                    let excp = ExceptionType::DebugMonitor;
+                    let evt = Event::ExceptionSetActive(excp, new_monitoract);
+                    events.push_back(evt);
+                }
+                if changed.pendsvact() {
+                    let excp = ExceptionType::PendSV;
+                    let evt = Event::ExceptionSetActive(excp, new_pendsvact);
+                    events.push_back(evt);
+                }
+                if changed.systickact() {
+                    let excp = ExceptionType::SysTick;
+                    let evt = Event::ExceptionSetActive(excp, new_systickact);
+                    events.push_back(evt);
+                }
+                if changed.usgfaultpended() {
+                    let excp = ExceptionType::UsageFault;
+                    let evt = Event::ExceptionSetPending(excp, new_usgfaultpended);
+                    events.push_back(evt);
+                }
+                if changed.memfaultpended() {
+                    let excp = ExceptionType::MemFault;
+                    let evt = Event::ExceptionSetPending(excp, new_memfaultpended);
+                    events.push_back(evt);
+                }
+                if changed.busfaultpended() {
+                    let excp = ExceptionType::BusFault;
+                    let evt = Event::ExceptionSetPending(excp, new_busfaultpended);
+                    events.push_back(evt);
+                }
+                if changed.svcallpended() {
+                    let excp = ExceptionType::SVCall;
+                    let evt = Event::ExceptionSetPending(excp, new_svcallpended);
+                    events.push_back(evt);
+                }
+                if changed.memfaultena() {
+                    let excp = ExceptionType::MemFault;
+                    let evt = Event::ExceptionEnabled(excp, new_memfaultena);
+                    events.push_back(evt);
+                }
+                if changed.busfaultena() {
+                    let excp = ExceptionType::BusFault;
+                    let evt = Event::ExceptionEnabled(excp, new_busfaultena);
+                    events.push_back(evt);
+                }
+                if changed.usgfaultena() {
+                    let excp = ExceptionType::UsageFault;
+                    let evt = Event::ExceptionEnabled(excp, new_usgfaultena);
+                    events.push_back(evt);
+                }
+                // note that we do not update SHCSR here, but in handling generated events
+                // since there are multiple ways to change interrupt state in software.
+            }
             SCRegType::CFSR => todo!(),
             SCRegType::HFSR => todo!(),
             SCRegType::DFSR => todo!(),
