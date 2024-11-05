@@ -6,6 +6,8 @@
 //! implement userops as a function table
 #![allow(unused)]
 
+use crate::concrete::eval::bool2bv;
+
 use super::*;
 
 impl<'irb> Context<'irb> {
@@ -470,6 +472,15 @@ fn _set_system_mode(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// enables irq interrupts.
+/// called for "cpsie i" instruction.
+/// should clear PRIMASK, per B1.4.3.
+/// see B5.2.1 for CPS instruction
+/// 
+/// note: also appears to be called in the sleigh definition
+/// for the "msr primask, <in>" instruction, but it takes in
+/// a parameter, which may need to be handled specially.
+/// ARMTHUMBinstructions.sinc 
 fn _enable_irq_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -494,6 +505,10 @@ fn _enable_dataabort_interrupts(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// disables irq interrupts.
+/// called for "cpsid i" instruction.
+/// should set PRIMASK, per B1.4.3.
+/// see B5.2.1 for CPS instruction
 fn _disable_irq_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -534,6 +549,12 @@ fn _disable_dataabort_interrupts(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// checks if executing processor has exclusive access
+/// to the memory addressed.
+/// used in sleigh definitions of "strex" instructions.
+/// see A7.7.167 for STREX instruction.
+/// see A7-184 for info about memory accesses.
+/// see A3.4 for info about arch support for synchronization and semaphores.
 fn _has_exclusive_access(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -542,6 +563,10 @@ fn _has_exclusive_access(this: &mut Context,
     unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// checks if current execution mode is privileged, called 
+/// when executing MRS and MSR instructions.
+/// should be identical to "CurrentModeIsPrivileged()" defined 
+/// in B1.3.1.
 fn _is_current_mode_privileged(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -550,6 +575,9 @@ fn _is_current_mode_privileged(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// sets the current execution mode to "privileged".
+/// used in "msr  control, <Rn>" on write to special-purpose
+/// CONTROL (B1.4.4)
 fn _set_thread_mode_privileged(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -558,6 +586,9 @@ fn _set_thread_mode_privileged(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// checks if processor currently executing in thread mode
+/// used in "msr  control, <Rn>" on write to special-purpose
+/// CONTROL (B1.4.4)
 fn _is_thread_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -590,20 +621,24 @@ fn _hint_debug(this: &mut Context,
     unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// implementation of DMB instruction.
+/// (see Memory barriers in A3.7.3)
 fn _data_memory_barrier(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
+    todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// implementation of DSB instruction.
+/// (see Memory barriers in A3.7.3)
 fn _data_synchronization_barrier(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
+    todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
 fn _secure_monitor_func(this: &mut Context,
@@ -614,6 +649,8 @@ fn _secure_monitor_func(this: &mut Context,
     unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// implementation of WFE instruction.
+/// (see WFE instruction A7.7.261)
 fn _wait_for_event(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -622,6 +659,8 @@ fn _wait_for_event(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// implementation of WFI instruction.
+/// (see WFI instruction A7.7.262)
 fn _wait_for_interrupt(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -638,6 +677,8 @@ fn _hint_yield(this: &mut Context,
     unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// implementation of ISB instruction.
+/// (see Memory barriers in A3.7.3)
 fn _instruction_synchronization_barrier(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -782,6 +823,14 @@ fn _index_check(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// if address has shareable memory attribute, mark the physical
+/// address as exclusive access for the executing processor in the
+/// global monitor.
+/// used in sleigh definitions of "ldrex" instructions.
+/// see A7.7.52 for LDREX instruction.
+/// see A3.4 for synchronization and semaphores.
+/// 
+/// size of the tagged block is IMPLEMENTATION DEFINED.
 fn _exclusive_access(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -790,6 +839,9 @@ fn _exclusive_access(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// loads current value of the main stack pointer.
+/// used in implementation of "MRS  <Rd>, msp".
+/// (see SP registers in B1.4.1)
 fn _get_main_stack_pointer(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -798,6 +850,9 @@ fn _get_main_stack_pointer(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// loads current value of the process stack pointer.
+/// used in implementation of "MRS  <Rd>, psp".
+/// (see SP registers in B1.4.1)
 fn _get_process_stack_pointer(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -806,6 +861,9 @@ fn _get_process_stack_pointer(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// loads current value of the BASEPRI register.
+/// (see special-purpose mask registers  B1.4.3)
+/// (used in a few sleigh implementations involving basepri and basepri_max)
 fn _get_base_priority(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -814,6 +872,9 @@ fn _get_base_priority(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// returns the current exception number in IPSR.
+/// used in implmentation of "MRS  IPSR" instruction.
+/// (see special-purpose Program Status Registers B1.4.2)
 fn _get_current_exception_number(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -822,22 +883,39 @@ fn _get_current_exception_number(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// returns whether current thread mode is privileged.
+/// used in implementation of "MRS  CONTROL" instruction.
+/// (see special-purpose CONTROL register B1.4.4)
+/// 
+/// essentially reads !CONTROL.nPRIV
 fn _is_thread_mode_privileged(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    let bv = bool2bv(!this.control.npriv());
+    this._write_vnd(output.unwrap(), &bv);
+    Ok(None)
 }
 
+/// returns whether main stack pointer is currently being used.
+/// used in implementation of "MRS  CONTROL" instruction.
+/// (see special-purpose CONTROL register B1.4.4)
+/// 
+/// essentially read !CONTROL.SPSEL
 fn _is_using_main_stack(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    let bv = bool2bv(!this.control.spsel());
+    this._write_vnd(output.unwrap(), &bv);
+    Ok(None)
 }
 
+/// write to main stack pointer directly.
+/// used in implementation of "MSR  MSP, <Rn>" instruction.
+/// (remember to update currently used stack pointer if needed)
 fn _set_main_stack_pointer(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -846,6 +924,9 @@ fn _set_main_stack_pointer(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// write to process stack pointer directly.
+/// used in implementation of "MSR  PSP, <Rn>" instruction.
+/// (remember to update currently used stack pointer if needed)
 fn _set_process_stack_pointer(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -854,18 +935,53 @@ fn _set_process_stack_pointer(this: &mut Context,
     todo!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// write to base priority special-purpose register.
+/// used in implementation of "MSR  BASEPRI, <Rn>" instruction.
 fn _set_base_priority(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    let value = this._read_vnd(&inputs[0])?
+        .to_u8().unwrap();
+    this.basepri.set_basepri(value);
+    Ok(None)
 }
 
+/// set current stack mode based in input0.
+/// used in implmentation of "MSR  CONTROL, <Rn>" instruction.
+/// 
+/// NOTE: ARMTHUMBinstruction.sinc definition of this instruction
+/// appears to be faulty? not setting value based on Rn...
 fn _set_stack_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    let value = this._read_vnd(&inputs[0])?
+        .to_u8().unwrap() != 0;
+    this.control.set_spsel(value);
+    Ok(None)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_userops() -> Result<(), ()> {
+        let indices = &[
+            0, 12, 16, 30, 33, 38, 39, 40, 41, 45, 
+            46, 48, 49, 51, 270, 271, 272, 273, 274, 
+            275, 276, 277, 278, 279, 280,
+        ];
+
+        for idx in indices {
+            let name = _lookup_userop(*idx).name;
+            println!("{idx}: {name}");
+        }
+
+        Ok(())
+    }
 }

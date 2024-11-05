@@ -38,14 +38,14 @@ pub struct Evaluator {
 }
 
 /// helper to convert BitVec to Address
-fn _bv2addr(bv: BitVec) -> Result<Address, Error> {
+pub fn bv2addr(bv: BitVec) -> Result<Address, Error> {
     bv.to_u64()
         .map(Address::from)
         .ok_or_else(|| Error::InvalidAddress(bv))
 }
 
 /// helper function to convert boolean to bitvector
-fn _bool2bv(val: bool) -> BitVec {
+pub fn bool2bv(val: bool) -> BitVec {
     BitVec::from(if val { 1u8 } else { 0u8 })
 }
 
@@ -204,31 +204,31 @@ impl<'irb> Evaluator {
                 self._apply_unsigned_int2(operation, |lhs, rhs| Ok(lhs ^ rhs), context)?;
             }
             Opcode::IntCarry => {
-                self._apply_unsigned_int2(operation, |lhs, rhs| Ok(_bool2bv(lhs.carry(&rhs))), context)?;
+                self._apply_unsigned_int2(operation, |lhs, rhs| Ok(bool2bv(lhs.carry(&rhs))), context)?;
             }
             Opcode::IntSCarry => {
-                self._apply_signed_int2(operation, |lhs, rhs| Ok(_bool2bv(lhs.signed_carry(&rhs))), context)?;
+                self._apply_signed_int2(operation, |lhs, rhs| Ok(bool2bv(lhs.signed_carry(&rhs))), context)?;
             }
             Opcode::IntSBorrow => {
-                self._apply_signed_int2(operation, |lhs, rhs| Ok(_bool2bv(lhs.signed_borrow(&rhs))), context)?;
+                self._apply_signed_int2(operation, |lhs, rhs| Ok(bool2bv(lhs.signed_borrow(&rhs))), context)?;
             }
             Opcode::IntEq => {
-                self._apply_unsigned_int2(operation, |lhs, rhs| Ok(_bool2bv(lhs == rhs)), context)?;
+                self._apply_unsigned_int2(operation, |lhs, rhs| Ok(bool2bv(lhs == rhs)), context)?;
             }
             Opcode::IntNotEq => {
-                self._apply_unsigned_int2(operation, |lhs, rhs| Ok(_bool2bv(lhs != rhs)), context)?;
+                self._apply_unsigned_int2(operation, |lhs, rhs| Ok(bool2bv(lhs != rhs)), context)?;
             }
             Opcode::IntLess => {
-                self._apply_unsigned_int2(operation, |lhs, rhs| Ok(_bool2bv(lhs < rhs)), context)?;
+                self._apply_unsigned_int2(operation, |lhs, rhs| Ok(bool2bv(lhs < rhs)), context)?;
             }
             Opcode::IntSLess => {
-                self._apply_signed_int2(operation, |lhs, rhs| Ok(_bool2bv(lhs < rhs)), context)?;
+                self._apply_signed_int2(operation, |lhs, rhs| Ok(bool2bv(lhs < rhs)), context)?;
             }
             Opcode::IntLessEq => {
-                self._apply_unsigned_int2(operation, |lhs, rhs| Ok(_bool2bv(lhs <= rhs)), context)?;
+                self._apply_unsigned_int2(operation, |lhs, rhs| Ok(bool2bv(lhs <= rhs)), context)?;
             }
             Opcode::IntSLessEq => {
-                self._apply_signed_int2(operation, |lhs, rhs| Ok(_bool2bv(lhs <= rhs)), context)?;
+                self._apply_signed_int2(operation, |lhs, rhs| Ok(bool2bv(lhs <= rhs)), context)?;
             }
             Opcode::IntSExt => {
                 self._apply_signed_int1(operation, |val| Ok(val), context)?;
@@ -322,7 +322,7 @@ impl<'irb> Evaluator {
         vnd: &VarnodeData,
         context: &mut impl Context<'irb>,
     ) -> Result<Address, Error> {
-        _bv2addr(context.read(vnd)?).map_err(Error::from)
+        bv2addr(context.read(vnd)?).map_err(Error::from)
     }
 
     fn _read_mem(&self,
@@ -484,7 +484,7 @@ impl<'irb> Evaluator {
         let rhs = context.read(&operation.inputs[1])?;
         let dst = operation.output.as_ref().unwrap();
 
-        let val = _bool2bv(op(!lhs.is_zero(), !rhs.is_zero())?);
+        let val = bool2bv(op(!lhs.is_zero(), !rhs.is_zero())?);
 
         self._assign(dst, val.cast(dst.bits()), context)
     }
@@ -500,7 +500,7 @@ impl<'irb> Evaluator {
         let rhs = context.read(&operation.inputs[0])?;
         let dst = operation.output.as_ref().unwrap();
 
-        let val = _bool2bv(op(!rhs.is_zero())?);
+        let val = bool2bv(op(!rhs.is_zero())?);
 
         self._assign(dst, val.cast(dst.bits()), context)
     }

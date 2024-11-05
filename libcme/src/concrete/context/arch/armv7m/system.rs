@@ -174,3 +174,258 @@ pub struct BASEPRI {
     #[bits(24)]
     __: u32,
 }
+
+/// special-purpose program status register xPSR
+/// defined in B1.4.2
+/// 
+/// XPSR is a combination of APSR, IPSR, and EPSR.
+/// 
+/// APSR SHOULD NOT BE ACCESSED FROM THIS STRUCT.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct XPSR(pub u32);
+
+#[allow(unused)]
+impl XPSR {
+    /// access xPSR as IPSR
+    pub fn ipsr(&mut self) -> &mut IPSR {
+        unsafe { &mut *(self as *mut XPSR as *mut u32 as *mut IPSR) }
+    }
+
+    /// access xPSR as EPSR
+    pub fn epsr(&mut self) -> &mut EPSR {
+        unsafe { &mut *(self as *mut XPSR as *mut u32 as *mut EPSR) }
+    }
+
+    /// access xPSR as APSR
+    pub fn apsr(&mut self) -> &mut APSR {
+        unimplemented!("APSR should be accessed as defined by sleigh spec");
+    }
+}
+
+/// application program status register.
+/// 
+/// note: this struct will be unused, since the sleigh spec defines an APSR
+/// as the CPSR and manages the flags in spec.
+/// 
+/// note2: the sleigh spec ignores the GE bits.
+/// 
+/// holds flags that can be written by application-level software, that is, by
+/// unprivileged software.
+/// APSR handling of application-level writeable flags by the MSR and MRS 
+/// instructions is consistent across all ARMv7 profiles.
+/// 
+/// see A2.3.2
+/// 
+/// reserved bits are allocated to system features or available for future
+/// expansion. bits are defined as UNK/SBZP.
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct APSR {
+    #[bits(16)]
+    __: u16,
+    /// greater than or Equal flags, updated by SIMD instructions to indicate
+    /// results from individual bytes or halfwords of the operations.
+    /// DSP extension only.
+    /// 
+    /// software can use these flags to control a later SEL instruction
+    /// (see SEL on A7-351).
+    #[bits(4)]
+    pub ge: u8,
+    #[bits(7)]
+    __: u8,
+    /// set to 1 if a SSAT or USAT instruction changes the input value for
+    /// the signed or unsigned range of the result.
+    /// in a processor that implements the DSP extension, the processor sets
+    /// this bit to 1 to indicate an overflow on some multiplies.
+    /// 
+    /// setting this bit to 1 is called saturation.
+    #[bits(1)]
+    pub q: bool,
+    /// overflow condition flag.
+    /// set to 1 if the instruction results in an overflow condition,
+    /// e.g. a signed overflow on an addition.
+    #[bits(1)]
+    pub v: bool,
+    /// carry condition flag.
+    /// set to 1 if the instruction results in a carry condition,
+    /// e.g. unsigned overflow on addition.
+    #[bits(1)]
+    pub c: bool,
+    /// zero condition flag.
+    /// set to 1 if result of instruction is zero, 0 otherwise.
+    /// result of zero often indicates equality from comparison.
+    #[bits(1)]
+    pub z: bool,
+    /// negative condition flag.
+    /// set to bit[31] of result of the instruction.
+    /// if result is regarded as a two's complement signed integer, then 
+    /// N == 1 if result is negative and 0 if positive or zero.
+    #[bits(1)]
+    pub n: bool,
+
+}
+
+/// interrupt program status register.
+/// 
+/// when processor is executing an exception handler, holds the exception
+/// number of the exception being processed. Otherwise, IPSR value is zero.
+/// 
+/// processor writes to the IPSR on exception entry and exit.
+/// Software can use an MRS instruction to read the IPSR, but the
+/// processor ignores writes tot he IPSR by an MSR instruction.
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct IPSR {
+    /// exception number defined as:
+    /// - 0 in thread mode
+    /// - exception number of currently executing exception in handler mode
+    /// 
+    /// on reset, processor is in thread mode and exception number is
+    /// cleared to 0. (1 is a transitory value and an invalid exception number)
+    #[bits(9)]
+    pub exception_number: u32,
+    #[bits(23)]
+    __: u32,
+}
+
+/// execution program status register.
+/// 
+/// holds execution state bits.
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+pub struct EPSR {
+    #[bits(10)]
+    __: u16,
+    /// ICI/IT bits
+    #[bits(6)]
+    ici_it_lower: u8,
+    #[bits(8)]
+    __: u8,
+    /// thumb mode bit
+    #[bits(1)]
+    pub t: bool,
+    /// more ICI/IT bits
+    #[bits(2)]
+    ici_it_upper: u8,
+    #[bits(5)]
+    __: u8,
+}
+
+impl EPSR {
+    /// get bits as ITSTATE
+    pub fn itstate(&mut self) -> &mut ITSTATE {
+        unsafe { &mut *(self as *mut EPSR as *mut u32 as *mut ITSTATE) }
+    }
+
+
+}
+
+/// holds the If-Then Execution state bits for the Thumb IT instruction
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct ITSTATE(u32);
+
+#[allow(unused)]
+impl ITSTATE {
+
+    /// get current value of ITSTATE as expected bits
+    pub fn value(&self) -> u8 {
+        (((self.0 & 0x0000fc00) >>  8) | ((self.0 & 0x06000000) >> 25)) as u8
+    }
+
+    /// set current value of ITSTATE from expected bits
+    pub fn set(&mut self, val: u8) {
+        let val = val as u32;
+        self.0 &= !0x0600fc00;
+        self.0 |= ((val & 0x03) << 25) | ((val & 0xfc) << 8);
+    }
+
+    /// IT block size (number of instructions that are to be conditionally
+    /// executed). Size is implied by position of least significant 1 in
+    /// this field (see A7-180).
+    /// Also encodes least significant bit of condition code for each 
+    /// instruction in the block (see Table A7-2).
+    pub fn code(&self) -> u8 {
+        self.value() & 0b11111
+    }
+    pub fn set_code(&mut self, val: u8) {
+        let masked = self.value() & 0b11100000;
+        self.set((val & 0b11111) | masked);
+    }
+
+    /// base condition for current IT block (top 3 bits of the condition
+    /// specified by the IT instruction).
+    /// 
+    /// subfield is 0b000 when no IT block is active.
+    pub fn base_cond(&self) -> u8 {
+        (self.value() & 0b11100000) >> 5
+    }
+    pub fn set_base_cond(&mut self, val: u8) {
+        let masked = self.value() & 0b00011111;
+        self.set(((val & 0b111) << 5) | masked);
+    }
+}
+
+impl Into<u8> for ITSTATE {
+    fn into(self) -> u8 {
+        self.value()
+    }
+}
+
+impl From<u8> for ITSTATE {
+    fn from(value: u8) -> Self {
+        let mut val = ITSTATE(0);
+        val.set(value);
+        val
+    }
+}
+
+/// holds ICI bits that provide information on the outstanding register
+/// list for an interrupted exception-continuable multicycle load or
+/// store instruction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct ICI(u32);
+
+#[allow(unused)]
+impl ICI {
+    /// get current value of ICI bits
+    pub fn value(&self) -> u8 {
+        (((self.0 & 0x0000fc00) >>  10) | ((self.0 & 0x06000000) >> 15)) as u8
+    }
+
+    /// set current value of ICI bits
+    pub fn set(&mut self, val: u8) {
+        assert!((val & 0b11000011) == 0, "only ICI reg_num bits[5:2] should be nonzero");
+        let val = val as u32;
+        self.0 &= !0x0600fc00;
+        self.0 |= ((val & 0xc0) << 15) | ((val & 0x3f) << 10);
+    }
+
+    /// register number to continue from in exception-continuable memory access
+    /// after returning from an exception.
+    /// processor should continue loading/storing any registers in instruction
+    /// register list with number equal to or greater than this register number
+    pub fn reg_num(&self) -> u8 {
+        (self.value() & 0b00111100) >> 2
+    }
+    pub fn set_reg_num(&mut self, val: u8) {
+        let masked = self.value() & 0b11000011;
+        self.set(((val & 0xf) << 2) | masked);
+    }
+}
+
+impl Into<u8> for ICI {
+    fn into(self) -> u8 {
+        self.value()
+    }
+}
+
+impl From<u8> for ICI {
+    fn from(value: u8) -> Self {
+        let mut val = ICI(0);
+        val.set(value);
+        val
+    }
+}

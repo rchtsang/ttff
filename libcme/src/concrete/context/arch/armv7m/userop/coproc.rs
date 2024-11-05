@@ -92,6 +92,13 @@ pub(super) fn _coprocessor_movefrom2(this: &mut Context,
     unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// STC and STC2 instruction
+/// 
+/// see ARMTHUMBinstructions.sinc and A7.7.158
+/// 
+/// stores data from a coprocessor to a sequence of consecutive 
+/// memory addresses. if no coprocessor can execute the instruction, 
+/// a UsageFault exception is generated.
 pub(super) fn _coprocessor_store(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -100,6 +107,9 @@ pub(super) fn _coprocessor_store(this: &mut Context,
     unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
+/// STC2 instruction
+/// 
+/// see ARMinstructions.sinc, only defined for VERSION_5
 pub(super) fn _coprocessor_store2(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],

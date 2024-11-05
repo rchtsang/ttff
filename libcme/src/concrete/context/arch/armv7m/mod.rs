@@ -140,13 +140,16 @@ pub struct Context<'irb> {
     /// armv7m xPSR is a combination of APSR, IPSR, and EPSR
     /// and is not defined as part of the ghidra sleigh spec.
     /// hence we must handle this manually
-    xpsr: u32,
+    xpsr: system::XPSR,
     /// banked main stack pointer (always used in handler mod)
     main_sp: Option<u32>,
     /// banked process stack pointer (optionally used in thread mode)
     proc_sp: Option<u32>,
     /// special-purpose CONTROL register (B1.4.4)
     control: system::CONTROL,
+    primask: system::PRIMASK,
+    faultmask: system::FAULTMASK,
+    basepri: system::BASEPRI,
 
     regs: FixedState,
     tmps: FixedState,
@@ -179,10 +182,13 @@ impl<'irb> Context<'irb> {
             sp: lang.convention().stack_pointer().varnode().clone(),
             endian: if t.is_big_endian() { Endian::Big } else { Endian::Little },
             mode: Mode::Thread,
-            xpsr: 0u32,
+            xpsr: system::XPSR(0),
             main_sp: None,
             proc_sp: None,
             control: system::CONTROL::default(),
+            primask: system::PRIMASK::default(),
+            faultmask: system::FAULTMASK::default(),
+            basepri: system::BASEPRI::default(),
             apsr: t.register_by_name("cpsr").unwrap(),
             regs: FixedState::new(t.register_space_size()),
             tmps: FixedState::new(t.unique_space_size()),
