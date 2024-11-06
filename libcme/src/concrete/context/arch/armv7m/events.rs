@@ -50,7 +50,6 @@ pub enum Event {
 
     // special purpose registers PRIMASK, FAULTMASK, BASEPRI, CONTROL
     // SetCurrentExecPriority(i32)
-
 }
 
 impl<'irb> Context<'irb> {

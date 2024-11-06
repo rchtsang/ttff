@@ -1,6 +1,9 @@
 //! system.rs
 //! 
 //! system-related context functionality
+//! 
+//! read-only functions shall be public, but functions that update
+//! context internal state shall be private to crate implmentation.
 
 use bitfield_struct::bitfield;
 
@@ -10,12 +13,13 @@ use super::*;
 
 impl<'irb> Context<'irb> {
 
-    fn _current_mode_is_privileged(&self) -> bool {
+    /// derived from CurrentModeIsPrivileged() pseudocode in B1.3.1
+    pub fn current_mode_is_privileged(&self) -> bool {
         self.mode == Mode::Handler || !self.control.npriv()
     }
 
     /// derived from LookUpSP() pseudocode in B1.4.7
-    fn _is_sp_main(&self) -> bool {
+    pub fn is_sp_main(&self) -> bool {
         if self.control.spsel() {
             if self.mode == Mode::Thread {
                 false
@@ -28,7 +32,7 @@ impl<'irb> Context<'irb> {
     }
 
     /// reset processor following pseudocode in B1.5.5
-    fn _take_reset(&mut self) -> Result<(), context::Error> {
+    pub(crate) fn _take_reset(&mut self) -> Result<(), context::Error> {
         todo!("many more things need implementation before this will work!");
         /* 
          * TakeReset() pseudocode B1.5.5
