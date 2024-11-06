@@ -5,6 +5,7 @@
 //! implement the minimum necessary peripherals to emulate a cortex-m3
 //! microprocessor.
 use std::{
+    fmt,
     collections::VecDeque,
     ops::Range,
     sync::Arc,
@@ -129,6 +130,7 @@ enum MapIx {
 /// a context must contain all state information needed for execution, the evaluator should not require state
 #[derive(Clone)]
 pub struct Context<'irb> {
+    id: usize,
     lang: Language,
     endian: Endian,
     pc: VarnodeData,
@@ -163,6 +165,12 @@ pub struct Context<'irb> {
     events: VecDeque<Event>,
 }
 
+impl<'irb> fmt::Debug for Context<'irb> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Context {{ id: {:#x} }}", self.id)
+    }
+}
+
 
 impl<'irb> Context<'irb> {
 
@@ -178,6 +186,7 @@ impl<'irb> Context<'irb> {
         mmap.insert(Address::from(0xe000e000u64)..Address::from(0xe000f000u64), MapIx::Scs);
 
         Ok(Self {
+            id: 0,
             pc: t.program_counter().clone(),
             sp: lang.convention().stack_pointer().varnode().clone(),
             endian: if t.is_big_endian() { Endian::Big } else { Endian::Little },

@@ -47,6 +47,10 @@ pub enum Event {
     
     // CFSR, MMFSR, BFSR, UFSR, HFSR
     FaultStatusClr(Fault),
+
+    // special purpose registers PRIMASK, FAULTMASK, BASEPRI, CONTROL
+    // SetCurrentExecPriority(i32)
+
 }
 
 impl<'irb> Context<'irb> {

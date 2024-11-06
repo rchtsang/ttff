@@ -10,6 +10,8 @@ use crate::concrete::eval::bool2bv;
 
 use super::*;
 
+use crate::utils::*;
+
 impl<'irb> Context<'irb> {
 
     pub fn _userop(&mut self,
@@ -365,7 +367,10 @@ fn _software_interrupt(this: &mut Context,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    let excp = ExceptionType::SVCall;
+    let evt = Event::ExceptionSetActive(excp, true);
+    this.events.push_back(evt);
+    Ok(None)
 }
 
 fn _software_bkpt(this: &mut Context,
@@ -480,13 +485,16 @@ fn _set_system_mode(this: &mut Context,
 /// note: also appears to be called in the sleigh definition
 /// for the "msr primask, <in>" instruction, but it takes in
 /// a parameter, which may need to be handled specially.
-/// ARMTHUMBinstructions.sinc 
+/// ARMTHUMBinstructions.sinc
+#[instrument]
 fn _enable_irq_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    info!("{}", _lookup_userop(index).name);
+    this.primask.set_pm(false);
+    Ok(None)
 }
 
 fn _enable_fiq_interrupts(this: &mut Context,
