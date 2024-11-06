@@ -340,19 +340,23 @@ fn _lookup_userop(index: usize) -> &'static UserOp {
 /// 
 /// probably defined as a userop in order to take advantage of 
 /// host hardware implementation
+/// 
+/// inputs:
+/// - value to count leading zeroes in
+/// output:
+/// - number of leading zeroes
 fn _count_leading_zeroes(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    assert_eq!(inputs.len(), 1, "count_leading_zeros expects exactly 1 input!");
+    assert!(inputs.len() == 1, "count_leading_zeros expects exactly 1 input!");
     assert!(output.is_some(), "count_leading_zeros expects an output");
     let input0 = &inputs[0];
     let dst = output.unwrap();
     let in0_bv = this._read_vnd(input0)?;
     let result = BitVec::from_u32(
-        in0_bv.to_u32().expect("failed to cast BitVec to u32")
-        .leading_zeros(),
+        in0_bv.leading_zeros(),
         dst.bits(),
     );
     this._write_vnd(dst, &result)?;
@@ -362,11 +366,18 @@ fn _count_leading_zeroes(this: &mut Context,
 /// implements the SVC instruction in armv7m
 /// 
 /// generates an SVfunc exception
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - none
 fn _software_interrupt(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
+    assert!(inputs.is_empty(), "software_interrupt expects no inputs");
+    assert!(output.is_none(), "software_interrupt has not output");
     let excp = ExceptionType::SVCall;
     let evt = Event::ExceptionSetActive(excp, true);
     this.events.push_back(evt);
@@ -486,23 +497,49 @@ fn _set_system_mode(this: &mut Context,
 /// for the "msr primask, <in>" instruction, but it takes in
 /// a parameter, which may need to be handled specially.
 /// ARMTHUMBinstructions.sinc
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - none
 #[instrument]
 fn _enable_irq_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
+    assert!(inputs.is_empty(), "enable_irq_interrupts expects no inputs");
+    assert!(output.is_none(), "enable_irq_interrupts has no output");
     info!("{}", _lookup_userop(index).name);
     this.primask.set_pm(false);
     Ok(None)
 }
 
+/// enables fiq interrupts.
+/// called for "cpsie f" instruction.
+/// should clear FAULTMASK, per B1.4.3.
+/// see B5.2.1 for CPS instruction
+/// 
+/// note: also appears to be called in the sleigh definition
+/// for the "msr faultmask, <in>" instruction, but it takes in
+/// a parameter, which may need to be handled specially.
+/// ARMTHUMBinstructions.sinc
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - none
+#[instrument]
 fn _enable_fiq_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.is_empty(), "enable_fiq_interrupts expects no inputs");
+    assert!(output.is_none(), "enable_fiq_interrupts has no output");
+    info!("{}", _lookup_userop(index).name);
+    this.faultmask.set_fm(false);
+    Ok(None)
 }
 
 fn _enable_dataabort_interrupts(this: &mut Context,
@@ -517,20 +554,44 @@ fn _enable_dataabort_interrupts(this: &mut Context,
 /// called for "cpsid i" instruction.
 /// should set PRIMASK, per B1.4.3.
 /// see B5.2.1 for CPS instruction
+/// 
+/// inputs: 
+/// - none
+/// output:
+/// - none
+#[instrument]
 fn _disable_irq_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.is_empty(), "disable_irq_interrupts expects no inputs");
+    assert!(output.is_none(), "disable_irq_interrupts has not output");
+    info!("{}", _lookup_userop(index).name);
+    this.primask.set_pm(true);
+    Ok(None)
 }
 
+/// disables fiq interrupts.
+/// called for "cpsid f" instruction.
+/// should set FAULTMASK, per B1.4.3.
+/// see B5.2.1 for CPS instruction
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - none
+#[instrument]
 fn _disable_fiq_interrupts(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.is_empty(), "disable_fiq_interrupts expects no inputs");
+    assert!(output.is_none(), "disable_fiq_interrupts has not output");
+    info!("{}", _lookup_userop(index).name);
+    this.faultmask.set_fm(true);
+    Ok(None)
 }
 
 fn _is_fiq_interrupts_enabled(this: &mut Context,
@@ -563,46 +624,88 @@ fn _disable_dataabort_interrupts(this: &mut Context,
 /// see A7.7.167 for STREX instruction.
 /// see A7-184 for info about memory accesses.
 /// see A3.4 for info about arch support for synchronization and semaphores.
+/// 
+/// inputs:
+/// - memory address to check access rights for
+/// output:
+/// - 1 if executing processor has exclusive access, 0 otherwise.
+#[instrument]
 fn _has_exclusive_access(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.len() == 1, "has_exclusive_access expects exactly 1 input");
+    assert!(output.is_some(), "has_exclusive_access has an output");
+    warn!("has_exclusive_access() is currently a stub that always returns 1");
+    let out = output.unwrap();
+    let bv = bool2bv(true);
+    this._write_vnd(out, &bv)?;
+    Ok(None)
 }
 
 /// checks if current execution mode is privileged, called 
 /// when executing MRS and MSR instructions.
 /// should be identical to "CurrentModeIsPrivileged()" defined 
 /// in B1.3.1.
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - 1 if current mode is privileged, 0 otherwise
+#[instrument]
 fn _is_current_mode_privileged(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.is_empty(), "is_current_mode_privileged expects no inputs");
+    assert!(output.is_some(), "is_current_mode_privileged has an output");
+    let out = output.unwrap();
+    let bv = bool2bv(this.current_mode_is_privileged());
+    this._write_vnd(out, &bv)?;
+    Ok(None)
 }
 
-/// sets the current execution mode to "privileged".
+/// sets the execution privilege of thread mode to privileged.
 /// used in "msr  control, <Rn>" on write to special-purpose
 /// CONTROL (B1.4.4)
+/// 
+/// inputs:
+/// - 0 if set to unprivileged (nPRIV=1), 1 if set to privileged (nPRIV=0)
+/// output:
+/// - none
 fn _set_thread_mode_privileged(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.len() == 1, "set_thread_mode_privileged expects exactly 1 input");
+    assert!(output.is_none(), "set_thread_mode_privileged has no output");
+    let val = this._read_vnd(&inputs[0])?.bit(0);
+    this.control.set_npriv(!val);
+    Ok(None)
 }
 
 /// checks if processor currently executing in thread mode
 /// used in "msr  control, <Rn>" on write to special-purpose
 /// CONTROL (B1.4.4)
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - 1 if processor in thread mode, 0 otherwise
 fn _is_thread_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.is_empty(), "is_thread_mode expects no inputs");
+    assert!(output.is_some(), "is_thread_mode has an output");
+    let out = output.unwrap();
+    let bv = bool2bv(this.mode == Mode::Thread);
+    this._write_vnd(out, &bv)?;
+    Ok(None)
 }
 
 fn _jazelle_branch(this: &mut Context,
@@ -630,23 +733,47 @@ fn _hint_debug(this: &mut Context,
 }
 
 /// implementation of DMB instruction.
+/// (see DMB instruction A7.7.33)
 /// (see Memory barriers in A3.7.3)
+#[instrument]
 fn _data_memory_barrier(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.len() == 1, "data_memory_barrier expects exactly 1 argument");
+    assert!(output.is_none(), "data_memory_barrier has no output");
+    warn!("data_memory_barrier() is currently a stub that does nothing.");
+    let option_val = this._read_vnd(&inputs[0])?.to_u8().unwrap();
+    // see A7.7.33, option_val = 0b1111 for SY DMB operation, and others are reserved,
+    // but reserved instructions also behave as SY (software shouldn't rely on this
+    // behavior)
+    if option_val != 0xf {
+        warn!("DMB instruction expects option 0xf, got {option_val:#x}");
+    }
+    Ok(None)
 }
 
 /// implementation of DSB instruction.
+/// (see DSB instruction A7.7.34)
 /// (see Memory barriers in A3.7.3)
+#[instrument]
 fn _data_synchronization_barrier(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.len() == 1, "data_synchronization_barrier expects exactly 1 argument");
+    assert!(output.is_none(), "data_synchronization_barrier has no output");
+    warn!("data_synchronization_barrier is currently a stub that does nothing.");
+    let option_val = this._read_vnd(&inputs[0])?.to_u8().unwrap();
+    // see A7.7.34, option_val = 0b1111 for SY DSB operation, and others are reserved,
+    // but reserved instructions also behave as SY (software shouldn't rely on this
+    // behavior)
+    if option_val != 0xf {
+        warn!("DSB instruction expects option 0xf, got {option_val:#x}");
+    }
+    Ok(None)
 }
 
 fn _secure_monitor_func(this: &mut Context,
