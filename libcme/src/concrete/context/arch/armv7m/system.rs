@@ -192,17 +192,32 @@ pub struct XPSR(pub u32);
 #[allow(unused)]
 impl XPSR {
     /// access xPSR as IPSR
-    pub fn ipsr(&mut self) -> &mut IPSR {
+    pub fn ipsr(&self) -> &IPSR {
+        unsafe { &*(self as *const XPSR as *const u32 as *const IPSR) }
+    }
+
+    /// access xPSR as mutable IPSR
+    pub fn ipsr_mut(&mut self) -> &mut IPSR {
         unsafe { &mut *(self as *mut XPSR as *mut u32 as *mut IPSR) }
     }
 
     /// access xPSR as EPSR
-    pub fn epsr(&mut self) -> &mut EPSR {
+    pub fn epsr(&self) -> &EPSR {
+        unsafe { &*(self as *const XPSR as *const u32 as *const EPSR) }
+    }
+
+    /// access xPSR as mutable EPSR
+    pub fn epsr_mut(&mut self) -> &mut EPSR {
         unsafe { &mut *(self as *mut XPSR as *mut u32 as *mut EPSR) }
     }
 
     /// access xPSR as APSR
-    pub fn apsr(&mut self) -> &mut APSR {
+    pub fn apsr(&self) -> &APSR {
+        unimplemented!("APSR should be accessed as defined by sleigh spec");
+    }
+
+    /// access xPSR as mutable APSR
+    pub fn apsr_mut(&mut self) -> &mut APSR {
         unimplemented!("APSR should be accessed as defined by sleigh spec");
     }
 }

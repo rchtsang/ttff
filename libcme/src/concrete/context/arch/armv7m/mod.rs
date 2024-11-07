@@ -57,6 +57,8 @@ pub enum Error {
     UnpredictableBehavior(&'static str),
     #[error("invalid userop id: {0}")]
     InvalidUserOp(usize),
+    #[error("invalid address: {0:#x}")]
+    InvalidAddress(BitVec),
     #[error("invalid system control register: {0:#x?}")]
     InvalidSysCtrlReg(Address),
     #[error("unimplemented system control register: {0:?}")]

@@ -6,7 +6,7 @@
 //! implement userops as a function table
 #![allow(unused)]
 
-use crate::concrete::eval::bool2bv;
+use crate::concrete::eval::{bool2bv, bv2addr};
 
 use super::*;
 
@@ -743,7 +743,7 @@ fn _data_memory_barrier(this: &mut Context,
 ) -> Result<Option<Location>, context::Error> {
     assert!(inputs.len() == 1, "data_memory_barrier expects exactly 1 argument");
     assert!(output.is_none(), "data_memory_barrier has no output");
-    warn!("data_memory_barrier() is currently a stub that does nothing.");
+    warn!("data_memory_barrier() is currently a stub that does nothing");
     let option_val = this._read_vnd(&inputs[0])?.to_u8().unwrap();
     // see A7.7.33, option_val = 0b1111 for SY DMB operation, and others are reserved,
     // but reserved instructions also behave as SY (software shouldn't rely on this
@@ -765,7 +765,7 @@ fn _data_synchronization_barrier(this: &mut Context,
 ) -> Result<Option<Location>, context::Error> {
     assert!(inputs.len() == 1, "data_synchronization_barrier expects exactly 1 argument");
     assert!(output.is_none(), "data_synchronization_barrier has no output");
-    warn!("data_synchronization_barrier is currently a stub that does nothing.");
+    warn!("data_synchronization_barrier is currently a stub that does nothing!");
     let option_val = this._read_vnd(&inputs[0])?.to_u8().unwrap();
     // see A7.7.34, option_val = 0b1111 for SY DSB operation, and others are reserved,
     // but reserved instructions also behave as SY (software shouldn't rely on this
@@ -813,6 +813,11 @@ fn _wait_for_event(this: &mut Context,
 /// 
 /// put processor in suspension with fast wakeup until wakeup condition
 /// (see Wait For Interrupt B1-562)
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - none
 fn _wait_for_interrupt(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
@@ -985,68 +990,145 @@ fn _index_check(this: &mut Context,
 /// see A3.4 for synchronization and semaphores.
 /// 
 /// size of the tagged block is IMPLEMENTATION DEFINED.
+/// 
+/// inputs:
+/// - address to mark for exclusive access
+/// output:
+/// - none
+#[instrument]
 fn _exclusive_access(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.len() == 1, "exclusive_access expects exactly 1 input");
+    assert!(output.is_none(), "exclusive_address has no output");
+    warn!("exclusive_access() is currently a stub that does nothing");
+    let in0 = this._read_vnd(&inputs[0])?;
+    let address = bv2addr(in0.clone())
+        .map_err(|_err| ArchError::from(Error::InvalidAddress(in0)))?;
+    info!("exclusive_access({address:#x?})");
+    Ok(None)
 }
 
 /// loads current value of the main stack pointer.
 /// used in implementation of "MRS  <Rd>, msp".
 /// (see SP registers in B1.4.1)
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - current value of the main stack pointer
 fn _get_main_stack_pointer(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.is_empty(), "get_main_stack_pointer expects no inputs");
+    assert!(output.is_some(), "get_main_stack_pointer has an output");
+    let out = output.unwrap();
+    if this.is_sp_main() {
+        let vnd = this.sp().clone();
+        let val = this._read_vnd(&vnd)?;
+        this._write_vnd(out, &val)?;
+    } else {
+        let val = this.main_sp.unwrap_or(0);
+        let val = BitVec::from_u32(val, this.sp().bits());
+        this._write_vnd(out, &val)?;
+    }
+    Ok(None)
 }
 
 /// loads current value of the process stack pointer.
 /// used in implementation of "MRS  <Rd>, psp".
 /// (see SP registers in B1.4.1)
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - current value of the process stack pointer
 fn _get_process_stack_pointer(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.is_empty(), "get_process_stack_pointer expects no inputs");
+    assert!(output.is_some(), "get_process_stack_pointer has an output");
+    let out = output.unwrap();
+    if !this.is_sp_main() {
+        let val = this._get_sp()?.offset();
+        let val = BitVec::from_u64(val, this.sp().bits());
+        this._write_vnd(out, &val)?;
+    } else {
+        let val = this.main_sp.unwrap_or(0);
+        let val = BitVec::from_u32(val, this.sp().bits());
+        this._write_vnd(out, &val)?;
+    }
+    Ok(None)
 }
 
 /// loads current value of the BASEPRI register.
 /// (see special-purpose mask registers  B1.4.3)
 /// (used in a few sleigh implementations involving basepri and basepri_max)
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - current value of the BASEPRI register
 fn _get_base_priority(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.is_empty(), "get_base_priority expects no inputs");
+    assert!(output.is_some(), "get_base_priority has an output");
+    let out = output.unwrap();
+    let val = BitVec::from_u8(this.basepri.basepri(), out.bits());
+    this._write_vnd(out, &val)?;
+    Ok(None)
 }
 
 /// returns the current exception number in IPSR.
 /// used in implmentation of "MRS  IPSR" instruction.
 /// (see special-purpose Program Status Registers B1.4.2)
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - current exception number in the IPSR
 fn _get_current_exception_number(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.is_empty(), "get_current_exception_number expects no inputs");
+    assert!(output.is_some(), "get_current_exception_number has an output");
+    let out = output.unwrap();
+    let val = BitVec::from_u32(
+        this.xpsr.ipsr().exception_number(),
+        out.bits(),
+    );
+    this._write_vnd(out, &val)?;
+    Ok(None)
 }
 
-/// returns whether current thread mode is privileged.
+/// returns whether thread mode executes as privileged.
 /// used in implementation of "MRS  CONTROL" instruction.
 /// (see special-purpose CONTROL register B1.4.4)
 /// 
 /// essentially reads !CONTROL.nPRIV
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - 1 if thread mode executes privileged, 0 otherwise
 fn _is_thread_mode_privileged(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
+    assert!(inputs.is_empty(), "is_thread_mode_privileged expects no inputs");
+    assert!(output.is_some(), "is_thread_mode_privileged has an output");
     let bv = bool2bv(!this.control.npriv());
     this._write_vnd(output.unwrap(), &bv);
     Ok(None)
@@ -1056,13 +1138,20 @@ fn _is_thread_mode_privileged(this: &mut Context,
 /// used in implementation of "MRS  CONTROL" instruction.
 /// (see special-purpose CONTROL register B1.4.4)
 /// 
-/// essentially read !CONTROL.SPSEL
+/// see LookUpSP() pseudocode defined in B1.4.7
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - 1 if main sp is currently being used, 0 otherwise
 fn _is_using_main_stack(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    let bv = bool2bv(!this.control.spsel());
+    assert!(inputs.is_empty(), "is_using_main_stack expects no inputs");
+    assert!(output.is_some(), "is_using_main_stack has an output");
+    let bv = bool2bv(this.is_sp_main());
     this._write_vnd(output.unwrap(), &bv);
     Ok(None)
 }
@@ -1070,32 +1159,67 @@ fn _is_using_main_stack(this: &mut Context,
 /// write to main stack pointer directly.
 /// used in implementation of "MSR  MSP, <Rn>" instruction.
 /// (remember to update currently used stack pointer if needed)
+/// 
+/// inputs:
+/// - value to write to main stack pointer
+/// output:
+/// - none
 fn _set_main_stack_pointer(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.len() == 1, "set_main_stack_pointer expects exactly 1 input");
+    assert!(output.is_none(), "set_main_stack_pointer has no output");
+    let val = this._read_vnd(&inputs[0])?;
+    let val = bv2addr(val.clone())
+        .map_err(|_err| ArchError::from(Error::InvalidAddress(val)))?;
+    this.main_sp = Some(val.into());
+    if this.is_sp_main() {
+        this._set_sp(val);
+    }
+    Ok(None)
 }
 
 /// write to process stack pointer directly.
 /// used in implementation of "MSR  PSP, <Rn>" instruction.
 /// (remember to update currently used stack pointer if needed)
+/// 
+/// inputs:
+/// - value to write to process stack pointer
+/// output:
+/// - none
 fn _set_process_stack_pointer(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    assert!(inputs.len() == 1, "set_process_stack_pointer expects exactly 1 input");
+    assert!(output.is_none(), "set_process_stack_pointer has no output");
+    let val = this._read_vnd(&inputs[0])?;
+    let val = bv2addr(val.clone())
+        .map_err(|_err| ArchError::from(Error::InvalidAddress(val)))?;
+    this.proc_sp = Some(val.into());
+    if !this.is_sp_main() {
+        this._set_sp(val);
+    }
+    Ok(None)
 }
 
 /// write to base priority special-purpose register.
 /// used in implementation of "MSR  BASEPRI, <Rn>" instruction.
+/// 
+/// inputs:
+/// - value to write to BASEPRI
+/// output:
+/// - none
 fn _set_base_priority(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
+    assert!(inputs.len() == 1, "set_process_stack_pointer expects exactly 1 input");
+    assert!(output.is_none(), "set_process_stack_pointer has no output");
     let value = this._read_vnd(&inputs[0])?
         .to_u8().unwrap();
     this.basepri.set_basepri(value);
@@ -1107,6 +1231,11 @@ fn _set_base_priority(this: &mut Context,
 /// 
 /// NOTE: ARMTHUMBinstruction.sinc definition of this instruction
 /// appears to be faulty? not setting value based on Rn...
+/// 
+/// inputs:
+/// - value to write to CONTROL.SPSEL
+/// output:
+/// - none
 fn _set_stack_mode(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
