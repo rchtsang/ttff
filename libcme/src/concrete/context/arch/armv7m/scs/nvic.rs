@@ -303,6 +303,20 @@ impl NVICState {
         self
     }
 
+    /// get current state of given exception type
+    pub fn get_exception(&self, typ: &ExceptionType) -> Option<&Exception> {
+        if matches!(typ, ExceptionType::Reserved(_)) {
+            return None;
+        }
+        let excp_num: u32 = typ.into();
+        let excp_num = excp_num as usize;
+        if excp_num < 16 {
+            Some(&self.internal[excp_num])
+        } else {
+            self.external.get(excp_num - 16)
+        }
+    }
+
     /// add an exception to the pending queue,
     /// reordering the queue as necessary based on priority
     pub fn queue_exception(&mut self, typ: ExceptionType) {

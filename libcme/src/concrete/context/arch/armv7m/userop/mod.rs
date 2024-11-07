@@ -786,22 +786,41 @@ fn _secure_monitor_func(this: &mut Context,
 
 /// implementation of WFE instruction.
 /// (see WFE instruction A7.7.261)
+/// 
+/// put processor or thread in suspension until an event occurs.
+/// (see Wait For Event and Send Event B1.5.18)
+/// 
+/// inputs:
+/// - none
+/// output:
+/// - none
 fn _wait_for_event(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    if this.event.0 {
+        this.event.0 = false;
+    } else {
+        let evt = Event::SetProcessorStatus(Status::WaitingForEvent);
+        this.events.push_back(evt);
+    }
+    Ok(None)
 }
 
 /// implementation of WFI instruction.
 /// (see WFI instruction A7.7.262)
+/// 
+/// put processor in suspension with fast wakeup until wakeup condition
+/// (see Wait For Interrupt B1-562)
 fn _wait_for_interrupt(this: &mut Context,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, context::Error> {
-    todo!("unsupported userop: {}", _lookup_userop(index).name)
+    let evt = Event::SetProcessorStatus(Status::WaitingForInterrupt);
+    this.events.push_back(evt);
+    Ok(None)
 }
 
 fn _hint_yield(this: &mut Context,

@@ -433,3 +433,22 @@ impl From<u8> for ICI {
         val
     }
 }
+
+/// event register representation
+/// (defined in B1.5.18).
+/// 
+/// a single bit register for each processor in a multiprocessor system.
+/// when set, an event register indicates that an event has occurred since
+/// the register was last cleared, and which might prevent the processor
+/// from suspending operation on issuing a WFE instruction.
+/// 
+/// the following conditions apply:
+/// - a system reset clears the event register
+/// - any WFE wakeup event or execution or an exception return instruction
+///   sets the event register. (for definition of exception return instructions
+///   see Exception return behavior on B1-539)
+/// - a WFE instruction clears the event register
+/// - software cannor read or write teh value of the EVENT register directly.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct EVENT(pub bool);

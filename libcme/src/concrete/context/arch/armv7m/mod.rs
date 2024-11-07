@@ -118,6 +118,17 @@ pub enum Mode {
     Debug,
 }
 
+/// processor execution status
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Status {
+    Alive,
+    WaitingForEvent,
+    WaitingForInterrupt,
+    Halted,
+    Killed,
+}
+
 #[derive(Clone, Copy, Debug)]
 enum MapIx {
     Mem(usize),
@@ -131,6 +142,7 @@ enum MapIx {
 #[derive(Clone)]
 pub struct Context<'irb> {
     id: usize,
+    status: Status,
     lang: Language,
     endian: Endian,
     pc: VarnodeData,
@@ -139,6 +151,8 @@ pub struct Context<'irb> {
 
     /// execution mode
     mode: Mode,
+    /// event register (B1.5.18)
+    event: system::EVENT,
     /// armv7m xPSR is a combination of APSR, IPSR, and EPSR
     /// and is not defined as part of the ghidra sleigh spec.
     /// hence we must handle this manually
@@ -187,10 +201,12 @@ impl<'irb> Context<'irb> {
 
         Ok(Self {
             id: 0,
+            status: Status::Alive,
             pc: t.program_counter().clone(),
             sp: lang.convention().stack_pointer().varnode().clone(),
             endian: if t.is_big_endian() { Endian::Big } else { Endian::Little },
             mode: Mode::Thread,
+            event: system::EVENT::default(),
             xpsr: system::XPSR(0),
             main_sp: None,
             proc_sp: None,

@@ -1,6 +1,7 @@
 //! events.rs
 //! 
 //! armv7m architectural events and event processing
+use crate::utils::*;
 
 use super::*;
 
@@ -11,6 +12,9 @@ use super::*;
 /// context state if necessary
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
+    // misc events
+    SetProcessorStatus(Status),
+
     // ICSR and SHCSR
     ExceptionSetActive(ExceptionType, bool),
     ExceptionSetPending(ExceptionType, bool),
@@ -49,7 +53,15 @@ pub enum Event {
     FaultStatusClr(Fault),
 
     // special purpose registers PRIMASK, FAULTMASK, BASEPRI, CONTROL
-    // SetCurrentExecPriority(i32)
+    
+    // special events
+    SEVInstructionExecuted, // the execution of a SEV instruction on any processor in the multiprocessor system
+
+    // debug event placeholder
+    Debug(DebugEvent),
+
+    // implementation specific events
+    // GenericEvent(T)
 }
 
 impl<'irb> Context<'irb> {
@@ -63,6 +75,10 @@ impl<'irb> Context<'irb> {
     #[allow(unused)]
     fn _handle_event(&mut self, evt: Event) -> Result<(), Error> {
         match evt {
+            Event::SetProcessorStatus(status) => {
+                self.status = status;
+                Ok(())
+            }
             Event::ExceptionSetActive(exception_type, val) => {
                 todo!()
             }
@@ -133,6 +149,95 @@ impl<'irb> Context<'irb> {
             Event::FaultStatusClr(fault) => {
                 todo!()
             }
+            Event::SEVInstructionExecuted => {
+                todo!()
+            }
+            Event::Debug(_evt) => {
+                todo!()
+            }
+        }
+    }
+}
+
+impl<'irb> Context<'irb> {
+    /// returns true if the event is a WFE wakeup event based on current
+    /// processor state (see B1.5.18)
+    #[instrument]
+    pub fn is_wfe_wakeup_evt(&self, evt: &Event) -> bool {
+        match evt {
+            // execution of a SEV instruction on any processor in a multiprocessor system
+            Event::SEVInstructionExecuted => {
+                true
+            }
+            // any exception entering the pending state if SCR.SEVONPEND is set.
+            Event::ExceptionSetPending(_typ, true)
+            if self.scs.get_scr().sevonpend() => {
+                true
+            }
+            // an asynchronous exception at a priority that preempts any currently
+            // active exceptions
+            Event::ExceptionSetActive(typ, true)
+            | Event::ExceptionSetPending(typ, true) => {
+                let Some(exception) = self.scs.nvic.get_exception(typ) else {
+                    warn!("processor may be in inconsistent state: no exception registered for exception: {typ:?}");
+                    return false;
+                };
+                let priority = exception.priority;
+                
+                priority < self.scs.nvic.current_priority(&self.scs)
+            }
+            // a debug event with debug enabled
+            Event::Debug(_) => {
+                let offset = DebugRegType::DHCSR.offset();
+                let reg_ref = self.scs.get_reg_ref(offset).unwrap();
+                let dbg_ref = DebugRegRef::try_from(reg_ref).unwrap();
+                let dhcsr: &DHCSR = dbg_ref.try_into().unwrap();
+                dhcsr.s_halt()
+            }
+            _ => { false }
+        }
+    }
+
+    /// returns true if the event is a WFI wakeup event based on current
+    /// processor state (see B1.5.19)
+    pub fn is_wfi_wakeup_evt(&self, evt: &Event) -> bool {
+        match evt {
+            // reset
+            Event::ExternSysResetRequest
+            | Event::LocalSysResetRequest => {
+                true
+            }
+            // asynchronous exception at a priority that would preempt any 
+            // currently active exception if PRIMASK were 0, (actual value of
+            // PRIMASK is ignored)
+            Event::ExceptionSetActive(typ, true)
+            | Event::ExceptionSetPending(typ, true) => {
+                let Some(exception) = self.scs.nvic.get_exception(typ) else {
+                    warn!("processor may be in inconsistent state: no exception registered for exception: {typ:?}");
+                    return false;
+                };
+                let priority = exception.priority;
+                
+                let vecactive = self.scs.get_icsr().vectactive();
+                let current_typ: ExceptionType = vecactive.into();
+                let Some(current_excp) = self.scs.nvic.get_exception(&current_typ) else {
+                    panic!("processor is in inconsistent state: no exception registered for exception: {current_typ:?}");
+                };
+                let unmasked_current_priority = current_excp.priority;
+
+                priority < unmasked_current_priority
+            }
+            // a debug event with debug enabled
+            Event::Debug(_) => {
+                let offset = DebugRegType::DHCSR.offset();
+                let reg_ref = self.scs.get_reg_ref(offset).unwrap();
+                let dbg_ref = DebugRegRef::try_from(reg_ref).unwrap();
+                let dhcsr: &DHCSR = dbg_ref.try_into().unwrap();
+                dhcsr.s_halt()
+            }
+            // other implementation-defined events
+
+            _ => { false }
         }
     }
 }

@@ -635,7 +635,6 @@ impl SysCtrlSpace {
             &mut *(slice as *mut [u32] as *mut [u32; 0x3c0])
         };
         DebugRegs::new(backing)
-
     }
 }
 

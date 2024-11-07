@@ -7,6 +7,12 @@ use bitfield_struct::bitfield;
 
 use super::*;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DebugEvent {
+    // todo
+}
+
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DebugRegType {
     /// debug halting control and status register
