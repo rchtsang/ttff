@@ -1,7 +1,7 @@
 //! eval.rs
 //! 
 //! concrete pcode evaluator
-
+use std::fmt;
 use thiserror::Error;
 
 use fugue_core::prelude::*;
@@ -10,6 +10,7 @@ use fugue_ir::disassembly::{Opcode, VarnodeData, PCodeData};
 
 use crate::concrete::context;
 use crate::concrete::context::Context;
+use crate::utils::*;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -33,6 +34,7 @@ pub enum FlowType {
 }
 
 /// concrete pcode evaluator
+#[derive(Debug)]
 pub struct Evaluator {
     pub pc: Location,
 }
@@ -74,13 +76,15 @@ impl Evaluator {
 }
 
 impl<'irb> Evaluator {
+    #[instrument(skip_all)]
     pub fn step(&mut self,
-        context: &mut impl Context<'irb>,
+        context: &mut (impl Context<'irb> + fmt::Debug),
     ) -> Result<(), Error> {
         self.pc = context.read_pc()?.into();
         let address = self.pc.address();
 
         let insn = context.fetch(address)?;
+        info!("pc @ {:#010x}: {}", address.offset(), insn.disasm_str());
         let pcode = &insn.pcode;
         let op_count = pcode.operations.len() as u32;
         let mut target = FlowType::Fall;
@@ -111,11 +115,13 @@ impl<'irb> Evaluator {
 
 impl<'irb> Evaluator {
     /// evaluate a single pcode operation
+    #[instrument(skip_all)]
     fn _evaluate(&self,
         operation: &PCodeData,
         context: &mut impl Context<'irb>,
     ) -> Result<FlowType, Error> {
         let loc = self.pc.clone();
+        debug!("{:#010x}_{}: {}", loc.address.offset(), loc.position, context.fmt_pcodeop(operation));
         match operation.opcode {
             Opcode::Copy => {
                 let val = context.read(&operation.inputs[0])?;

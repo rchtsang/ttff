@@ -2,6 +2,8 @@
 //! 
 //! peripheral definitions that can be mapped into contexts
 pub mod dummy;
+pub mod models;
+pub use models::*;
 
 use std::ops::Range;
 
@@ -32,6 +34,8 @@ impl Error {
 /// the peripheral struct is a wrapper for objects that implement
 /// this trait.
 pub trait PeripheralState: DynClone {
+    fn base_address(&self) -> Address;
+    fn size(&self) -> u64;
     fn read_bytes(&mut self, address: &Address, dst: &mut [u8]) -> Result<(), Error>;
     fn write_bytes(&mut self, address: &Address, src: &[u8]) -> Result<(), Error>;
 }
@@ -47,7 +51,10 @@ pub struct Peripheral {
 }
 
 impl Peripheral {
-    pub fn new_with(range: Range<Address>, state: Box<dyn PeripheralState>) -> Self {
+    pub fn new_with(state: Box<dyn PeripheralState>) -> Self {
+        let start = state.base_address();
+        let end = start + state.size();
+        let range = start..end;
         Self { range, state }
     }
 

@@ -27,3 +27,13 @@ pub fn compact_logger() -> FmtSubscriber<DefaultFields, Format<Compact>> {
     .with_target(true)
     .finish()
 }
+
+pub fn compact_dbg_logger() -> FmtSubscriber<DefaultFields, Format<Compact>> {
+    fmt()
+    .compact()
+    .with_file(true)
+    .with_line_number(true)
+    .with_target(true)
+    .with_max_level(Level::DEBUG)
+    .finish()
+}

@@ -10,3 +10,5 @@ pub mod trace;
 pub use trace::*;
 pub mod iter;
 pub use iter::*;
+pub mod render;
+pub use render::*;

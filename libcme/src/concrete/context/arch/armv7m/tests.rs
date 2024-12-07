@@ -13,7 +13,7 @@ fn test_read_write() -> Result<(), context::Error> {
 
     // test map dummy peripheral
     let dummy_base = Address::from(0x2000u64);
-    let dummy = Peripheral::new_with(dummy_base..(dummy_base + 0x400u64), Box::new(DummyState::default()));
+    let dummy = Peripheral::new_with(Box::new(DummyState::new_with(dummy_base, 0x400usize)));
     context.map_mmio(dummy)?;
 
     // test read/write mem bytes

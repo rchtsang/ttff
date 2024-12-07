@@ -8,20 +8,34 @@ use fugue_core::eval::fixed_state::FixedState;
 use super::*;
 
 #[derive(Clone)]
-pub struct DummyState(FixedState);
+pub struct DummyState {
+    base: Address,
+    backing: FixedState,
+}
 
-impl Default for DummyState {
-    fn default() -> Self {
-        DummyState(FixedState::new(0x400usize))
+impl DummyState {
+    pub fn new_with(base: impl Into<Address>, size: usize) -> Self {
+        Self {
+            base: base.into(),
+            backing: FixedState::new(size),
+        }
     }
 }
 
 impl PeripheralState for DummyState {
+    fn base_address(&self) -> Address {
+        self.base.clone()
+    }
+
+    fn size(&self) -> u64 {
+        self.backing.len() as u64
+    }
+
     fn read_bytes(&mut self,
         address: &Address,
         dst: &mut [u8],
     ) -> Result<(), Error> {
-        self.0.read_bytes(address.offset() as usize, dst)
+        self.backing.read_bytes(address.offset() as usize, dst)
             .map_err(|err| Error::state(err))
     }
 
@@ -29,7 +43,7 @@ impl PeripheralState for DummyState {
         address: &Address,
         src: &[u8],
     ) -> Result<(), Error> {
-        self.0.write_bytes(address.offset() as usize, src)
+        self.backing.write_bytes(address.offset() as usize, src)
             .map_err(|err| Error::state(err))
     }
 }

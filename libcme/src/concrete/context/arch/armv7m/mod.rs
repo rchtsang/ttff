@@ -11,6 +11,7 @@ use std::{
     sync::Arc,
 };
 
+use itertools::Itertools;
 use thiserror::Error;
 use nohash::IntMap;
 use iset::IntervalMap;
@@ -24,16 +25,16 @@ use fugue_core::prelude::*;
 use fugue_core::ir::Location;
 use fugue_core::eval::fixed_state::FixedState;
 
-use crate::concrete::{
-    types::*,
-    context::{
-        self,
-        CtxRequest,
-        CtxResponse,
-        Alignment,
-    },
+use crate::types::*;
+use crate::concrete::context::{
+    self,
+    CtxRequest,
+    CtxResponse,
+    Alignment,
+    LiftResult,
 };
 use crate::peripheral::Peripheral;
+use crate::utils::*;
 
 use super::Error as ArchError;
 
@@ -297,6 +298,7 @@ impl<'irb> context::Context<'irb> for Context<'irb> {
         &self.lang
     }
 
+    #[instrument]
     fn request<'ctx>(&'ctx mut self, req: CtxRequest) -> CtxResponse<'irb> {
         match req {
             CtxRequest::Fetch { address } => {
@@ -388,15 +390,16 @@ impl<'irb> Context<'irb> {
         Ok(())
     }
 
+    #[instrument]
     fn _lift_block(&mut self,
-        address: impl Into<Address>,
+        address: impl Into<Address> + fmt::Debug,
         // irb: &'irb IRBuilderArena,
     ) {
         let mut lifter = self.lang.lifter();
         let base = address.into();
         let mut offset = 0usize;
-        // largest expected instruction 16 bytes
-        const MAX_INSN_SIZE: usize = 16;
+        // largest expected instruction 16 bytes in x86, 4 in ARM
+        const MAX_INSN_SIZE: usize = 4;
         
         let mut branch = false;
         while !branch {
@@ -409,6 +412,7 @@ impl<'irb> Context<'irb> {
                 break;
             }
             let bytes = read_result.unwrap();
+            debug!("[{:#02x}]", bytes.iter().format(" "));
             let lift_result = Self::_lift(self.irb, address, bytes, &mut lifter);
             if lift_result.is_err() {
                 self.cache.write().insert(address.offset(), lift_result);
@@ -457,7 +461,8 @@ impl<'irb> Context<'irb> {
         bytes: &[u8],
         lifter: &mut Lifter,
     ) -> LiftResult<'irb> {
-        let address = address.into();
+        let address: Address = address.into();
+
         let pcode_result = lifter.lift(irb, address.clone(), bytes);
         if let Err(err) = pcode_result {
             return Err(err.into());
@@ -472,8 +477,10 @@ impl<'irb> Context<'irb> {
         Ok(Arc::new(Insn { disasm, pcode }))
     }
 
-    fn _fetch(&mut self, address: impl Into<Address>) -> LiftResult<'irb> {
+    #[instrument]
+    fn _fetch(&mut self, address: impl Into<Address> + fmt::Debug) -> LiftResult<'irb> {
         let address = address.into();
+        let address: Address = (address.offset() & !1).into();
 
         if !self.cache.read().contains_key(&address.offset()) {
             self._lift_block(address);

@@ -4,12 +4,14 @@
 
 pub mod arch;
 
+use std::fmt;
 use std::ops::Range;
 
 use thiserror::Error;
 use flagset::flags;
 
 use fugue_ir::{Address, VarnodeData};
+use fugue_ir::disassembly::PCodeData;
 use fugue_ir::error::Error as IRError;
 use fugue_core::ir::Location;
 use fugue_core::language::{Language, LanguageBuilderError};
@@ -17,7 +19,7 @@ use fugue_core::eval::fixed_state::FixedStateError;
 use fugue_bv::BitVec;
 
 use crate::peripheral;
-use super::types::*;
+use super::*;
 
 #[derive(Debug, Error, Clone)]
 pub enum Error {
@@ -141,9 +143,13 @@ pub enum CtxResponse<'irb> {
 /// 
 /// an architecture emulation context implementation should implement this trait to keep the
 /// actual evaluator architecture agnostic
-pub trait Context<'irb> {
+pub trait Context<'irb>: fmt::Debug {
 
     fn lang(&self) -> &Language;
+
+    fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String {
+        crate::utils::fmt_pcodeop(pcodeop, self.lang().translator(), Some(true))
+    }
 
     /// evaluate request in context and return a response
     /// 
