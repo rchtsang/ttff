@@ -5,6 +5,7 @@
 use derive_more::{From, TryFrom, TryInto};
 use bitfield_struct::bitfield;
 
+use crate::types::RegInfo;
 use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,12 +58,12 @@ impl DebugRegType {
         self._data().reset
     }
 
-    fn _data(&self) -> &'static SCRegTypeData {
+    fn _data(&self) -> &'static RegInfo {
         match self {
-            DebugRegType::DHCSR => { &SCRegTypeData { offset: 0xdf0, perms: 0b110, reset: None } }
-            DebugRegType::DCRSR => { &SCRegTypeData { offset: 0xdf4, perms: 0b010, reset: None } }
-            DebugRegType::DCRDR => { &SCRegTypeData { offset: 0xdf8, perms: 0b110, reset: None } }
-            DebugRegType::DEMCR => { &SCRegTypeData { offset: 0xdfc, perms: 0b110, reset: None } }
+            DebugRegType::DHCSR => { &RegInfo { offset: 0xdf0, perms: 0b110, reset: None } }
+            DebugRegType::DCRSR => { &RegInfo { offset: 0xdf4, perms: 0b010, reset: None } }
+            DebugRegType::DCRDR => { &RegInfo { offset: 0xdf8, perms: 0b110, reset: None } }
+            DebugRegType::DEMCR => { &RegInfo { offset: 0xdfc, perms: 0b110, reset: None } }
         }
     }
 }

@@ -3,6 +3,7 @@
 //! system control registers
 use derive_more::{Into, From, TryFrom, TryInto};
 
+use crate::types::RegInfo;
 use super::*;
 
 /// system control register enumeration
@@ -104,13 +105,6 @@ pub enum SCRegType {
     CID3,
 }
 
-#[derive(Debug, Clone)]
-pub(super) struct SCRegTypeData {
-    pub offset: usize,
-    pub perms: u8,
-    pub reset: Option<u32>,
-}
-
 impl SCRegType {
 
     pub fn address(&self) -> Address {
@@ -209,49 +203,49 @@ impl SCRegType {
 }
 
 impl SCRegType {
-    fn _data(&self) -> &'static SCRegTypeData {
+    fn _data(&self) -> &'static RegInfo {
         match self {
-            SCRegType::CPUID    => { &SCRegTypeData { offset: 0xd00_usize, perms: 0b100, reset: None } }
-            SCRegType::ICSR     => { &SCRegTypeData { offset: 0xd04_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::VTOR     => { &SCRegTypeData { offset: 0xd08_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::AIRCR    => { &SCRegTypeData { offset: 0xd0c_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::SCR      => { &SCRegTypeData { offset: 0xd10_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::CCR      => { &SCRegTypeData { offset: 0xd14_usize, perms: 0b110, reset: None } }
-            SCRegType::SHPR1(_) => { &SCRegTypeData { offset: 0xd18_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::SHPR2(_) => { &SCRegTypeData { offset: 0xd1c_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::SHPR3(_) => { &SCRegTypeData { offset: 0xd20_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::SHCSR    => { &SCRegTypeData { offset: 0xd24_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::CFSR     => { &SCRegTypeData { offset: 0xd28_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::HFSR     => { &SCRegTypeData { offset: 0xd2c_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::DFSR     => { &SCRegTypeData { offset: 0xd30_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::MMFAR    => { &SCRegTypeData { offset: 0xd34_usize, perms: 0b110, reset: None } }
-            SCRegType::BFAR     => { &SCRegTypeData { offset: 0xd38_usize, perms: 0b110, reset: None } }
-            SCRegType::AFSR     => { &SCRegTypeData { offset: 0xd3c_usize, perms: 0b110, reset: None } }
-            SCRegType::CPACR    => { &SCRegTypeData { offset: 0xd88_usize, perms: 0b110, reset: None } }
+            SCRegType::CPUID    => { &RegInfo { offset: 0xd00_usize, perms: 0b100, reset: None } }
+            SCRegType::ICSR     => { &RegInfo { offset: 0xd04_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::VTOR     => { &RegInfo { offset: 0xd08_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::AIRCR    => { &RegInfo { offset: 0xd0c_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::SCR      => { &RegInfo { offset: 0xd10_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::CCR      => { &RegInfo { offset: 0xd14_usize, perms: 0b110, reset: None } }
+            SCRegType::SHPR1(_) => { &RegInfo { offset: 0xd18_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::SHPR2(_) => { &RegInfo { offset: 0xd1c_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::SHPR3(_) => { &RegInfo { offset: 0xd20_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::SHCSR    => { &RegInfo { offset: 0xd24_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::CFSR     => { &RegInfo { offset: 0xd28_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::HFSR     => { &RegInfo { offset: 0xd2c_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::DFSR     => { &RegInfo { offset: 0xd30_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::MMFAR    => { &RegInfo { offset: 0xd34_usize, perms: 0b110, reset: None } }
+            SCRegType::BFAR     => { &RegInfo { offset: 0xd38_usize, perms: 0b110, reset: None } }
+            SCRegType::AFSR     => { &RegInfo { offset: 0xd3c_usize, perms: 0b110, reset: None } }
+            SCRegType::CPACR    => { &RegInfo { offset: 0xd88_usize, perms: 0b110, reset: None } }
             
-            // SCRegType::FPCCR     => { &SCRegTypeData { offset: 0xf34_usize, perms: 0b110, reset: Some(0x0) } }
-            // SCRegType::FPCAR     => { &SCRegTypeData { offset: 0xf38_usize, perms: 0b110, reset: None } }
-            // SCRegType::FPDSCR    => { &SCRegTypeData { offset: 0xf3c_usize, perms: 0b110, reset: Some(0x0) } }
-            // SCRegType::MVFR0     => { &SCRegTypeData { offset: 0xf40_usize, perms: 0b100, reset: Some(0x0) } }
-            // SCRegType::MVFR1     => { &SCRegTypeData { offset: 0xf44_usize, perms: 0b100, reset: Some(0x0) } }
-            // SCRegType::MVFR2     => { &SCRegTypeData { offset: 0xf48_usize, perms: 0b100, reset: Some(0x0) } }
+            // SCRegType::FPCCR     => { &RegInfo { offset: 0xf34_usize, perms: 0b110, reset: Some(0x0) } }
+            // SCRegType::FPCAR     => { &RegInfo { offset: 0xf38_usize, perms: 0b110, reset: None } }
+            // SCRegType::FPDSCR    => { &RegInfo { offset: 0xf3c_usize, perms: 0b110, reset: Some(0x0) } }
+            // SCRegType::MVFR0     => { &RegInfo { offset: 0xf40_usize, perms: 0b100, reset: Some(0x0) } }
+            // SCRegType::MVFR1     => { &RegInfo { offset: 0xf44_usize, perms: 0b100, reset: Some(0x0) } }
+            // SCRegType::MVFR2     => { &RegInfo { offset: 0xf48_usize, perms: 0b100, reset: Some(0x0) } }
             
-            SCRegType::MCR      => { &SCRegTypeData { offset: 0x000_usize, perms: 0b110, reset: Some(0x0) } }
-            SCRegType::ICTR     => { &SCRegTypeData { offset: 0x004_usize, perms: 0b100, reset: None } }
-            SCRegType::ACTLR    => { &SCRegTypeData { offset: 0x008_usize, perms: 0b110, reset: None } }
-            SCRegType::STIR     => { &SCRegTypeData { offset: 0xf00_usize, perms: 0b010, reset: None } }
-            SCRegType::PID4     => { &SCRegTypeData { offset: 0xfd0_usize, perms: 0b100, reset: None } }
-            SCRegType::PID5     => { &SCRegTypeData { offset: 0xfd4_usize, perms: 0b100, reset: None } }
-            SCRegType::PID6     => { &SCRegTypeData { offset: 0xfd8_usize, perms: 0b100, reset: None } }
-            SCRegType::PID7     => { &SCRegTypeData { offset: 0xfdc_usize, perms: 0b100, reset: None } }
-            SCRegType::PID0     => { &SCRegTypeData { offset: 0xfe0_usize, perms: 0b100, reset: None } }
-            SCRegType::PID1     => { &SCRegTypeData { offset: 0xfe4_usize, perms: 0b100, reset: None } }
-            SCRegType::PID2     => { &SCRegTypeData { offset: 0xfe8_usize, perms: 0b100, reset: None } }
-            SCRegType::PID3     => { &SCRegTypeData { offset: 0xfec_usize, perms: 0b100, reset: None } }
-            SCRegType::CID0     => { &SCRegTypeData { offset: 0xff0_usize, perms: 0b100, reset: None } }
-            SCRegType::CID1     => { &SCRegTypeData { offset: 0xff4_usize, perms: 0b100, reset: None } }
-            SCRegType::CID2     => { &SCRegTypeData { offset: 0xff8_usize, perms: 0b100, reset: None } }
-            SCRegType::CID3     => { &SCRegTypeData { offset: 0xffc_usize, perms: 0b100, reset: None } }
+            SCRegType::MCR      => { &RegInfo { offset: 0x000_usize, perms: 0b110, reset: Some(0x0) } }
+            SCRegType::ICTR     => { &RegInfo { offset: 0x004_usize, perms: 0b100, reset: None } }
+            SCRegType::ACTLR    => { &RegInfo { offset: 0x008_usize, perms: 0b110, reset: None } }
+            SCRegType::STIR     => { &RegInfo { offset: 0xf00_usize, perms: 0b010, reset: None } }
+            SCRegType::PID4     => { &RegInfo { offset: 0xfd0_usize, perms: 0b100, reset: None } }
+            SCRegType::PID5     => { &RegInfo { offset: 0xfd4_usize, perms: 0b100, reset: None } }
+            SCRegType::PID6     => { &RegInfo { offset: 0xfd8_usize, perms: 0b100, reset: None } }
+            SCRegType::PID7     => { &RegInfo { offset: 0xfdc_usize, perms: 0b100, reset: None } }
+            SCRegType::PID0     => { &RegInfo { offset: 0xfe0_usize, perms: 0b100, reset: None } }
+            SCRegType::PID1     => { &RegInfo { offset: 0xfe4_usize, perms: 0b100, reset: None } }
+            SCRegType::PID2     => { &RegInfo { offset: 0xfe8_usize, perms: 0b100, reset: None } }
+            SCRegType::PID3     => { &RegInfo { offset: 0xfec_usize, perms: 0b100, reset: None } }
+            SCRegType::CID0     => { &RegInfo { offset: 0xff0_usize, perms: 0b100, reset: None } }
+            SCRegType::CID1     => { &RegInfo { offset: 0xff4_usize, perms: 0b100, reset: None } }
+            SCRegType::CID2     => { &RegInfo { offset: 0xff8_usize, perms: 0b100, reset: None } }
+            SCRegType::CID3     => { &RegInfo { offset: 0xffc_usize, perms: 0b100, reset: None } }
 
             sc_reg => { panic!("data for {sc_reg:?} not implemented!") }
         }

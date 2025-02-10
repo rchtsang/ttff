@@ -8,6 +8,7 @@
 use derive_more::{From, TryFrom, TryInto};
 use bitfield_struct::bitfield;
 
+use crate::types::RegInfo;
 use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -50,12 +51,12 @@ impl SysTickRegType {
         self._data().reset
     }
 
-    fn _data(&self) -> &'static SCRegTypeData {
+    fn _data(&self) -> &'static RegInfo {
         match self {
-            SysTickRegType::CSR     => { &SCRegTypeData { offset: 0x010, perms: 0b110, reset: None } }
-            SysTickRegType::RVR     => { &SCRegTypeData { offset: 0x014, perms: 0b110, reset: None } }
-            SysTickRegType::CVR     => { &SCRegTypeData { offset: 0x018, perms: 0b110, reset: None } }
-            SysTickRegType::CALIB   => { &SCRegTypeData { offset: 0x01C, perms: 0b110, reset: None } }
+            SysTickRegType::CSR     => { &RegInfo { offset: 0x010, perms: 0b110, reset: None } }
+            SysTickRegType::RVR     => { &RegInfo { offset: 0x014, perms: 0b110, reset: None } }
+            SysTickRegType::CVR     => { &RegInfo { offset: 0x018, perms: 0b110, reset: None } }
+            SysTickRegType::CALIB   => { &RegInfo { offset: 0x01C, perms: 0b110, reset: None } }
         }
     }
 }

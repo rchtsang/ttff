@@ -5,6 +5,7 @@
 use derive_more::{From, TryFrom, TryInto};
 use bitfield_struct::bitfield;
 
+use crate::types::RegInfo;
 use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -70,19 +71,19 @@ impl MPURegType {
         self._data().reset
     }
 
-    fn _data(&self) -> &'static SCRegTypeData {
+    fn _data(&self) -> &'static RegInfo {
         match self {
-            MPURegType::TYPE    => { &SCRegTypeData { offset: 0xd90, perms: 0b100, reset: None } }
-            MPURegType::CTRL    => { &SCRegTypeData { offset: 0xd94, perms: 0b110, reset: Some(0) } }
-            MPURegType::RNR     => { &SCRegTypeData { offset: 0xd98, perms: 0b110, reset: None } }
-            MPURegType::RBAR(0) => { &SCRegTypeData { offset: 0xd9c, perms: 0b110, reset: None } }
-            MPURegType::RASR(0) => { &SCRegTypeData { offset: 0xda0, perms: 0b110, reset: None } }
-            MPURegType::RBAR(1) => { &SCRegTypeData { offset: 0xda4, perms: 0b110, reset: None } }
-            MPURegType::RASR(1) => { &SCRegTypeData { offset: 0xda8, perms: 0b110, reset: None } }
-            MPURegType::RBAR(2) => { &SCRegTypeData { offset: 0xdac, perms: 0b110, reset: None } }
-            MPURegType::RASR(2) => { &SCRegTypeData { offset: 0xdb0, perms: 0b110, reset: None } }
-            MPURegType::RBAR(3) => { &SCRegTypeData { offset: 0xdb4, perms: 0b110, reset: None } }
-            MPURegType::RASR(3) => { &SCRegTypeData { offset: 0xdb8, perms: 0b110, reset: None } }
+            MPURegType::TYPE    => { &RegInfo { offset: 0xd90, perms: 0b100, reset: None } }
+            MPURegType::CTRL    => { &RegInfo { offset: 0xd94, perms: 0b110, reset: Some(0) } }
+            MPURegType::RNR     => { &RegInfo { offset: 0xd98, perms: 0b110, reset: None } }
+            MPURegType::RBAR(0) => { &RegInfo { offset: 0xd9c, perms: 0b110, reset: None } }
+            MPURegType::RASR(0) => { &RegInfo { offset: 0xda0, perms: 0b110, reset: None } }
+            MPURegType::RBAR(1) => { &RegInfo { offset: 0xda4, perms: 0b110, reset: None } }
+            MPURegType::RASR(1) => { &RegInfo { offset: 0xda8, perms: 0b110, reset: None } }
+            MPURegType::RBAR(2) => { &RegInfo { offset: 0xdac, perms: 0b110, reset: None } }
+            MPURegType::RASR(2) => { &RegInfo { offset: 0xdb0, perms: 0b110, reset: None } }
+            MPURegType::RBAR(3) => { &RegInfo { offset: 0xdb4, perms: 0b110, reset: None } }
+            MPURegType::RASR(3) => { &RegInfo { offset: 0xdb8, perms: 0b110, reset: None } }
             _ => { panic!("invalid reg type: {self:?}") }
         }
     }
