@@ -643,262 +643,314 @@ impl SysCtrlSpace {
     // register reference getters
 
     pub fn get_icsr(&self) -> &ICSR {
-        let word_offset = SCRegType::ICSR.offset();
+        let byte_offset = SCRegType::ICSR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const ICSR) }
     }
 
     pub fn get_vtor(&self) -> &VTOR {
-        let word_offset = SCRegType::VTOR.offset();
+        let byte_offset = SCRegType::VTOR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const VTOR) }
     }
 
     pub fn get_aircr(&self) -> &AIRCR {
-        let word_offset = SCRegType::AIRCR.offset();
+        let byte_offset = SCRegType::AIRCR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const AIRCR) }
     }
 
     pub fn get_scr(&self) -> &SCR {
-        let word_offset = SCRegType::SCR.offset();
+        let byte_offset = SCRegType::SCR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const SCR) }
     }
 
     pub fn get_ccr(&self) -> &CCR {
-        let word_offset = SCRegType::CCR.offset();
+        let byte_offset = SCRegType::CCR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const CCR) }
     }
 
     pub fn get_shpr1(&self) -> &SHPR1 {
-        let word_offset = SCRegType::SHPR1(0).offset();
+        let byte_offset = SCRegType::SHPR1(0).offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const SHPR1) }
     }
 
     pub fn get_shpr2(&self) -> &SHPR2 {
-        let word_offset = SCRegType::SHPR2(0).offset();
+        let byte_offset = SCRegType::SHPR2(0).offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const SHPR2) }
     }
 
     pub fn get_shpr3(&self) -> &SHPR3 {
-        let word_offset = SCRegType::SHPR3(0).offset();
+        let byte_offset = SCRegType::SHPR3(0).offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const SHPR3) }
     }
 
     pub fn get_shcsr(&self) -> &SHCSR {
-        let word_offset = SCRegType::SHCSR.offset();
+        let byte_offset = SCRegType::SHCSR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const SHCSR) }
     }
 
     pub fn get_cfsr(&self) -> &CFSR {
-        let word_offset = SCRegType::CFSR.offset();
+        let byte_offset = SCRegType::CFSR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const CFSR) }
     }
 
     pub fn get_hfsr(&self) -> &HFSR {
-        let word_offset = SCRegType::HFSR.offset();
+        let byte_offset = SCRegType::HFSR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const HFSR) }
     }
 
     pub fn get_dfsr(&self) -> &DFSR {
-        let word_offset = SCRegType::DFSR.offset();
+        let byte_offset = SCRegType::DFSR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const DFSR) }
     }
 
     pub fn get_mmfar(&self) -> &MMFAR {
-        let word_offset = SCRegType::MMFAR.offset();
+        let byte_offset = SCRegType::MMFAR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const MMFAR) }
     }
 
     pub fn get_bfar(&self) -> &BFAR {
-        let word_offset = SCRegType::BFAR.offset();
+        let byte_offset = SCRegType::BFAR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const BFAR) }
     }
 
     // pub fn get_afsr(&self) -> &AFSR {
-    //     let word_offset = SCRegType::AFSR.offset();
+    //     let byte_offset = SCRegType::AFSR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &*(&self.backing[word_offset] as *const u32 as *const AFSR) }
     // }
 
     pub fn get_cpacr(&self) -> &CPACR {
-        let word_offset = SCRegType::CPACR.offset();
+        let byte_offset = SCRegType::CPACR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const CPACR) }
     }
 
     // pub fn get_fpccr(&self) -> &FPCCR {
-    //     let word_offset = SCRegType::FPCCR.offset();
+    //     let byte_offset = SCRegType::FPCCR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &*(&self.backing[word_offset] as *const u32 as *const FPCCR) }
     // }
 
     // pub fn get_fpcar(&self) -> &FPCAR {
-    //     let word_offset = SCRegType::FPCAR.offset();
+    //     let byte_offset = SCRegType::FPCAR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &*(&self.backing[word_offset] as *const u32 as *const FPCAR) }
     // }
 
     // pub fn get_fpdscr(&self) -> &FPDSCR {
-    //     let word_offset = SCRegType::FPDSCR.offset();
+    //     let byte_offset = SCRegType::FPDSCR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &*(&self.backing[word_offset] as *const u32 as *const FPDSCR) }
     // }
 
     // pub fn get_mvfr0(&self) -> &MVFR0 {
-    //     let word_offset = SCRegType::MVFR0.offset();
+    //     let byte_offset = SCRegType::MVFR0.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &*(&self.backing[word_offset] as *const u32 as *const MVFR0) }
     // }
 
     // pub fn get_mvfr1(&self) -> &MVFR1 {
-    //     let word_offset = SCRegType::MVFR1.offset();
+    //     let byte_offset = SCRegType::MVFR1.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &*(&self.backing[word_offset] as *const u32 as *const MVFR1) }
     // }
 
     // pub fn get_mvfr2(&self) -> &MVFR2 {
-    //     let word_offset = SCRegType::MVFR2.offset();
+    //     let byte_offset = SCRegType::MVFR2.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &*(&self.backing[word_offset] as *const u32 as *const MVFR2) }
     // }
 
     // pub fn get_mcr(&self) -> &MCR {
-    //     let word_offset = SCRegType::MCR.offset();
+    //     let byte_offset = SCRegType::MCR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &*(&self.backing[word_offset] as *const u32 as *const MCR) }
     // }
 
     pub fn get_ictr(&self) -> &ICTR {
-        let word_offset = SCRegType::ICTR.offset();
+        let byte_offset = SCRegType::ICTR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const ICTR) }
     }
 
     // pub fn get_actlr(&self) -> &ACTLR {
-    //     let word_offset = SCRegType::ACTLR.offset();
+    //     let byte_offset = SCRegType::ACTLR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &*(&self.backing[word_offset] as *const u32 as *const ACTLR) }
     // }
 
     pub fn get_stir(&self) -> &STIR {
-        let word_offset = SCRegType::STIR.offset();
+        let byte_offset = SCRegType::STIR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &*(&self.backing[word_offset] as *const u32 as *const STIR) }
     }
 
     pub fn get_icsr_mut(&mut self) -> &mut ICSR {
-        let word_offset = SCRegType::ICSR.offset();
+        let byte_offset = SCRegType::ICSR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ICSR) }
     }
 
     pub fn get_vtor_mut(&mut self) -> &mut VTOR {
-        let word_offset = SCRegType::VTOR.offset();
+        let byte_offset = SCRegType::VTOR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut VTOR) }
     }
 
     pub fn get_aircr_mut(&mut self) -> &mut AIRCR {
-        let word_offset = SCRegType::AIRCR.offset();
+        let byte_offset = SCRegType::AIRCR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut AIRCR) }
     }
 
     pub fn get_scr_mut(&mut self) -> &mut SCR {
-        let word_offset = SCRegType::SCR.offset();
+        let byte_offset = SCRegType::SCR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut SCR) }
     }
 
     pub fn get_ccr_mut(&mut self) -> &mut CCR {
-        let word_offset = SCRegType::CCR.offset();
+        let byte_offset = SCRegType::CCR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut CCR) }
     }
 
     pub fn get_shpr1_mut(&mut self) -> &mut SHPR1 {
-        let word_offset = SCRegType::SHPR1(0).offset();
+        let byte_offset = SCRegType::SHPR1(0).offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut SHPR1) }
     }
 
     pub fn get_shpr2_mut(&mut self) -> &mut SHPR2 {
-        let word_offset = SCRegType::SHPR2(0).offset();
+        let byte_offset = SCRegType::SHPR2(0).offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut SHPR2) }
     }
 
     pub fn get_shpr3_mut(&mut self) -> &mut SHPR3 {
-        let word_offset = SCRegType::SHPR3(0).offset();
+        let byte_offset = SCRegType::SHPR3(0).offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut SHPR3) }
     }
 
     pub fn get_shcsr_mut(&mut self) -> &mut SHCSR {
-        let word_offset = SCRegType::SHCSR.offset();
+        let byte_offset = SCRegType::SHCSR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut SHCSR) }
     }
 
     pub fn get_cfsr_mut(&mut self) -> &mut CFSR {
-        let word_offset = SCRegType::CFSR.offset();
+        let byte_offset = SCRegType::CFSR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut CFSR) }
     }
 
     pub fn get_hfsr_mut(&mut self) -> &mut HFSR {
-        let word_offset = SCRegType::HFSR.offset();
+        let byte_offset = SCRegType::HFSR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut HFSR) }
     }
 
     pub fn get_dfsr_mut(&mut self) -> &mut DFSR {
-        let word_offset = SCRegType::DFSR.offset();
+        let byte_offset = SCRegType::DFSR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut DFSR) }
     }
 
     pub fn get_mmfar_mut(&mut self) -> &mut MMFAR {
-        let word_offset = SCRegType::MMFAR.offset();
+        let byte_offset = SCRegType::MMFAR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut MMFAR) }
     }
 
     pub fn get_bfar_mut(&mut self) -> &mut BFAR {
-        let word_offset = SCRegType::BFAR.offset();
+        let byte_offset = SCRegType::BFAR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut BFAR) }
     }
 
     // pub fn get_afsr_mut(&mut self) -> &mut AFSR {
-    //     let word_offset = SCRegType::AFSR.offset();
+    //     let byte_offset = SCRegType::AFSR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut AFSR) }
     // }
 
     pub fn get_cpacr_mut(&mut self) -> &mut CPACR {
-        let word_offset = SCRegType::CPACR.offset();
+        let byte_offset = SCRegType::CPACR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut CPACR) }
     }
 
     // pub fn get_fpccr_mut(&mut self) -> &mut FPCCR {
-    //     let word_offset = SCRegType::FPCCR.offset();
+    //     let byte_offset = SCRegType::FPCCR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut FPCCR) }
     // }
 
     // pub fn get_fpcar_mut(&mut self) -> &mut FPCAR {
-    //     let word_offset = SCRegType::FPCAR.offset();
+    //     let byte_offset = SCRegType::FPCAR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut FPCAR) }
     // }
 
     // pub fn get_fpdscr_mut(&mut self) -> &mut FPDSCR {
-    //     let word_offset = SCRegType::FPDSCR.offset();
+    //     let byte_offset = SCRegType::FPDSCR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut FPDSCR) }
     // }
 
     // pub fn get_mvfr0_mut(&mut self) -> &mut MVFR0 {
-    //     let word_offset = SCRegType::MVFR0.offset();
+    //     let byte_offset = SCRegType::MVFR0.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut MVFR0) }
     // }
 
     // pub fn get_mvfr1_mut(&mut self) -> &mut MVFR1 {
-    //     let word_offset = SCRegType::MVFR1.offset();
+    //     let byte_offset = SCRegType::MVFR1.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut MVFR1) }
     // }
 
     // pub fn get_mvfr2_mut(&mut self) -> &mut MVFR2 {
-    //     let word_offset = SCRegType::MVFR2.offset();
+    //     let byte_offset = SCRegType::MVFR2.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut MVFR2) }
     // }
 
     // pub fn get_mcr_mut(&mut self) -> &mut MCR {
-    //     let word_offset = SCRegType::MCR.offset();
+    //     let byte_offset = SCRegType::MCR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut MCR) }
     // }
 
     pub fn get_ictr_mut(&mut self) -> &mut ICTR {
-        let word_offset = SCRegType::ICTR.offset();
+        let byte_offset = SCRegType::ICTR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ICTR) }
     }
 
     // pub fn get_actlr_mut(&mut self) -> &mut ACTLR {
-    //     let word_offset = SCRegType::ACTLR.offset();
+    //     let byte_offset = SCRegType::ACTLR.offset();
+    //     let word_offset = byte_offset / 4;
     //     unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ACTLR) }
     // }
 
     pub fn get_stir_mut(&mut self) -> &mut STIR {
-        let word_offset = SCRegType::STIR.offset();
+        let byte_offset = SCRegType::STIR.offset();
+        let word_offset = byte_offset / 4;
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut STIR) }
     }
 
