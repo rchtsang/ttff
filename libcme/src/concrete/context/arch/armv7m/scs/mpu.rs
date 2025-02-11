@@ -2,7 +2,6 @@
 //! 
 //! memory protection unit implementation
 
-use derive_more::{From, TryFrom, TryInto};
 use bitfield_struct::bitfield;
 
 use crate::types::RegInfo;
@@ -87,36 +86,6 @@ impl MPURegType {
             _ => { panic!("invalid reg type: {self:?}") }
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, From, TryFrom, TryInto)]
-#[try_into(owned, ref, ref_mut)]
-pub enum MPUReg {
-    TYPE(TYPE),
-    CTRL(CTRL),
-    RNR(RNR),
-    RBAR(u8, RBAR),
-    RASR(u8, RASR),
-}
-
-#[derive(Debug, Clone, From, TryFrom, TryInto)]
-#[try_into(owned, ref, ref_mut)]
-pub enum MPURegRef<'a> {
-    TYPE(&'a TYPE),
-    CTRL(&'a CTRL),
-    RNR(&'a RNR),
-    RBAR(u8, &'a RBAR),
-    RASR(u8, &'a RASR),
-}
-
-#[derive(Debug, From, TryFrom, TryInto)]
-#[try_into(owned, ref, ref_mut)]
-pub enum MPURegMut<'a> {
-    TYPE(&'a mut TYPE),
-    CTRL(&'a mut CTRL),
-    RNR(&'a mut RNR),
-    RBAR(u8, &'a mut RBAR),
-    RASR(u8, &'a mut RASR),
 }
 
 /// mpu wrapper struct
@@ -338,28 +307,6 @@ impl<'a> MPURegs<'a> {
         }
     }
 
-    // get register references
-
-    pub fn get_reg_ref(&self, regtype: MPURegType) -> MPURegRef {
-        match regtype {
-            MPURegType::TYPE    => { MPURegRef::TYPE(self.get_type()) }
-            MPURegType::CTRL    => { MPURegRef::CTRL(self.get_ctrl()) }
-            MPURegType::RNR     => { MPURegRef::RNR(self.get_rnr()) }
-            MPURegType::RBAR(n) => { MPURegRef::RBAR(n, self.get_rbar(n)) }
-            MPURegType::RASR(n) => { MPURegRef::RASR(n, self.get_rasr(n)) }
-        }
-    }
-
-    pub fn get_reg_mut(&mut self, regtype: MPURegType) -> MPURegMut {
-        match regtype {
-            MPURegType::TYPE    => { MPURegMut::TYPE(self.get_type_mut()) }
-            MPURegType::CTRL    => { MPURegMut::CTRL(self.get_ctrl_mut()) }
-            MPURegType::RNR     => { MPURegMut::RNR(self.get_rnr_mut()) }
-            MPURegType::RBAR(n) => { MPURegMut::RBAR(n, self.get_rbar_mut(n)) }
-            MPURegType::RASR(n) => { MPURegMut::RASR(n, self.get_rasr_mut(n)) }
-        }
-    }
-
     // register reference accessors
 
     pub fn get_type(&self) -> &TYPE {
@@ -411,46 +358,4 @@ impl<'a> MPURegs<'a> {
         unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut RASR) }
     }
 
-}
-
-impl MPURegType {
-    pub(super) unsafe fn to_reg_ref<'a>(&self, int_ref: &'a u32) -> MPURegRef<'a> {
-        match self {
-            MPURegType::TYPE => {
-                MPURegRef::try_from(&*(int_ref as *const u32 as *const TYPE)).unwrap()
-            }
-            MPURegType::CTRL => {
-                MPURegRef::try_from(&*(int_ref as *const u32 as *const CTRL)).unwrap()
-            }
-            MPURegType::RNR => {
-                MPURegRef::try_from(&*(int_ref as *const u32 as *const RNR)).unwrap()
-            }
-            MPURegType::RBAR(n) => {
-                MPURegRef::try_from((*n, &*(int_ref as *const u32 as *const RBAR))).unwrap()
-            }
-            MPURegType::RASR(n) => {
-                MPURegRef::try_from((*n, &*(int_ref as *const u32 as *const RASR))).unwrap()
-            }
-        }
-    }
-
-    pub(super) unsafe fn to_reg_mut<'a>(&self, int_ref: &'a mut u32) -> MPURegMut<'a> {
-        match self {
-            MPURegType::TYPE => {
-                MPURegMut::try_from(&mut *(int_ref as *mut u32 as *mut TYPE)).unwrap()
-            }
-            MPURegType::CTRL => {
-                MPURegMut::try_from(&mut *(int_ref as *mut u32 as *mut CTRL)).unwrap()
-            }
-            MPURegType::RNR => {
-                MPURegMut::try_from(&mut *(int_ref as *mut u32 as *mut RNR)).unwrap()
-            }
-            MPURegType::RBAR(n) => {
-                MPURegMut::try_from((*n, &mut *(int_ref as *mut u32 as *mut RBAR))).unwrap()
-            }
-            MPURegType::RASR(n) => {
-                MPURegMut::try_from((*n, &mut *(int_ref as *mut u32 as *mut RASR))).unwrap()
-            }
-        }
-    }
 }

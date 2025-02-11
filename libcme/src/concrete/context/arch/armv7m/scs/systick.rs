@@ -61,33 +61,6 @@ impl SysTickRegType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, From, TryFrom, TryInto)]
-#[try_into(owned, ref, ref_mut)]
-pub enum SysTickReg {
-    CSR(CSR),       // systick control and status register
-    RVR(RVR),       // systick reload value register
-    CVR(CVR),       // systick current value register
-    CALIB(CALIB),   // systick calibration value register
-}
-
-#[derive(Debug, Clone, From, TryFrom, TryInto)]
-#[try_into(owned, ref, ref_mut)]
-pub enum SysTickRegRef<'a> {
-    CSR(&'a CSR),
-    RVR(&'a RVR),
-    CVR(&'a CVR),
-    CALIB(&'a CALIB),
-}
-
-#[derive(Debug, From, TryFrom, TryInto)]
-#[try_into(owned, ref, ref_mut)]
-pub enum SysTickRegMut<'a> {
-    CSR(&'a mut CSR),
-    RVR(&'a mut RVR),
-    CVR(&'a mut CVR),
-    CALIB(&'a mut CALIB),
-}
-
 /// controls sytem timer and provides status data
 /// 
 /// see B3.3.3
@@ -189,24 +162,6 @@ pub struct SysTickRegs<'a> {
 impl<'a> SysTickRegs<'a> {
     pub fn new(backing: &'a mut [u32; 0x40]) -> Self {
         Self { backing }
-    }
-
-    pub fn get_reg_ref(&self, regtype: SysTickRegType) -> SysTickRegRef {
-        match regtype {
-            SysTickRegType::CSR => { SysTickRegRef::CSR(self.get_csr()) }
-            SysTickRegType::RVR => { SysTickRegRef::RVR(self.get_rvr()) }
-            SysTickRegType::CVR => { SysTickRegRef::CVR(self.get_cvr()) }
-            SysTickRegType::CALIB => { SysTickRegRef::CALIB(self.get_calib()) }
-        }
-    }
-
-    pub fn get_reg_mut(&mut self, regtype: SysTickRegType) -> SysTickRegMut {
-        match regtype {
-            SysTickRegType::CSR => { SysTickRegMut::CSR(self.get_csr_mut()) }
-            SysTickRegType::RVR => { SysTickRegMut::RVR(self.get_rvr_mut()) }
-            SysTickRegType::CVR => { SysTickRegMut::CVR(self.get_cvr_mut()) }
-            SysTickRegType::CALIB => { SysTickRegMut::CALIB(self.get_calib_mut()) }
-        }
     }
 
     /// decrement the systick counter, reload if necessary.
@@ -317,43 +272,6 @@ impl<'a> SysTickRegs<'a> {
             }
         }
         Ok(())
-    }
-}
-
-
-impl SysTickRegType {
-    pub(super) unsafe fn to_reg_ref<'a>(&self, int_ref: &'a u32) -> SysTickRegRef<'a> {
-        match self {
-            SysTickRegType::CSR => {
-                SysTickRegRef::try_from(&*(int_ref as *const u32 as *const CSR)).unwrap()
-            }
-            SysTickRegType::RVR => {
-                SysTickRegRef::try_from(&*(int_ref as *const u32 as *const RVR)).unwrap()
-            }
-            SysTickRegType::CVR => {
-                SysTickRegRef::try_from(&*(int_ref as *const u32 as *const CVR)).unwrap()
-            }
-            SysTickRegType::CALIB => {
-                SysTickRegRef::try_from(&*(int_ref as *const u32 as *const CALIB)).unwrap()
-            }
-        }
-    }
-
-    pub(super) unsafe fn to_reg_mut<'a>(&self, int_ref: &'a mut u32) -> SysTickRegMut<'a> {
-        match self {
-            SysTickRegType::CSR => {
-                SysTickRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CSR)).unwrap()
-            }
-            SysTickRegType::RVR => {
-                SysTickRegMut::try_from(&mut *(int_ref as *mut u32 as *mut RVR)).unwrap()
-            }
-            SysTickRegType::CVR => {
-                SysTickRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CVR)).unwrap()
-            }
-            SysTickRegType::CALIB => {
-                SysTickRegMut::try_from(&mut *(int_ref as *mut u32 as *mut CALIB)).unwrap()
-            }
-        }
     }
 }
 

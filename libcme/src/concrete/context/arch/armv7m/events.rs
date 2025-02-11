@@ -188,10 +188,9 @@ impl<'irb> Context<'irb> {
             }
             // a debug event with debug enabled
             Event::Debug(_) => {
-                let offset = DebugRegType::DHCSR.offset();
-                let reg_ref = self.scs.get_reg_ref(offset).unwrap();
-                let dbg_ref = DebugRegRef::try_from(reg_ref).unwrap();
-                let dhcsr: &DHCSR = dbg_ref.try_into().unwrap();
+                let offset = DebugRegType::DHCSR.offset() / 4;
+                let backing: &[u32; 0x400] = self.scs.as_ref();
+                let dhcsr = DHCSR::from_bits(backing[offset]);
                 dhcsr.s_halt()
             }
             _ => { false }
@@ -229,10 +228,9 @@ impl<'irb> Context<'irb> {
             }
             // a debug event with debug enabled
             Event::Debug(_) => {
-                let offset = DebugRegType::DHCSR.offset();
-                let reg_ref = self.scs.get_reg_ref(offset).unwrap();
-                let dbg_ref = DebugRegRef::try_from(reg_ref).unwrap();
-                let dhcsr: &DHCSR = dbg_ref.try_into().unwrap();
+                let offset = DebugRegType::DHCSR.offset() / 4;
+                let backing: &[u32; 0x400] = self.scs.as_ref();
+                let dhcsr = DHCSR::from_bits(backing[offset]);
                 dhcsr.s_halt()
             }
             // other implementation-defined events

@@ -57,6 +57,18 @@ pub struct SysCtrlSpace {
     pub mpu: MPUState,
 }
 
+impl AsRef<[u32; 0x400]> for SysCtrlSpace {
+    fn as_ref(&self) -> &[u32; 0x400] {
+        self.backing.as_ref()
+    }
+}
+
+impl AsRef<[u8]> for SysCtrlSpace {
+    fn as_ref(&self) -> &[u8] {
+        unsafe { &*(self.backing.as_ref() as *const [u32] as *const [u8]) }
+    }
+}
+
 impl fmt::Debug for SysCtrlSpace {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "SCS")
@@ -85,26 +97,6 @@ impl SysCtrlSpace {
         unsafe { &mut *(self.backing.as_mut() as *mut [u32; 0x400] as *mut [u8; 0x1000]) }
     }
 
-    /// get byte offset as a register reference (if applicable)
-    pub fn get_reg_ref(&self, offset: usize) -> Result<SCRegRef, Error> {
-        let reg_type = SCRegType::lookup_offset(offset);
-        let Some(reg_type) = reg_type else {
-            let address = Address::from(BASE + offset as u32);
-            return Err(Error::InvalidSysCtrlReg(address));
-        };
-        unsafe { reg_type.to_reg_ref(&self.backing[offset / 4]) }
-    }
-
-    /// get byte offset as a mutable register reference (if applicable)
-    pub fn get_reg_mut(&mut self, offset: usize) -> Result<SCRegMut, Error> {
-        let reg_type = SCRegType::lookup_offset(offset);
-        let Some(reg_type) = reg_type else {
-            let address = Address::from(BASE + offset as u32);
-            return Err(Error::InvalidSysCtrlReg(address))
-        };
-        unsafe { reg_type.to_reg_mut(&mut self.backing[offset / 4]) }
-    }
-
     #[instrument]
     pub fn read_bytes(&mut self,
         offset: usize,
@@ -114,21 +106,18 @@ impl SysCtrlSpace {
         let address = BASE + offset as u32;
         let word_offset = offset / 4;
         let byte_offset = offset & 0b11;
-        if let Err(err) = self.get_reg_ref(offset) {
+        let Some(reg_type) = SCRegType::lookup_offset(offset) else {
             // if register isn't implemented as a struct yet, just treat it as
             // memory and issue a warning, returning the error that
             // must be ignored at a higher level.
-            warn!("{err:?}");
+            let err = ArchError::from(Error::InvalidSysCtrlReg(address.into()));
+            warn!("{err:?} (treated as memory)");
             let slice = unsafe {
                 &*(&self.backing[word_offset] as *const u32 as *const [u8; 4])
             };
             dst.copy_from_slice(slice);
             return Err(err.into());
-        }
-        let reg_type = SCRegType::lookup_offset(offset)
-            .ok_or_else( | | {
-                ArchError::from(Error::InvalidSysCtrlReg(address.into()))
-            })?;
+        };
         match reg_type {
             SCRegType::ICSR
             | SCRegType::VTOR
@@ -199,14 +188,15 @@ impl SysCtrlSpace {
         let address = BASE + offset as u32;
         let word_offset = offset / 4;
         let byte_offset = offset & 0b11;
-        if let Err(err) = self.get_reg_mut(offset) {
-            warn!("{err:?}");
+        let Some(reg_type) = SCRegType::lookup_offset(offset) else {
+            let err = ArchError::from(Error::InvalidSysCtrlReg(address.into()));
+            warn!("{err:?} (treated as memory)");
             let slice = unsafe {
                 &mut *(&mut self.backing[word_offset] as *mut u32 as *mut [u8; 4])
             };
             (&mut slice[byte_offset..]).copy_from_slice(src);
             return Err(err.into());
-        }
+        };
         let write_val = src.iter()
             .enumerate().take(4)
             .fold(0u32, |val, (i, &byte)| {

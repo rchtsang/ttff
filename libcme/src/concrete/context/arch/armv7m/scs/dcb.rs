@@ -68,33 +68,6 @@ impl DebugRegType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, From, TryFrom, TryInto)]
-#[try_into(owned, ref, ref_mut)]
-pub enum DebugReg {
-    DHCSR(DHCSR),
-    DCRSR(DCRSR),
-    DCRDR(DCRDR),
-    DEMCR(DEMCR),
-}
-
-#[derive(Debug, Clone, From, TryFrom, TryInto)]
-#[try_into(owned, ref, ref_mut)]
-pub enum DebugRegRef<'a> {
-    DHCSR(&'a DHCSR),
-    DCRSR(&'a DCRSR),
-    DCRDR(&'a DCRDR),
-    DEMCR(&'a DEMCR),
-}
-
-#[derive(Debug, From, TryFrom, TryInto)]
-#[try_into(owned, ref, ref_mut)]
-pub enum DebugRegMut<'a> {
-    DHCSR(&'a mut DHCSR),
-    DCRSR(&'a mut DCRSR),
-    DCRDR(&'a mut DCRDR),
-    DEMCR(&'a mut DEMCR),
-}
-
 /// controls halting debug.
 /// constraints:
 /// - modifying C_STEP or C_MASKINTS in non-debug state with halting debug enabled
@@ -462,24 +435,6 @@ impl<'a> DebugRegs<'a> {
         self.get_dhcsr().s_halt()
     }
 
-    pub fn get_reg_ref(&self, regtype: DebugRegType) -> DebugRegRef {
-        match regtype {
-            DebugRegType::DHCSR => { DebugRegRef::DHCSR(self.get_dhcsr()) }
-            DebugRegType::DCRSR => { DebugRegRef::DCRSR(self.get_dcrsr()) }
-            DebugRegType::DCRDR => { DebugRegRef::DCRDR(self.get_dcrdr()) }
-            DebugRegType::DEMCR => { DebugRegRef::DEMCR(self.get_demcr()) }
-        }
-    }
-
-    pub fn get_reg_mut(&mut self, regtype: DebugRegType) -> DebugRegMut {
-        match regtype {
-            DebugRegType::DHCSR => { DebugRegMut::DHCSR(self.get_dhcsr_mut()) }
-            DebugRegType::DCRSR => { DebugRegMut::DCRSR(self.get_dcrsr_mut()) }
-            DebugRegType::DCRDR => { DebugRegMut::DCRDR(self.get_dcrdr_mut()) }
-            DebugRegType::DEMCR => { DebugRegMut::DEMCR(self.get_demcr_mut()) }
-        }
-    }
-
     /// perform an event-triggering read of debug register bytes
     pub fn read_bytes(&mut self,
         offset: usize,
@@ -496,42 +451,6 @@ impl<'a> DebugRegs<'a> {
         events: &mut VecDeque<Event>,
     ) -> Result<(), context::Error> {
         todo!()
-    }
-}
-
-impl DebugRegType {
-    pub(super) unsafe fn to_reg_ref<'a>(&self, int_ref: &'a u32) -> DebugRegRef<'a> {
-        match self {
-            DebugRegType::DHCSR => {
-                DebugRegRef::try_from(&*(int_ref as *const u32 as *const DHCSR)).unwrap()
-            }
-            DebugRegType::DCRSR => {
-                DebugRegRef::try_from(&*(int_ref as *const u32 as *const DCRSR)).unwrap()
-            }
-            DebugRegType::DCRDR => {
-                DebugRegRef::try_from(&*(int_ref as *const u32 as *const DCRDR)).unwrap()
-            }
-            DebugRegType::DEMCR => {
-                DebugRegRef::try_from(&*(int_ref as *const u32 as *const DEMCR)).unwrap()
-            }
-        }
-    }
-
-    pub(super) unsafe fn to_reg_mut<'a>(&self, int_ref: &'a mut u32) -> DebugRegMut<'a> {
-        match self {
-            DebugRegType::DHCSR => {
-                DebugRegMut::try_from(&mut *(int_ref as *mut u32 as *mut DHCSR)).unwrap()
-            }
-            DebugRegType::DCRSR => {
-                DebugRegMut::try_from(&mut *(int_ref as *mut u32 as *mut DCRSR)).unwrap()
-            }
-            DebugRegType::DCRDR => {
-                DebugRegMut::try_from(&mut *(int_ref as *mut u32 as *mut DCRDR)).unwrap()
-            }
-            DebugRegType::DEMCR => {
-                DebugRegMut::try_from(&mut *(int_ref as *mut u32 as *mut DEMCR)).unwrap()
-            }
-        }
     }
 }
 
