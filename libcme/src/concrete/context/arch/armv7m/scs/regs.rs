@@ -112,15 +112,34 @@ impl SCRegType {
     }
 
     pub fn offset(&self) -> usize {
-        self._data().offset
+        match self {
+            SCRegType::SysTick(reg) => { reg.offset() }
+            SCRegType::NVIC(reg) => { reg.offset() }
+            SCRegType::Debug(reg) => { reg.offset() }
+            SCRegType::MPU(reg) => { reg.offset() }
+            _ => { self._data().offset }
+        }
     }
 
     pub fn perms(&self) -> FlagSet<Permission> {
-        unsafe { FlagSet::<Permission>::new_unchecked(self._data().perms) }
+        let perms = match self {
+            SCRegType::SysTick(reg) => { reg.permissions() }
+            SCRegType::NVIC(reg) => { reg.permissions() }
+            SCRegType::Debug(reg) => { reg.permissions() }
+            SCRegType::MPU(reg) => { reg.permissions() }
+            _ => { self._data().perms }
+        };
+        unsafe { FlagSet::<Permission>::new_unchecked(perms) }
     }
 
     pub fn reset(&self) -> Option<u32> {
-        self._data().reset
+        match self {
+            SCRegType::SysTick(reg) => { reg.reset_value() }
+            SCRegType::NVIC(reg) => { reg.reset_value() }
+            SCRegType::Debug(reg) => { reg.reset_value() }
+            SCRegType::MPU(reg) => { reg.reset_value() }
+            _ => { self._data().reset }
+        }
     }
 
     pub fn lookup_address(address: impl AsRef<Address>) -> Option<Self> {

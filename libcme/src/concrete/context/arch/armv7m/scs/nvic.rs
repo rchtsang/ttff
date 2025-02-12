@@ -51,7 +51,7 @@ impl NVICRegType {
         }
     }
 
-    pub fn reset(&self) -> Option<u32> {
+    pub fn reset_value(&self) -> Option<u32> {
         // all have reset value 0
         Some(0)
     }
