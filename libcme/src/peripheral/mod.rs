@@ -6,6 +6,7 @@ pub mod models;
 pub use models::*;
 
 use std::ops::Range;
+use std::collections::VecDeque;
 
 use anyhow;
 use thiserror::Error;
@@ -30,6 +31,10 @@ impl Error {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Event {
+    Generic(String),
+}
 
 /// peripheral state trait
 /// 
@@ -38,8 +43,8 @@ impl Error {
 pub trait PeripheralState: DynClone {
     fn base_address(&self) -> Address;
     fn size(&self) -> u64;
-    fn read_bytes(&mut self, address: &Address, dst: &mut [u8]) -> Result<(), Error>;
-    fn write_bytes(&mut self, address: &Address, src: &[u8]) -> Result<(), Error>;
+    fn read_bytes(&mut self, address: &Address, dst: &mut [u8], events: &mut VecDeque<Event>) -> Result<(), Error>;
+    fn write_bytes(&mut self, address: &Address, src: &[u8], events: &mut VecDeque<Event>) -> Result<(), Error>;
 }
 clone_trait_object!(PeripheralState);
 
@@ -63,15 +68,17 @@ impl Peripheral {
     pub fn read_bytes(&mut self,
         address: &Address,
         dst: &mut [u8],
+        events: &mut VecDeque<Event>,
     ) -> Result<(), Error> {
-        self.state.read_bytes(address, dst)
+        self.state.read_bytes(address, dst, events)
     }
 
     pub fn write_bytes(&mut self,
         address: &Address,
         src: &[u8],
+        events: &mut VecDeque<Event>,
     ) -> Result<(), Error> {
-        self.state.write_bytes(address, src)
+        self.state.write_bytes(address, src, events)
     }
 
 }

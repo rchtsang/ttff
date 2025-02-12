@@ -33,7 +33,10 @@ use crate::concrete::context::{
     Alignment,
     LiftResult,
 };
-use crate::peripheral::Peripheral;
+use crate::peripheral::{
+    self,
+    Peripheral,
+};
 use crate::utils::*;
 
 use super::Error as ArchError;
@@ -554,8 +557,12 @@ impl<'irb> Context<'irb> {
             }
             MapIx::Mmio(idx) => {
                 let peripheral = self.mmio.get_mut(idx).unwrap();
-                peripheral.read_bytes(address, dst)
-                    .map_err(context::Error::from)
+                let mut peripheral_events = VecDeque::new();
+                let result = peripheral.read_bytes(address, dst, &mut peripheral_events);
+                for peripheral_event in peripheral_events {
+                    self.events.push_back(peripheral_event.into());
+                }
+                result.map_err(context::Error::from)
             }
             MapIx::Scs => {
                 let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;
@@ -576,8 +583,12 @@ impl<'irb> Context<'irb> {
             }
             MapIx::Mmio(idx) => {
                 let peripheral = self.mmio.get_mut(idx).unwrap();
-                peripheral.write_bytes(address, src)
-                    .map_err(context::Error::from)
+                let mut peripheral_events = VecDeque::new();
+                let result = peripheral.write_bytes(address, src, &mut peripheral_events);
+                for peripheral_event in peripheral_events {
+                    self.events.push_back(peripheral_event.into());
+                }
+                result.map_err(context::Error::from)
             }
             MapIx::Scs => {
                 let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;

@@ -60,8 +60,17 @@ pub enum Event {
     // debug event placeholder
     Debug(DebugEvent),
 
+    // peripheral events
+    Peripheral(peripheral::Event),
+
     // implementation specific events
     // GenericEvent(T)
+}
+
+impl From<peripheral::Event> for Event {
+    fn from(value: peripheral::Event) -> Self {
+        Self::Peripheral(value)
+    }
 }
 
 impl<'irb> Context<'irb> {
@@ -153,6 +162,9 @@ impl<'irb> Context<'irb> {
                 todo!()
             }
             Event::Debug(_evt) => {
+                todo!()
+            }
+            Event::Peripheral(_evt) => {
                 todo!()
             }
         }

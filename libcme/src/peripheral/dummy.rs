@@ -34,6 +34,7 @@ impl PeripheralState for DummyState {
     fn read_bytes(&mut self,
         address: &Address,
         dst: &mut [u8],
+        events: &mut VecDeque<Event>,
     ) -> Result<(), Error> {
         self.backing.read_bytes(address.offset() as usize, dst)
             .map_err(|err| Error::state(err))
@@ -42,6 +43,7 @@ impl PeripheralState for DummyState {
     fn write_bytes(&mut self,
         address: &Address,
         src: &[u8],
+        events: &mut VecDeque<Event>,
     ) -> Result<(), Error> {
         self.backing.write_bytes(address.offset() as usize, src)
             .map_err(|err| Error::state(err))
