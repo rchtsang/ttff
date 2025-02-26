@@ -18,7 +18,7 @@ use fugue_core::prelude::*;
 pub enum Error {
     #[error("{0}")]
     State(anyhow::Error),
-    #[error("invalid peripheral register access @ {0}")]
+    #[error("invalid peripheral register access @ {0:#x?}")]
     InvalidPeripheralReg(Address),
 }
 

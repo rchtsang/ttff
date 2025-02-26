@@ -6,9 +6,9 @@
 //! Read/write and other stateful behavior must be manually implemented.
 //! 
 
+pub mod clock;
 pub mod ficr;
-pub mod uicr;
 pub mod gpio;
 pub mod gpiote;
 pub mod uarte;
-pub mod clock;
+pub mod uicr;

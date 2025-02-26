@@ -18,8 +18,8 @@ mod registers;
 pub use registers::*;
 
 
-static UARTE0_BASE: u32 = 0x40002000;
-static UARTE1_BASE: u32 = 0x40028000;
+pub static UARTE0_BASE: u32 = 0x40002000;
+pub static UARTE1_BASE: u32 = 0x40028000;
 
 #[derive(Clone)]
 pub struct UARTEState {
@@ -115,8 +115,8 @@ impl UARTEState {
         let Some(reg_type) = UARTERegType::lookup_offset(offset) else {
             // treat unimplemented registers as memory and issue warning
             let err = Error::InvalidPeripheralReg(address.into());
-            warn!("{err:?} (treated as memory)");
-            let slice = &self.view_as_bytes()[byte_offset..];
+            warn!("{err:x?} (treated as memory)");
+            let slice = &self.view_as_bytes()[byte_offset..byte_offset + dst.len()];
             dst.copy_from_slice(slice);
             return Err(err.into());
         };
@@ -163,8 +163,8 @@ impl UARTEState {
         let byte_offset = offset & 0b11;
         let Some(reg_type) = UARTERegType::lookup_offset(offset) else {
             let err = Error::InvalidPeripheralReg(address.into());
-            warn!("{err:?} (treated as memory)");
-            let slice = &mut self.view_as_bytes_mut()[byte_offset..];
+            warn!("{err:x?} (treated as memory)");
+            let slice = &mut self.view_as_bytes_mut()[byte_offset..byte_offset + src.len()];
             slice.copy_from_slice(src);
             return Err(err.into());
         };

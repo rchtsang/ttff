@@ -18,7 +18,7 @@ mod registers;
 pub use registers::*;
 
 
-static FICR_BASE: u32 = 0x10000000;
+pub static FICR_BASE: u32 = 0x10000000;
 
 #[derive(Clone)]
 pub struct FICRState {
@@ -114,8 +114,8 @@ impl FICRState {
         let Some(reg_type) = FICRRegType::lookup_offset(offset) else {
             // treat unimplemented registers as memory and issue warning
             let err = Error::InvalidPeripheralReg(address.into());
-            warn!("{err:?} (treated as memory)");
-            let slice = &self.view_as_bytes()[byte_offset..];
+            warn!("{err:x?} (treated as memory)");
+            let slice = &self.view_as_bytes()[byte_offset..byte_offset + dst.len()];
             dst.copy_from_slice(slice);
             return Err(err.into());
         };
@@ -147,8 +147,8 @@ impl FICRState {
         let byte_offset = offset & 0b11;
         let Some(reg_type) = FICRRegType::lookup_offset(offset) else {
             let err = Error::InvalidPeripheralReg(address.into());
-            warn!("{err:?} (treated as memory)");
-            let slice = &mut self.view_as_bytes_mut()[byte_offset..];
+            warn!("{err:x?} (treated as memory)");
+            let slice = &mut self.view_as_bytes_mut()[byte_offset..byte_offset + src.len()];
             slice.copy_from_slice(src);
             return Err(err.into());
         };
