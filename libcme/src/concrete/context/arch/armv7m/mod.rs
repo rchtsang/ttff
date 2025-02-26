@@ -562,7 +562,13 @@ impl<'irb> Context<'irb> {
                 for peripheral_event in peripheral_events {
                     self.events.push_back(peripheral_event.into());
                 }
-                result.map_err(context::Error::from)
+                if let Err(peripheral::Error::InvalidPeripheralReg(address)) = result {
+                    let offset = address.offset();
+                    warn!("warning: ignoring unimplemented peripheral register @ {offset:#x}");
+                    Ok(())
+                } else {
+                    result.map_err(context::Error::from)
+                }
             }
             MapIx::Scs => {
                 let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;
@@ -588,7 +594,13 @@ impl<'irb> Context<'irb> {
                 for peripheral_event in peripheral_events {
                     self.events.push_back(peripheral_event.into());
                 }
-                result.map_err(context::Error::from)
+                if let Err(peripheral::Error::InvalidPeripheralReg(address)) = result {
+                    let offset = address.offset();
+                    warn!("warning: ignoring unimplemented peripheral register @ {offset:#x}");
+                    Ok(())
+                } else {
+                    result.map_err(context::Error::from)
+                }
             }
             MapIx::Scs => {
                 let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;
