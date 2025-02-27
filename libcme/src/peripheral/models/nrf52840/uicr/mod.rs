@@ -86,8 +86,18 @@ impl Default for UICRState {
 
 impl UICRState {
     pub fn new_with(base_address: u32) -> Self {
-        let backing = Box::new([0u32; 0x400]);
+        let mut backing = Box::new([0u32; 0x400]);
+        for reg_type in UICRRegType::list() {
+            let offset = reg_type.offset();
+            if let Some(reset_value) = reg_type.reset() {
+                backing[offset] = reset_value;
+            }
+        }
         Self { base_address, backing }
+    }
+
+    pub fn reset(self) -> Self {
+        Self::new_with(self.base_address)
     }
 
     /// direct view as bytes

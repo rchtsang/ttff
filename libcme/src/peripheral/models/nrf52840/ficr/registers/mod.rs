@@ -91,6 +91,42 @@ impl FICRRegType {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            FICRRegType::CODEPAGESIZE,
+            FICRRegType::CODESIZE,
+            FICRRegType::DEVICEID(0),
+            FICRRegType::DEVICEID(1),
+            FICRRegType::ER(0),
+            FICRRegType::ER(1),
+            FICRRegType::ER(2),
+            FICRRegType::ER(3),
+            FICRRegType::IR(0),
+            FICRRegType::IR(1),
+            FICRRegType::IR(2),
+            FICRRegType::IR(3),
+            FICRRegType::DEVICEADDRTYPE,
+            FICRRegType::DEVICEADDR(0),
+            FICRRegType::DEVICEADDR(1),
+            FICRRegType::PRODTEST(0),
+            FICRRegType::PRODTEST(1),
+            FICRRegType::PRODTEST(2),
+        ];
+        for reg_type in INFORegType::list() {
+            types.push(FICRRegType::INFO(reg_type));
+        }
+        for reg_type in TEMPRegType::list() {
+            types.push(FICRRegType::TEMP(reg_type));
+        }
+        for reg_type in NFCRegType::list() {
+            types.push(FICRRegType::NFC(reg_type));
+        }
+        for reg_type in TRNG90BRegType::list() {
+            types.push(FICRRegType::TRNG90B(reg_type));
+        }
+        types
+    }
 }
 
 impl FICRRegType {

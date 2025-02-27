@@ -137,6 +137,8 @@ def gen_cluster_content(cluster: dict):
     registers.sort(key=lambda r: int(r['addressOffset'], 0))
     clusters.sort(key=lambda r: int(r['addressOffset'], 0))
 
+    assert len(clusters) == 0, "there are subclusters!"
+
     cluster_size = 4
 
     data_params = "&self"
@@ -153,6 +155,8 @@ def gen_cluster_content(cluster: dict):
     reg_type_info_match_arms = [] 
     register_struct_defs = []
     cluster_array_info_match_arms = []
+    reg_type_enumeration = []
+    cluster_type_enumeration = []
 
     for reg in registers:
         assert reg['#tag'] != 'cluster', \
@@ -204,6 +208,9 @@ def gen_cluster_content(cluster: dict):
                         "perms": f"0b{AccessType.as_bits(reg['access']):03b}",
                         "reset_value": f"Some({reg['resetValue']})" if 'resetValue' in reg else "None",
                     })
+                    reg_type_enumeration.append({
+                        "reg_type_variant": reg['name'].upper().replace('[%S]', f"({j})"),
+                    })
 
             register_struct_defs.append(gen_register_content(reg))
         else:
@@ -241,6 +248,9 @@ def gen_cluster_content(cluster: dict):
                     "perms": f"0b{AccessType.as_bits(reg['access']):03b}",
                     "reset_value": f"Some({reg['resetValue']})" if 'resetValue' in reg else "None",
                 })
+                reg_type_enumeration.append({
+                    "reg_type_variant": cluster_type_variant
+                })
 
             register_struct_defs.append(gen_register_content(reg))
 
@@ -264,6 +274,8 @@ def gen_cluster_content(cluster: dict):
             "reg_type_info_match_arms": reg_type_info_match_arms,
             "cluster_array_info_match_arms": cluster_array_info_match_arms,
             "register_struct_defs": register_struct_defs,
+            "reg_type_enumeration": reg_type_enumeration,
+            "cluster_type_enumeration": cluster_type_enumeration,
         },
     }
 
@@ -340,6 +352,7 @@ def gen_registers_content(peripheral: dict):
     reg_type_info_match_arms = []
     reg_type_offset_match_arms = []
     register_struct_defs = []
+    reg_type_enumeration = []
 
     for reg in registers:
         address_offset = int(reg['addressOffset'], 0)
@@ -366,6 +379,9 @@ def gen_registers_content(peripheral: dict):
                     "perms": f"0b{AccessType.as_bits(reg['access']):03b}",
                     "reset_value": f"Some({reg['resetValue']})" if 'resetValue' in reg else "None",
                 })
+                reg_type_enumeration.append({
+                    "reg_type_variant": reg['name'].upper().replace('[%S]', f'({i})'),
+                })
 
             register_struct_defs.append(gen_register_content(reg))
 
@@ -386,11 +402,15 @@ def gen_registers_content(peripheral: dict):
                 "perms": f"0b{AccessType.as_bits(reg['access']):03b}",
                 "reset_value": f"Some({reg['resetValue']})" if 'resetValue' in reg else "None",
             })
+            reg_type_enumeration.append({
+                "reg_type_variant": reg['name'].upper(),
+            })
 
             register_struct_defs.append(gen_register_content(reg))
 
     cluster_type_offset_match_arms = []
     cluster_type_info_match_arms = []
+    cluster_type_enumeration = []
 
     for cluster in clusters:
         address_offset = int(cluster['addressOffset'], 0)
@@ -423,6 +443,10 @@ def gen_registers_content(peripheral: dict):
                     ),
                     "match_ptrn": f"{offset:#05x}..={offset+incr-1:#05x}",
                 })
+                cluster_type_enumeration.append({
+                    "cluster_reg_type": f"{stripped_name}RegType",
+                    "mapped_reg_type": f"{reg_type_name}::{stripped_name}({i}, reg_type)"
+                })
 
             cluster_type_info_match_arms.append({
                 "cluster_type_variant": f"{stripped_name}(n, reg)",
@@ -446,6 +470,10 @@ def gen_registers_content(peripheral: dict):
                 ),
                 "match_ptrn": f"{address_offset:#05x}..={address_offset+cluster_size-1:#05x}",
             })
+            cluster_type_enumeration.append({
+                "cluster_reg_type": f"{cluster['name']}RegType",
+                "mapped_reg_type": f"{reg_type_name}::{cluster['name']}(reg_type)"
+            })
 
             cluster_type_info_match_arms.append({
                 "cluster_type_variant": f"{cluster['name']}(reg)",
@@ -466,6 +494,8 @@ def gen_registers_content(peripheral: dict):
             "register_struct_defs": register_struct_defs,
             "cluster_type_offset_match_arms": cluster_type_offset_match_arms,
             "cluster_type_info_match_arms": cluster_type_info_match_arms,
+            "reg_type_enumeration": reg_type_enumeration,
+            "cluster_type_enumeration": cluster_type_enumeration,
         }
     }
 

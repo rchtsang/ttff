@@ -134,6 +134,45 @@ impl UARTERegType {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            UARTERegType::TASKS_STARTRX,
+            UARTERegType::TASKS_STOPRX,
+            UARTERegType::TASKS_STARTTX,
+            UARTERegType::TASKS_STOPTX,
+            UARTERegType::TASKS_FLUSHRX,
+            UARTERegType::EVENTS_CTS,
+            UARTERegType::EVENTS_NCTS,
+            UARTERegType::EVENTS_RXDRDY,
+            UARTERegType::EVENTS_ENDRX,
+            UARTERegType::EVENTS_TXDRDY,
+            UARTERegType::EVENTS_ENDTX,
+            UARTERegType::EVENTS_ERROR,
+            UARTERegType::EVENTS_RXTO,
+            UARTERegType::EVENTS_RXSTARTED,
+            UARTERegType::EVENTS_TXSTARTED,
+            UARTERegType::EVENTS_TXSTOPPED,
+            UARTERegType::SHORTS,
+            UARTERegType::INTEN,
+            UARTERegType::INTENSET,
+            UARTERegType::INTENCLR,
+            UARTERegType::ERRORSRC,
+            UARTERegType::ENABLE,
+            UARTERegType::BAUDRATE,
+            UARTERegType::CONFIG,
+        ];
+        for reg_type in PSELRegType::list() {
+            types.push(UARTERegType::PSEL(reg_type));
+        }
+        for reg_type in RXDRegType::list() {
+            types.push(UARTERegType::RXD(reg_type));
+        }
+        for reg_type in TXDRegType::list() {
+            types.push(UARTERegType::TXD(reg_type));
+        }
+        types
+    }
 }
 
 impl UARTERegType {

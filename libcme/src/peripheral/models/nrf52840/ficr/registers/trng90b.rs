@@ -71,6 +71,20 @@ impl TRNG90BRegType {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            TRNG90BRegType::BYTES,
+            TRNG90BRegType::RCCUTOFF,
+            TRNG90BRegType::APCUTOFF,
+            TRNG90BRegType::STARTUP,
+            TRNG90BRegType::ROSC1,
+            TRNG90BRegType::ROSC2,
+            TRNG90BRegType::ROSC3,
+            TRNG90BRegType::ROSC4,
+        ];
+        types
+    }
 }
 
 impl TRNG90BRegType {

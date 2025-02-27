@@ -62,6 +62,17 @@ impl INFORegType {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            INFORegType::PART,
+            INFORegType::VARIANT,
+            INFORegType::PACKAGE,
+            INFORegType::RAM,
+            INFORegType::FLASH,
+        ];
+        types
+    }
 }
 
 impl INFORegType {

@@ -56,6 +56,15 @@ impl RXDRegType {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            RXDRegType::PTR,
+            RXDRegType::MAXCNT,
+            RXDRegType::AMOUNT,
+        ];
+        types
+    }
 }
 
 impl RXDRegType {

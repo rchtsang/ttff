@@ -71,6 +71,55 @@ impl GPIOTERegType {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            GPIOTERegType::TASKS_OUT(0),
+            GPIOTERegType::TASKS_OUT(1),
+            GPIOTERegType::TASKS_OUT(2),
+            GPIOTERegType::TASKS_OUT(3),
+            GPIOTERegType::TASKS_OUT(4),
+            GPIOTERegType::TASKS_OUT(5),
+            GPIOTERegType::TASKS_OUT(6),
+            GPIOTERegType::TASKS_OUT(7),
+            GPIOTERegType::TASKS_SET(0),
+            GPIOTERegType::TASKS_SET(1),
+            GPIOTERegType::TASKS_SET(2),
+            GPIOTERegType::TASKS_SET(3),
+            GPIOTERegType::TASKS_SET(4),
+            GPIOTERegType::TASKS_SET(5),
+            GPIOTERegType::TASKS_SET(6),
+            GPIOTERegType::TASKS_SET(7),
+            GPIOTERegType::TASKS_CLR(0),
+            GPIOTERegType::TASKS_CLR(1),
+            GPIOTERegType::TASKS_CLR(2),
+            GPIOTERegType::TASKS_CLR(3),
+            GPIOTERegType::TASKS_CLR(4),
+            GPIOTERegType::TASKS_CLR(5),
+            GPIOTERegType::TASKS_CLR(6),
+            GPIOTERegType::TASKS_CLR(7),
+            GPIOTERegType::EVENTS_IN(0),
+            GPIOTERegType::EVENTS_IN(1),
+            GPIOTERegType::EVENTS_IN(2),
+            GPIOTERegType::EVENTS_IN(3),
+            GPIOTERegType::EVENTS_IN(4),
+            GPIOTERegType::EVENTS_IN(5),
+            GPIOTERegType::EVENTS_IN(6),
+            GPIOTERegType::EVENTS_IN(7),
+            GPIOTERegType::EVENTS_PORT,
+            GPIOTERegType::INTENSET,
+            GPIOTERegType::INTENCLR,
+            GPIOTERegType::CONFIG(0),
+            GPIOTERegType::CONFIG(1),
+            GPIOTERegType::CONFIG(2),
+            GPIOTERegType::CONFIG(3),
+            GPIOTERegType::CONFIG(4),
+            GPIOTERegType::CONFIG(5),
+            GPIOTERegType::CONFIG(6),
+            GPIOTERegType::CONFIG(7),
+        ];
+        types
+    }
 }
 
 impl GPIOTERegType {

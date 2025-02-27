@@ -61,6 +61,20 @@ impl /*% reg_type_name %*/ {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            /*! reg_type_enumeration --->
+            %reg_type_name%::%reg_type_variant%,
+            !*/
+        ];
+        /*! cluster_type_enumeration --->
+        for reg_type in %cluster_reg_type%::list() {
+            types.push(%mapped_reg_type%);
+        }
+        !*/
+        types
+    }
 }
 
 impl /*% reg_type_name %*/ {

@@ -98,6 +98,29 @@ impl TEMPRegType {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            TEMPRegType::A0,
+            TEMPRegType::A1,
+            TEMPRegType::A2,
+            TEMPRegType::A3,
+            TEMPRegType::A4,
+            TEMPRegType::A5,
+            TEMPRegType::B0,
+            TEMPRegType::B1,
+            TEMPRegType::B2,
+            TEMPRegType::B3,
+            TEMPRegType::B4,
+            TEMPRegType::B5,
+            TEMPRegType::T0,
+            TEMPRegType::T1,
+            TEMPRegType::T2,
+            TEMPRegType::T3,
+            TEMPRegType::T4,
+        ];
+        types
+    }
 }
 
 impl TEMPRegType {

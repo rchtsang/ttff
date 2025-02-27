@@ -77,6 +77,53 @@ impl GPIORegType {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            GPIORegType::OUT,
+            GPIORegType::OUTSET,
+            GPIORegType::OUTCLR,
+            GPIORegType::IN,
+            GPIORegType::DIR,
+            GPIORegType::DIRSET,
+            GPIORegType::DIRCLR,
+            GPIORegType::LATCH,
+            GPIORegType::DETECTMODE,
+            GPIORegType::PIN_CNF(0),
+            GPIORegType::PIN_CNF(1),
+            GPIORegType::PIN_CNF(2),
+            GPIORegType::PIN_CNF(3),
+            GPIORegType::PIN_CNF(4),
+            GPIORegType::PIN_CNF(5),
+            GPIORegType::PIN_CNF(6),
+            GPIORegType::PIN_CNF(7),
+            GPIORegType::PIN_CNF(8),
+            GPIORegType::PIN_CNF(9),
+            GPIORegType::PIN_CNF(10),
+            GPIORegType::PIN_CNF(11),
+            GPIORegType::PIN_CNF(12),
+            GPIORegType::PIN_CNF(13),
+            GPIORegType::PIN_CNF(14),
+            GPIORegType::PIN_CNF(15),
+            GPIORegType::PIN_CNF(16),
+            GPIORegType::PIN_CNF(17),
+            GPIORegType::PIN_CNF(18),
+            GPIORegType::PIN_CNF(19),
+            GPIORegType::PIN_CNF(20),
+            GPIORegType::PIN_CNF(21),
+            GPIORegType::PIN_CNF(22),
+            GPIORegType::PIN_CNF(23),
+            GPIORegType::PIN_CNF(24),
+            GPIORegType::PIN_CNF(25),
+            GPIORegType::PIN_CNF(26),
+            GPIORegType::PIN_CNF(27),
+            GPIORegType::PIN_CNF(28),
+            GPIORegType::PIN_CNF(29),
+            GPIORegType::PIN_CNF(30),
+            GPIORegType::PIN_CNF(31),
+        ];
+        types
+    }
 }
 
 impl GPIORegType {

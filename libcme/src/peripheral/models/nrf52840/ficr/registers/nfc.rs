@@ -59,6 +59,16 @@ impl NFCRegType {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            NFCRegType::TAGHEADER0,
+            NFCRegType::TAGHEADER1,
+            NFCRegType::TAGHEADER2,
+            NFCRegType::TAGHEADER3,
+        ];
+        types
+    }
 }
 
 impl NFCRegType {

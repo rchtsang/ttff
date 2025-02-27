@@ -59,6 +59,16 @@ impl PSELRegType {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            PSELRegType::RTS,
+            PSELRegType::TXD,
+            PSELRegType::CTS,
+            PSELRegType::RXD,
+        ];
+        types
+    }
 }
 
 impl PSELRegType {

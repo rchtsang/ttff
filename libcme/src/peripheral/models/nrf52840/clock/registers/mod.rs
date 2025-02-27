@@ -122,6 +122,37 @@ impl CLOCKRegType {
             _ => { None }
         }
     }
+
+    pub fn list() -> Vec<Self> {
+        let mut types = vec![
+            CLOCKRegType::TASKS_HFCLKSTART,
+            CLOCKRegType::TASKS_HFCLKSTOP,
+            CLOCKRegType::TASKS_LFCLKSTART,
+            CLOCKRegType::TASKS_LFCLKSTOP,
+            CLOCKRegType::TASKS_CAL,
+            CLOCKRegType::TASKS_CTSTART,
+            CLOCKRegType::TASKS_CTSTOP,
+            CLOCKRegType::EVENTS_HFCLKSTARTED,
+            CLOCKRegType::EVENTS_LFCLKSTARTED,
+            CLOCKRegType::EVENTS_DONE,
+            CLOCKRegType::EVENTS_CTTO,
+            CLOCKRegType::EVENTS_CTSTARTED,
+            CLOCKRegType::EVENTS_CTSTOPPED,
+            CLOCKRegType::INTENSET,
+            CLOCKRegType::INTENCLR,
+            CLOCKRegType::HFCLKRUN,
+            CLOCKRegType::HFCLKSTAT,
+            CLOCKRegType::LFCLKRUN,
+            CLOCKRegType::LFCLKSTAT,
+            CLOCKRegType::LFCLKSRCCOPY,
+            CLOCKRegType::LFCLKSRC,
+            CLOCKRegType::HFXODEBOUNCE,
+            CLOCKRegType::CTIV,
+            CLOCKRegType::TRACECONFIG,
+            CLOCKRegType::LFRCMODE,
+        ];
+        types
+    }
 }
 
 impl CLOCKRegType {
