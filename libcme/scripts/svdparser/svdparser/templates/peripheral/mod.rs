@@ -9,7 +9,6 @@ use bitfield_struct::bitfield;
 
 use crate::prelude::*;
 use crate::peripheral::{ Error, Event };
-use crate::concrete::context;
 use crate::utils::*;
 
 use super::*;

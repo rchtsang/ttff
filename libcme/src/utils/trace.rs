@@ -8,6 +8,7 @@ pub use tracing::{
     event,
     span,
     Level,
+    subscriber::set_global_default,
     debug,
     error,
     info,
@@ -19,6 +20,12 @@ use tracing_subscriber::{
     FmtSubscriber,
 };
 
+/// configure tracing with a compact logger
+/// ```
+/// use tracing::subscriber::set_global_default;
+/// set_global_default(compact_logger())
+///     .expect("failed to set global default");
+/// ```
 pub fn compact_logger() -> FmtSubscriber<DefaultFields, Format<Compact>> {
     fmt()
     .compact()
@@ -28,6 +35,12 @@ pub fn compact_logger() -> FmtSubscriber<DefaultFields, Format<Compact>> {
     .finish()
 }
 
+/// configure tracing with a compact debug level logger
+/// ```
+/// use tracing::set_global_default;
+/// set_global_default(compact_dbg_logger())
+///     .expect("failed to set global default");
+/// ```
 pub fn compact_dbg_logger() -> FmtSubscriber<DefaultFields, Format<Compact>> {
     fmt()
     .compact()

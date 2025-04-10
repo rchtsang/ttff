@@ -72,30 +72,6 @@ impl From<peripheral::Error> for Error {
     }
 }
 
-flags! {
-    pub enum Permission: u8 {
-        R = 0x04,
-        W = 0x02,
-        E = 0x01,
-        RO = 0x04,
-        WO = 0x02,
-        RW = (Permission::R | Permission::W).bits(),
-        RE = (Permission::R | Permission::E).bits(),
-        WE = (Permission::W | Permission::E).bits(),
-        RWE = (Permission::R | Permission::W | Permission::E).bits(),
-    }
-}
-
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-#[repr(u8)]
-pub enum Alignment {
-    Byte = 0b001,
-    Half = 0b010,
-    Word = 0b100,
-    Even = 0b110,
-    Any  = 0b111,
-}
-
 /// context request
 /// 
 /// evaluator interacts with context using message passing pattern

@@ -5,9 +5,8 @@
 
 use flagset::FlagSet;
 
-use crate::types::RegInfo;
+use crate::types::*;
 use super::*;
-use context::Permission;
 
 /*! cluster_mods --->
 pub mod %cluster_name%;

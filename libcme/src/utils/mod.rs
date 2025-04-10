@@ -2,6 +2,8 @@
 //! 
 //! miscellaneous utilities
 
+pub mod validation;
+pub use validation::*;
 pub mod conversion;
 pub use conversion::*;
 pub mod sort;

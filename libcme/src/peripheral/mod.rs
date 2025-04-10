@@ -2,8 +2,6 @@
 //! 
 //! peripheral definitions that can be mapped into contexts
 pub mod dummy;
-pub mod models;
-pub use models::*;
 
 use std::ops::Range;
 use std::collections::VecDeque;
