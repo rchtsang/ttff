@@ -9,6 +9,8 @@ use fugue_ir::disassembly::{
 };
 use super::tag::{self, Tag};
 
+mod control_flow;
+
 #[derive(Debug, derive_more::Display, Error)]
 pub struct Error(pub(crate) anyhow::Error);
 

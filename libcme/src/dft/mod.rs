@@ -10,5 +10,8 @@ pub mod eval;
 pub mod tag;
 pub mod policy;
 
+pub use context::Context;
+pub use eval::Evaluator;
+
 #[cfg(test)]
 pub(crate) mod test;
