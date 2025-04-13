@@ -15,7 +15,7 @@ use fugue_core::language::{Language, LanguageBuilderError};
 use fugue_bv::BitVec;
 
 use crate::types::{LiftResult, LiftError};
-use crate::peripheral;
+use crate::peripheral::{self, Peripheral};
 
 pub mod armv7m;
 
@@ -54,6 +54,12 @@ pub trait Backend<'irb>: fmt::Debug {
     fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String {
         crate::utils::fmt_pcodeop(pcodeop, self.lang().translator(), Some(true))
     }
+
+    /// initialize a memory region in the context's memory map
+    fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error>;
+
+    /// initialize a peripheral in the context's memory map
+    fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error>;
 
     /// fetch the lifted instruction at the given address
     fn fetch(&mut self, address: &Address) -> LiftResult<'irb>;

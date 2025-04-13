@@ -213,12 +213,18 @@ impl<'irb> Backend<'irb> {
     pub fn apsr(&self) -> &VarnodeData {
         &self.apsr
     }
+}
 
-    pub fn map_mem(&mut self,
-        base: impl Into<Address>,
+impl<'irb> BackendTrait<'irb> for Backend<'irb> {
+    fn lang(&self) -> &Language {
+        &self.lang
+    }
+
+    fn map_mem(&mut self,
+        base: &Address,
         size: usize,
     ) -> Result<(), super::Error> {
-        let base = base.into();
+        let base = base.clone();
         // mapped memory must be word-aligned
         assert_eq!(base.offset() & 0b11, 0, "base {base:#x?} is not word-aligned!");
         assert_eq!(size & 0b11, 0, "size {size:#x} is not word-aligned!");
@@ -238,7 +244,7 @@ impl<'irb> Backend<'irb> {
         Ok(())
     }
 
-    pub fn map_mmio(&mut self,
+    fn map_mmio(&mut self,
         peripheral: Peripheral,
     ) -> Result<(), super::Error> {
         // peripheral base must be word-aligned
@@ -257,12 +263,6 @@ impl<'irb> Backend<'irb> {
         self.mmap.insert(range, idx);
 
         Ok(())
-    }
-}
-
-impl<'irb> BackendTrait<'irb> for Backend<'irb> {
-    fn lang(&self) -> &Language {
-        &self.lang
     }
 
     fn read_pc(&mut self) -> Result<Address, super::Error> {

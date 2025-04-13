@@ -140,6 +140,7 @@ pub struct Context<'irb, 'backend>
 
 
 impl<'irb, 'backend> Context<'irb, 'backend> {
+
     pub fn new_with(backend: Box<dyn Backend<'irb> + 'backend>) -> Self {
         let shadow = ShadowState::new_with(backend.lang().clone());
         Self { backend, shadow }
@@ -152,6 +153,21 @@ impl<'irb, 'backend> Context<'irb, 'backend> {
     pub fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String {
         self.backend.fmt_pcodeop(pcodeop)
     }
+
+    pub fn map_mem(
+        &mut self,
+        base: impl Into<Address>,
+        size: usize,
+    ) -> Result<(), Error> {
+        let base = base.into();
+        self.backend.map_mem(&base, size)?;
+        self.shadow.map_mem(base, size, None)?;
+        Ok(())
+    }
+}
+
+impl<'irb, 'backend> Context<'irb, 'backend> {
+    // interaction implementations
 
     /// fetch the lifted instruction at the given address
     pub fn fetch(&mut self, address: impl Into<Address>) -> LiftResult<'irb> {

@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::backend;
-use crate::peripheral::{Peripheral, dummy::DummyState};
+// use crate::peripheral::{Peripheral, dummy::DummyState};
 use crate::test;
 // use crate::utils::*;
 
@@ -29,7 +29,7 @@ fn test_requests() -> Result<(), backend::Error> {
     let mut backend = Backend::new_with(&builder, &irb, None)?;
 
     info!("mapping memory...");
-    backend.map_mem(0x0u64, 0x1000usize)?;
+    backend.map_mem(&Address::from(0x0u64), 0x1000usize)?;
 
     info!("testing load/store bytes...");
     let addr = Address::from(0x0u64);
@@ -75,7 +75,7 @@ fn test_systick_registers() -> Result<(), backend::Error> {
     let mut backend = Backend::new_with(&builder, &irb, None)?;
 
     info!("mapping memory...");
-    backend.map_mem(0x0u64, 0x1000usize)?;
+    backend.map_mem(&Address::from(0x0u64), 0x1000usize)?;
 
     info!("writing to CSR...");
     let address = SysTickRegType::CSR.address();
