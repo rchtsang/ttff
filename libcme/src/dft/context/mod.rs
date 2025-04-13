@@ -18,6 +18,7 @@ use fugue_core::language::{Language, LanguageBuilderError};
 use fugue_core::eval::fixed_state::FixedStateError;
 use fugue_bv::BitVec;
 
+use crate::types::*;
 use crate::peripheral;
 use super::*;
 
@@ -83,30 +84,6 @@ impl From<peripheral::Error> for Error {
     }
 }
 
-flags! {
-    pub enum Permission: u8 {
-        R = 0x04,
-        W = 0x02,
-        E = 0x01,
-        RO = 0x04,
-        WO = 0x02,
-        RW = (Permission::R | Permission::W).bits(),
-        RE = (Permission::R | Permission::E).bits(),
-        WE = (Permission::W | Permission::E).bits(),
-        RWE = (Permission::R | Permission::W | Permission::E).bits(),
-    }
-}
-
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-#[repr(u8)]
-pub enum Alignment {
-    Byte = 0b001,
-    Half = 0b010,
-    Word = 0b100,
-    Even = 0b110,
-    Any  = 0b111,
-}
-
 /// context request
 /// 
 /// evaluator interacts with context using message passing pattern
@@ -154,15 +131,16 @@ pub enum CtxResponse<'irb> {
 /// 
 /// an architecture emulation context implementation should implement this trait to keep the
 /// actual evaluator architecture agnostic
-pub struct Context<'irb> {
+pub struct Context<'irb, 'backend>
+{
     /// the architecture-specific backend for this context
-    backend: Box<dyn Backend<'irb>>,
+    backend: Box<dyn Backend<'irb> + 'backend>,
     shadow: ShadowState,
 }
 
 
-impl<'irb> Context<'irb> {
-    pub fn new_with(backend: Box<dyn Backend<'irb>>) -> Self {
+impl<'irb, 'backend> Context<'irb, 'backend> {
+    pub fn new_with(backend: Box<dyn Backend<'irb> + 'backend>) -> Self {
         let shadow = ShadowState::new_with(backend.lang().clone());
         Self { backend, shadow }
     }
@@ -250,7 +228,7 @@ impl<'irb> Context<'irb> {
     }
 }
 
-impl<'irb> Context<'irb> {
+impl<'irb, 'backend> Context<'irb, 'backend> {
     fn request(&mut self, req: CtxRequest) -> CtxResponse<'irb> {
         match req {
             CtxRequest::Fetch { address } => {

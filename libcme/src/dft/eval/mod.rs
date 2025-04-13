@@ -103,10 +103,10 @@ fn _absolute_loc(base: Address, vnd: VarnodeData, position: u32) -> Location {
     Location { address: base.into(), position }
 }
 
-impl<'irb, 'policy> Evaluator<'policy> {
+impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     #[instrument(skip_all)]
     pub fn step(&mut self,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(), Error> {
         let (pc, tag) = context.read_pc()?;
         self.pc = pc.into();
@@ -143,12 +143,12 @@ impl<'irb, 'policy> Evaluator<'policy> {
     }
 }
 
-impl<'irb, 'policy> Evaluator<'policy> {
+impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     /// evaluate a single pcode operation
     #[instrument(skip_all)]
     fn _evaluate(&self,
         operation: &PCodeData,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<FlowType, Error> {
         let loc = self.pc.clone();
         debug!("{:#010x}_{}: {}", loc.address.offset(), loc.position, context.fmt_pcodeop(operation));
@@ -354,11 +354,11 @@ impl<'irb, 'policy> Evaluator<'policy> {
     }
 }
 
-impl<'irb, 'policy> Evaluator<'policy> {
+impl<'irb, 'policy, 'backend> Evaluator<'policy> {
 
     fn _read_bool(&self,
         vnd: &VarnodeData,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(bool, Tag), Error> {
         let (val, tag) = context.read(vnd)?;
         Ok((!val.is_zero(), tag))
@@ -366,7 +366,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
 
     fn _read_addr(&self,
         vnd: &VarnodeData,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(Address, Tag), Error> {
         let (val, tag) = context.read(vnd)?;
         val.to_u64()
@@ -378,7 +378,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
     fn _read_mem(&self,
         address: &Address,
         size: usize,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(BitVec, Tag), Error> {
         let spc = context.lang()
             .translator()
@@ -392,7 +392,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
         address: &Address,
         val: &BitVec,
         tag: &Tag,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(), Error> {
         let spc = context.lang()
             .translator()
@@ -407,7 +407,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
         vnd: &VarnodeData,
         val: BitVec,
         tag: Tag,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(), Error> {
         self.policy.check_assign(vnd, &tag)?;
         context.write(vnd, &val.cast(vnd.bits()), &tag)
@@ -416,7 +416,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
 
     fn _subpiece(&self,
         operation: &PCodeData,
-        context: &mut Context<'irb>
+        context: &mut Context<'irb, 'backend>
     ) -> Result<(), Error> {
         let (src, tag) = context.read(&operation.inputs[0])?;
         let src_size = src.bits();
@@ -449,7 +449,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
         operation: &PCodeData,
         cast: F,
         op: G,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(), Error>
     where
         F: Fn(BitVec, u32) -> BitVec,
@@ -470,7 +470,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
     fn _apply_signed_int2<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(), Error>
     where
         F: FnOnce(BitVec, BitVec) -> Result<BitVec, Error>,
@@ -481,7 +481,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
     fn _apply_unsigned_int2<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(), Error>
     where
         F: FnOnce(BitVec, BitVec) -> Result<BitVec, Error>,
@@ -493,7 +493,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
         operation: &PCodeData,
         cast: F,
         op: G,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(), Error>
     where
         F: Fn(BitVec) -> BitVec,
@@ -512,7 +512,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
     fn _apply_signed_int1<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(), Error>
     where 
         F: FnOnce(BitVec) -> Result<BitVec, Error>,
@@ -523,7 +523,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
     fn _apply_unsigned_int1<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(), Error>
     where
         F: FnOnce(BitVec) -> Result<BitVec, Error>,
@@ -534,7 +534,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
     fn _apply_bool2<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(), Error>
     where
         F: FnOnce(bool, bool) -> Result<bool, Error>,
@@ -554,7 +554,7 @@ impl<'irb, 'policy> Evaluator<'policy> {
     fn _apply_bool1<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb>,
+        context: &mut Context<'irb, 'backend>,
     ) -> Result<(), Error>
     where 
         F: FnOnce(bool) -> Result<bool, Error>,
