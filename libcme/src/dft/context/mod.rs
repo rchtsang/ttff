@@ -231,6 +231,19 @@ impl<'irb, 'backend> Context<'irb, 'backend> {
         self.request(CtxRequest::StoreBytes { address, bytes, tag }).into()
     }
 
+    pub fn view_tags(&mut self, address: impl Into<Address>, size: usize) -> Result<&[Tag], Error> {
+        let address = address.into();
+        self.shadow.view_mem_tags(&address, size)
+            .map_err(Error::from)
+    }
+
+    pub fn write_tags(&mut self, address: impl Into<Address>, size: usize, tag: impl Into<Tag>) -> Result<(), Error> {
+        let address = address.into();
+        let tag = tag.into();
+        self.shadow.write_mem_tags(&address, size, &tag)
+            .map_err(Error::from)
+    }
+
     /// call a user-defined pcode operation
     /// 
     /// on succes, returns a Location (from an address) if the userop performs a branch.
