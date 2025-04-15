@@ -25,6 +25,12 @@ pub struct Tag {
     __: u8,
 }
 
+impl std::fmt::Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#x}", self.get_raw())
+    }
+}
+
 impl Tag {
     pub fn set_raw(&mut self, val: impl Into<u8>) {
         self.0 = val.into();
