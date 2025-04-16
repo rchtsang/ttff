@@ -437,6 +437,7 @@ impl<'a> DebugRegs<'a> {
     }
 
     /// perform an event-triggering read of debug register bytes
+    #[allow(unused)]
     pub fn read_bytes(&mut self,
         offset: usize,
         dst: &mut [u8],
@@ -446,6 +447,7 @@ impl<'a> DebugRegs<'a> {
     }
 
     /// perform an event-triggering write to debug register bytes
+    #[allow(unused)]
     pub fn write_bytes(&mut self,
         offset: usize,
         src: &[u8],

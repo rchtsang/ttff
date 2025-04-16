@@ -307,7 +307,9 @@ impl NVICState {
 
     /// add an exception to the pending queue,
     /// reordering the queue as necessary based on priority
+    #[instrument]
     pub fn queue_exception(&mut self, typ: ExceptionType) {
+        debug!("{typ:?}");
         todo!()
     }
 
@@ -328,6 +330,7 @@ impl NVICState {
 
     /// current exception priority
     /// from B1.5.4 page B1-529
+    #[allow(unused)]
     pub fn current_priority(&self,
         scs: &SysCtrlSpace,
     ) -> i16 {

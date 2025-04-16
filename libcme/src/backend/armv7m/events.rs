@@ -1,7 +1,6 @@
 //! events.rs
 //! 
 //! armv7m architectural events and event processing
-use crate::utils::*;
 
 use super::*;
 

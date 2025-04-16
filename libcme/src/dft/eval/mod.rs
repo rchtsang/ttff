@@ -581,6 +581,7 @@ mod test {
     use super::*;
 
     #[test]
+    #[allow(unused)]
     fn test_evaluator() -> Result<(), Error> {
         let builder = LanguageBuilder::new("data/processors")
             .expect("language builder not instantiated");
@@ -612,6 +613,6 @@ mod test {
 
         // assert_eq!(retval.to_i32().unwrap(), 6561, "retval: {retval:?}, cycles: {cycles}");
 
-        Ok(())
+        todo!("fix this test")
     }
 }

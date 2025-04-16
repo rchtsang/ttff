@@ -423,7 +423,7 @@ pub(super) fn _coproc_moveto_fcse_pid(this: &mut Backend,
     unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
-pub(super) fn _coproc_moveto_Backend_id(this: &mut Backend,
+pub(super) fn _coproc_moveto_backend_id(this: &mut Backend,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
@@ -831,7 +831,7 @@ pub(super) fn _coproc_movefrom_fcse_pid(this: &mut Backend,
     unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
 }
 
-pub(super) fn _coproc_movefrom_Backend_id(this: &mut Backend,
+pub(super) fn _coproc_movefrom_backend_id(this: &mut Backend,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,

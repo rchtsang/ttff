@@ -44,11 +44,11 @@ pub struct UserOp {
 
 impl UserOp {
     pub fn call(&self,
-        Backend: &mut Backend,
+        backend: &mut Backend,
         inputs: &[VarnodeData],
         output: Option<&VarnodeData>,
     ) -> Result<Option<Location>, backend::Error> {
-        (self.func)(Backend, self.index, inputs, output)
+        (self.func)(backend, self.index, inputs, output)
     }
 }
 
@@ -154,7 +154,7 @@ fn _lookup_userop(index: usize) -> &'static UserOp {
        97 => { &UserOp { index:  97, name: "coproc_moveto_Invalidate_unified_TLB_by_MVA",     func: _coproc_moveto_invalidate_unified_tlb_by_mva } }
        98 => { &UserOp { index:  98, name: "coproc_moveto_Invalidate_unified_TLB_by_ASID_match", func: _coproc_moveto_invalidate_unified_tlb_by_asid_match } }
        99 => { &UserOp { index:  99, name: "coproc_moveto_FCSE_PID",                          func: _coproc_moveto_fcse_pid } }
-      100 => { &UserOp { index: 100, name: "coproc_moveto_Backend_ID",                        func: _coproc_moveto_Backend_id } }
+      100 => { &UserOp { index: 100, name: "coproc_moveto_Backend_ID",                        func: _coproc_moveto_backend_id } }
       101 => { &UserOp { index: 101, name: "coproc_moveto_User_RW_Thread_and_Process_ID",     func: _coproc_moveto_user_rw_thread_and_process_id } }
       102 => { &UserOp { index: 102, name: "coproc_moveto_User_R_Thread_and_Process_ID",      func: _coproc_moveto_user_r_thread_and_process_id } }
       103 => { &UserOp { index: 103, name: "coproc_moveto_Privileged_only_Thread_and_Process_ID", func: _coproc_moveto_privileged_only_thread_and_process_id } }
@@ -205,7 +205,7 @@ fn _lookup_userop(index: usize) -> &'static UserOp {
       149 => { &UserOp { index: 149, name: "coproc_movefrom_Invalidate_unified_TLB_by_MVA",   func: _coproc_movefrom_invalidate_unified_tlb_by_mva } }
       150 => { &UserOp { index: 150, name: "coproc_movefrom_Invalidate_unified_TLB_by_ASID_match", func: _coproc_movefrom_invalidate_unified_tlb_by_asid_match } }
       151 => { &UserOp { index: 151, name: "coproc_movefrom_FCSE_PID",                        func: _coproc_movefrom_fcse_pid } }
-      152 => { &UserOp { index: 152, name: "coproc_movefrom_Backend_ID",                      func: _coproc_movefrom_Backend_id } }
+      152 => { &UserOp { index: 152, name: "coproc_movefrom_Backend_ID",                      func: _coproc_movefrom_backend_id } }
       153 => { &UserOp { index: 153, name: "coproc_movefrom_User_RW_Thread_and_Process_ID",   func: _coproc_movefrom_user_rw_thread_and_process_id } }
       154 => { &UserOp { index: 154, name: "coproc_movefrom_User_R_Thread_and_Process_ID",    func: _coproc_movefrom_user_r_thread_and_process_id } }
       155 => { &UserOp { index: 155, name: "coproc_movefrom_Privileged_only_Thread_and_Process_ID", func: _coproc_movefrom_privileged_only_thread_and_process_id } }

@@ -208,10 +208,6 @@ impl SysCtrlSpace {
             .fold(0u32, |val, (i, &byte)| {
                 val | ((byte as u32) << i)
             });
-        let reg_type = SCRegType::lookup_offset(offset)
-            .ok_or_else( | | {
-                backend::Error::from(Error::InvalidSysCtrlReg(address.into()))
-            })?;
         match reg_type {
             SCRegType::ICSR => {
                 check_alignment(address, src.len(), Alignment::Word)

@@ -4,7 +4,6 @@
 
 use bitfield_struct::bitfield;
 
-use crate::types::*;
 use crate::backend;
 use super::*;
 
@@ -103,6 +102,7 @@ impl<'a> MPURegs<'a> {
     }
 
     /// perform an event-triggering read of mpu register bytes
+    #[allow(unused)]
     pub fn read_bytes(&mut self,
         offset: usize,
         dst: &mut [u8],
@@ -112,6 +112,7 @@ impl<'a> MPURegs<'a> {
     }
 
     /// perform an event-triggering write of mpu register bytes
+    #[allow(unused)]
     pub fn write_bytes(&mut self,
         offset: usize,
         src: &[u8],
