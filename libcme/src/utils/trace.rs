@@ -1,7 +1,8 @@
 //! trace.rs
 //! 
 //! tracing utilities
-
+use std::fs::OpenOptions;
+use tracing::{level_filters::LevelFilter, Subscriber};
 pub use tracing::{
     self,
     instrument,
@@ -15,9 +16,11 @@ pub use tracing::{
     warn,
 };
 use tracing_subscriber::{
+    prelude::*,
     fmt,
-    fmt::format::{DefaultFields, Format, Compact},
+    fmt::format::{Compact, DefaultFields, Format},
     FmtSubscriber,
+    Registry,
 };
 
 /// configure tracing with a compact logger
@@ -49,4 +52,31 @@ pub fn compact_dbg_logger() -> FmtSubscriber<DefaultFields, Format<Compact>> {
     .with_target(true)
     .with_max_level(Level::DEBUG)
     .finish()
+}
+
+/// configure tracing to output to stdout and file
+pub fn compact_dbg_file_logger(path: &str) -> impl Subscriber {
+    let log_file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(path)
+        .unwrap();
+    Registry::default()
+        .with(
+            fmt::layer()
+                .compact()
+                .with_file(true)
+                .with_line_number(true)
+                .with_target(true)
+        )
+        .with(
+            fmt::layer()
+                .with_ansi(true)
+                .with_writer(log_file)
+                .compact()
+                .with_file(true)
+                .with_line_number(true)
+                .with_target(true)
+        )
+        .with(LevelFilter::from_level(Level::DEBUG))
 }
