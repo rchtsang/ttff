@@ -475,7 +475,8 @@ impl<'irb> Backend<'irb> {
                 break;
             }
             let bytes = read_result.unwrap();
-            debug!("[{:#02x}]", bytes.iter().format(" "));
+            let bytes_str = format!("{:#02x}", bytes.iter().format(" "));
+            debug!("[{}]", bytes_str);
             let lift_result = Self::_lift(self.irb, address, bytes, &mut lifter);
             if lift_result.is_err() {
                 self.cache.write().insert(address.offset(), lift_result);
@@ -486,30 +487,34 @@ impl<'irb> Backend<'irb> {
             
             offset += pcode.len();
 
-            match pcode.operations.last().unwrap().opcode {
-                Opcode::Branch
-                | Opcode::CBranch
-                | Opcode::IBranch
-                | Opcode::Call
-                | Opcode::ICall
-                | Opcode::Return
-                | Opcode::CallOther => {
-                    // usually we can tell if the last opcode is branching
-                    branch = true;
-                },
-                _ => {
-                    // otherwise we need to check if the pc gets written to
-                    // this may never happen in pcode semantics but idk for sure.
-                    // we leave it commented out for now b/c it probably doesn't matter and better performance
-                    // if it turns out it's possible we will uncomment and kill this comment
-                    // branch = pcode.operations.iter().any(|pcodedata| {
-                    //     if let Some(vnd) = pcodedata.output {
-                    //         vnd == self.pc
-                    //     } else {
-                    //         false
-                    //     }
-                    // });
-                },
+            debug!("{:#x?}", pcode);
+
+            if let Some(last_op) = pcode.operations.last() {
+                match last_op.opcode {
+                    Opcode::Branch
+                    | Opcode::CBranch
+                    | Opcode::IBranch
+                    | Opcode::Call
+                    | Opcode::ICall
+                    | Opcode::Return
+                    | Opcode::CallOther => {
+                        // usually we can tell if the last opcode is branching
+                        branch = true;
+                    },
+                    _ => {
+                        // otherwise we need to check if the pc gets written to
+                        // this may never happen in pcode semantics but idk for sure.
+                        // we leave it commented out for now b/c it probably doesn't matter and better performance
+                        // if it turns out it's possible we will uncomment and kill this comment
+                        // branch = pcode.operations.iter().any(|pcodedata| {
+                        //     if let Some(vnd) = pcodedata.output {
+                        //         vnd == self.pc
+                        //     } else {
+                        //         false
+                        //     }
+                        // });
+                    },
+                }
             }
 
             self.cache.write().insert(address.offset(), Ok(insn));
