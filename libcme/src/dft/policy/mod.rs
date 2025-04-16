@@ -9,7 +9,7 @@ use fugue_ir::disassembly::{
 };
 use super::tag::{self, Tag};
 
-pub mod control_flow;
+pub mod jump;
 
 
 #[derive(Debug, derive_more::Display, Error)]

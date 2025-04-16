@@ -16,7 +16,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
         self,
         Evaluator,
         tag::{self, Tag},
-        policy::control_flow::*,
+        policy::jump::*,
     };
 
     let global_sub = compact_dbg_file_logger("test_smash_stack.log");
@@ -32,7 +32,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     info!("building backend...");
     let backend = armv7m::Backend::new_with(&builder, &irb, None)?;
     let lang = Arc::new(backend.lang().clone());
-    let policy = ControlFlowPolicy::new_with(lang);
+    let policy = TaintedJumpPolicy::new_with(lang);
 
     info!("building dft context...");
     let mut context = dft::Context::new_with(Box::new(backend));

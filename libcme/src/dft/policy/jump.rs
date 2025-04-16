@@ -29,17 +29,17 @@ pub enum PolicyViolation {
 }
 
 /// a control flow integrity policy to catch tainted PC writes
-pub struct ControlFlowPolicy {
+pub struct TaintedJumpPolicy {
     pub lang: Arc<Language>,
 }
 
-impl ControlFlowPolicy {
+impl TaintedJumpPolicy {
     pub fn new_with(lang: Arc<Language>) -> Self {
         Self { lang }
     }
 }
 
-impl TaintPolicy for ControlFlowPolicy {
+impl TaintPolicy for TaintedJumpPolicy {
 
     fn check_assign(
         &self,
@@ -146,10 +146,10 @@ impl TaintPolicy for ControlFlowPolicy {
     }
 }
 
-impl std::fmt::Debug for ControlFlowPolicy {
+impl std::fmt::Debug for TaintedJumpPolicy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let arch = self.lang.translator().architecture();
-        write!(f, "ControlFlowPolicy {{ {arch} }}")
+        write!(f, "TaintedJumpPolicy {{ {arch} }}")
     }
 }
 
