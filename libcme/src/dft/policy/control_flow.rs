@@ -33,6 +33,12 @@ pub struct ControlFlowPolicy {
     pub lang: Arc<Language>,
 }
 
+impl ControlFlowPolicy {
+    pub fn new_with(lang: Arc<Language>) -> Self {
+        Self { lang }
+    }
+}
+
 impl TaintPolicy for ControlFlowPolicy {
 
     fn check_assign(
