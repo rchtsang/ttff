@@ -27,7 +27,19 @@ pub struct Tag {
 
 impl std::fmt::Display for Tag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#x}", self.get_raw())
+        if self.is_tainted() {
+            if self.tainted_loc() {
+                write!(f, "l")?;
+            }
+            if self.tainted_val() {
+                write!(f, "v")?;
+            }
+        }
+        if self.accessed() {
+            write!(f, "a")
+        } else {
+            write!(f, "u")
+        }
     }
 }
 
