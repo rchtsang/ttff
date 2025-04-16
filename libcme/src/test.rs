@@ -54,59 +54,50 @@ pub mod programs {
     /// a test program that smashes its own stack
     pub(crate) static STACK_SMASH_TEST: &[u8] = &[
         // 00000000 <_start>:
-        0x01, 0x48,             //  0: ldr   r0, [pc, #4]   @ (8 <exit+0x2>)
-        0x00, 0xf0, 0x20, 0xf8, //  2: bl 46 <main>
+        0x01, 0x48,              //  0: ldr   r0, [pc, #4]   @ (8 <exit+0x2>)
+        0x00, 0xf0, 0x18, 0xf8,  //  2: bl 36 <main>
 
         // 00000006 <exit>:
-        0xfe, 0xe7,             //  6: b.n   6 <exit>
-        0x60, 0x00, 0x00, 0x00, //  8: .word 0x00000060
+        0xfe, 0xe7,              //  6: b.n   6 <exit>
+        0x40, 0x00, 0x00, 0x00,  //  8: .word 0x00000040
 
         // 0000000c <smash>:
-        0x80, 0xb4,             //  c: push  {r7}
-        0x89, 0xb0,             //  e: sub   sp, #36  @ 0x24
-        0x00, 0xaf,             // 10: add   r7, sp, #0
-        0x78, 0x60,             // 12: str   r0, [r7, #4]
-        0x07, 0xf1,  0x03, 0x08,// 14: add.w r3, r7, #8
-        0x00, 0x22,             // 18: movs  r2, #0
-        0x1a, 0x60,             // 1a: str   r2, [r3, #0]
-        0x5a, 0x60,             // 1c: str   r2, [r3, #4]
-        0x9a, 0x60,             // 1e: str   r2, [r3, #8]
-        0xda, 0x60,             // 20: str   r2, [r3, #12]
-        0x1a, 0x61,             // 22: str   r2, [r3, #16]
-        0x00, 0x23,             // 24: movs  r3, #0
-        0xfb, 0x61,             // 26: str   r3, [r7, #28]
-        0x05, 0xe0,             // 28: b.n   36 <smash+0x2a>
-        0x7b, 0x68,             // 2a: ldr   r3, [r7, #4]
-        0x1b, 0x68,             // 2c: ldr   r3, [r3, #0]
-        0xbb, 0x60,             // 2e: str   r3, [r7, #8]
-        0xfb, 0x69,             // 30: ldr   r3, [r7, #28]
-        0x01, 0x33,             // 32: adds  r3, #1
-        0xfb, 0x61,             // 34: str   r3, [r7, #28]
-        0xfb, 0x69,             // 36: ldr   r3, [r7, #28]
-        0x13, 0x2b,             // 38: cmp   r3, #19
-        0xf6, 0xdd,             // 3a: ble.n 2a <smash+0x1e>
-        0x00, 0xbf,             // 3c: nop
-        0x24, 0x37,             // 3e: adds  r7, #36  @ 0x24
-        0xbd, 0x46,             // 40: mov   sp, r7
-        0x80, 0xbc,             // 42: pop   {r7}
-        0x70, 0x47,             // 44: bx lr
+        0x85, 0xb0,              //  c: sub   sp, #20
+        0x00, 0x22,              //  e: movs  r2, #0
+        0x00, 0x92,              // 10: str   r2, [sp, #0]
+        0x01, 0x92,              // 12: str   r2, [sp, #4]
+        0x02, 0x92,              // 14: str   r2, [sp, #8]
+        0x03, 0x92,              // 16: str   r2, [sp, #12]
+        0x04, 0x92,              // 18: str   r2, [sp, #16]
+        0x03, 0x68,              // 1a: ldr   r3, [r0, #0]
 
-        // 00000046 <main>:
-        0x80, 0xb5,             // 46: push  {r7, lr}
-        0x82, 0xb0,             // 48: sub   sp, #8
-        0x00, 0xaf,             // 4a: add   r7, sp, #0
-        0x78, 0x60,             // 4c: str   r0, [r7, #4]
-        0x78, 0x68,             // 4e: ldr   r0, [r7, #4]
-        0xff, 0xf7, 0xdc, 0xff, // 50: bl c <smash>
-        0x00, 0x23,             // 54: movs  r3, #0
-        0x18, 0x46,             // 56: mov   r0, r3
-        0x08, 0x37,             // 58: adds  r7, #8
-        0xbd, 0x46,             // 5a: mov   sp, r7
-        0x80, 0xbd,             // 5c: pop   {r7, pc}
+        // 0000001c <loop_start>:
+        0x4f, 0xea, 0x82, 0x07,  // 1c: mov.w r7, r2, lsl #2
+        0x6f, 0x44,              // 20: add   r7, sp
+        0x3b, 0x60,              // 22: str   r3, [r7, #0]
+        0x01, 0x32,              // 24: adds  r2, #1
+
+        // 00000026 <loop_cond>:
+        0x06, 0x2a,              // 26: cmp   r2, #6
+        0xf8, 0xdd,              // 28: ble.n 1c <loop_start>
+
+        // 0000002a <loop_end>:
+        0x05, 0xb0,              // 2a: add   sp, #20
+        0x70, 0x47,              // 2c: bx lr
+
+        // 0000002e <foo>:
+        0x00, 0xb5,              // 2e: push  {lr}
+        0xff, 0xf7, 0xec, 0xff,  // 30: bl c <smash>
+        0x00, 0xbd,              // 34: pop   {pc}
+
+        // 00000036 <main>:
+        0x00, 0xb5,              // 36: push  {lr}
+        0xff, 0xf7, 0xf9, 0xff,  // 38: bl 2e <foo>
+        0x00, 0xbd,              // 3c: pop   {pc}
         0x00, 0x00,
 
-        // 00000060 .data
-        0xde, 0xc0, 0xad, 0x0b,
+        // 00000040 <.data>:
+        0xde, 0xc0, 0xad, 0x0b, // 40: .word 0x0badc0de 
     ];
 
 }
