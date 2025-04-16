@@ -8,7 +8,6 @@
 use std::ops::Range;
 
 use thiserror::Error;
-use flagset::flags;
 
 use fugue_ir::{Address, VarnodeData};
 use fugue_ir::disassembly::PCodeData;
@@ -20,7 +19,7 @@ use fugue_bv::BitVec;
 
 use crate::types::*;
 use crate::peripheral;
-use super::*;
+use crate::utils;
 
 use crate::backend::{self, Backend};
 use super::tag::{self, Tag};
@@ -152,6 +151,19 @@ impl<'irb, 'backend> Context<'irb, 'backend> {
 
     pub fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String {
         self.backend.fmt_pcodeop(pcodeop)
+    }
+
+    pub fn fmt_inputs(&mut self, pcodeop: &PCodeData) -> Result<String, Error> {
+        let mut result = String::new();
+        for input in pcodeop.inputs.iter() {
+            if input.space().is_constant() {
+                continue;
+            }
+            let (bv, tag) = self.read(input)?;
+            let t = self.backend.lang().translator();
+            result.push_str(&format!("{}=({:#x}, {}), ", utils::fmt_vnd(input, t, Some(true)), bv, tag));
+        }
+        Ok(result)
     }
 
     pub fn map_mem(
