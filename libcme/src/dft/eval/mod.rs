@@ -114,7 +114,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         let address = self.pc.address();
 
         let insn = context.fetch(address)?;
-        info!("pc @ {:#010x}: {}", address.offset(), insn.disasm_str());
+        info!("pc @ {:#010x} (tag={}): {}", address.offset(), &self.pc_tag, insn.disasm_str());
         let pcode = &insn.pcode;
         let op_count = pcode.operations.len() as u32;
         let mut target = FlowType::Fall;
@@ -152,6 +152,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     ) -> Result<FlowType, Error> {
         let loc = self.pc.clone();
         debug!("{:#010x}_{}: {}", loc.address.offset(), loc.position, context.fmt_pcodeop(operation));
+        debug!("    inputs: {}", context.fmt_inputs(operation)?);
         match operation.opcode {
             Opcode::Copy => {
                 let (val, tag) = context.read(&operation.inputs[0])?;
