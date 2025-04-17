@@ -26,7 +26,7 @@ fn test_requests() -> Result<(), backend::Error> {
     let irb = IRBuilderArena::with_capacity(0x1000);
 
     info!("building backend...");
-    let mut backend = Backend::new_with(&builder, &irb, None)?;
+    let mut backend = Backend::new_with(&builder, None)?;
 
     info!("mapping memory...");
     backend.map_mem(&Address::from(0x0u64), 0x1000usize)?;
@@ -54,7 +54,7 @@ fn test_requests() -> Result<(), backend::Error> {
     assert_eq!(bv, val, "read incorrect bitvec: {bv:#x?}");
 
     info!("testing fetch...");
-    let _insn = backend.fetch(&Address::from(0x0u64))
+    let _insn = backend.fetch(&Address::from(0x0u64), &irb)
         .expect("failed to fetch instruction");
 
     info!("done.");
@@ -69,10 +69,9 @@ fn test_systick_registers() -> Result<(), backend::Error> {
 
     info!("creating language builder...");
     let builder = LanguageBuilder::new("data/processors")?;
-    let irb = IRBuilderArena::with_capacity(0x1000);
 
     info!("building backend...");
-    let mut backend = Backend::new_with(&builder, &irb, None)?;
+    let mut backend = Backend::new_with(&builder, None)?;
 
     info!("mapping memory...");
     backend.map_mem(&Address::from(0x0u64), 0x1000usize)?;

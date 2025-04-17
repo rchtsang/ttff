@@ -10,7 +10,7 @@ use std::ops::Range;
 use thiserror::Error;
 
 use fugue_ir::{Address, VarnodeData};
-use fugue_ir::disassembly::PCodeData;
+use fugue_ir::disassembly::{IRBuilderArena, PCodeData};
 use fugue_ir::error::Error as IRError;
 use fugue_core::ir::Location;
 use fugue_core::language::{Language, LanguageBuilderError};
@@ -92,7 +92,7 @@ impl From<peripheral::Error> for Error {
 /// dispatched from a central location without having to litter them everywhere
 #[derive(Debug)]
 pub enum CtxRequest<'a> {
-    Fetch { address: Address },
+    Fetch { address: Address, arena: &'a IRBuilderArena },
     Read { vnd: &'a VarnodeData },
     Write { vnd: &'a VarnodeData, val: &'a BitVec, tag: &'a Tag },
     Load { address: Address, size: usize },
@@ -130,23 +130,26 @@ pub enum CtxResponse<'irb> {
 /// 
 /// an architecture emulation context implementation should implement this trait to keep the
 /// actual evaluator architecture agnostic
-pub struct Context<'irb, 'backend>
-{
+pub struct Context<'backend> {
     /// the architecture-specific backend for this context
-    backend: Box<dyn Backend<'irb> + 'backend>,
+    backend: Box<dyn Backend + 'backend>,
     shadow: ShadowState,
 }
 
 
-impl<'irb, 'backend> Context<'irb, 'backend> {
+impl<'backend> Context<'backend> {
 
-    pub fn new_with(backend: Box<dyn Backend<'irb> + 'backend>) -> Self {
+    pub fn new_with(backend: Box<dyn Backend + 'backend>) -> Self {
         let shadow = ShadowState::new_with(backend.lang().clone());
         Self { backend, shadow }
     }
 
     pub fn lang(&self) -> &Language {
         self.backend.lang()
+    }
+
+    pub fn backend(&self) -> & (impl Backend + use<'backend>) {
+        &self.backend
     }
 
     pub fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String {
@@ -178,13 +181,13 @@ impl<'irb, 'backend> Context<'irb, 'backend> {
     }
 }
 
-impl<'irb, 'backend> Context<'irb, 'backend> {
+impl<'backend> Context<'backend> {
     // interaction implementations
 
     /// fetch the lifted instruction at the given address
-    pub fn fetch(&mut self, address: impl Into<Address>) -> LiftResult<'irb> {
+    pub fn fetch<'irb>(&mut self, address: impl Into<Address>, arena: &'irb IRBuilderArena) -> LiftResult<'irb> {
         let address = address.into();
-        self.request(CtxRequest::Fetch { address }).into()
+        self.request(CtxRequest::Fetch { address, arena }).into()
     }
 
     /// read a varnode
@@ -269,11 +272,11 @@ impl<'irb, 'backend> Context<'irb, 'backend> {
     }
 }
 
-impl<'irb, 'backend> Context<'irb, 'backend> {
-    fn request(&mut self, req: CtxRequest) -> CtxResponse<'irb> {
+impl<'backend> Context<'backend> {
+    fn request<'irb>(&mut self, req: CtxRequest<'irb>) -> CtxResponse<'irb> {
         match req {
-            CtxRequest::Fetch { address } => {
-                CtxResponse::Fetch { result: self.backend.fetch(&address) }
+            CtxRequest::Fetch { address, arena } => {
+                CtxResponse::Fetch { result: self.backend.fetch(&address, arena) }
             }
             CtxRequest::Read { vnd } => {
                 let backend_result = self.backend.read(vnd);

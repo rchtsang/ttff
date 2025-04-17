@@ -11,29 +11,23 @@ use std::{
     sync::Arc,
 };
 
-use itertools::Itertools;
 use thiserror::Error;
-use nohash::IntMap;
 use iset::IntervalMap;
-use parking_lot::RwLock;
 use flagset::{FlagSet, flags};
 
 use fugue_ir::{
-    disassembly::{IRBuilderArena, Opcode}, Translator, VarnodeData
+    disassembly::IRBuilderArena, Translator, VarnodeData
 };
 use fugue_core::prelude::*;
 use fugue_core::eval::fixed_state::FixedState;
 
 use crate::types::*;
+use crate::utils::*;
 use crate::peripheral::{
     self,
     Peripheral,
 };
-use crate::utils::*;
-
 use crate::backend::Backend as BackendTrait;
-
-pub type TranslationCache<'irb> = IntMap<u64, LiftResult<'irb>>;
 
 mod userop;
 mod system;
@@ -45,6 +39,11 @@ mod scs;
 pub use scs::*;
 mod faults;
 pub use faults::*;
+
+
+// largest expected instruction 16 bytes in x86, 4 in ARM
+const MAX_INSN_SIZE: usize = 4;
+
 
 #[derive(Debug, Error, Clone)]
 pub enum Error {
@@ -110,7 +109,7 @@ enum MapIx {
 /// 
 /// a context must contain all state information needed for execution, the evaluator should not require state
 #[derive(Clone)]
-pub struct Backend<'irb> {
+pub struct Backend {
     id: usize,
     status: Status,
     lang: Language,
@@ -143,24 +142,21 @@ pub struct Backend<'irb> {
     scs: SysCtrlSpace,
     mem: Vec<FixedState>,
     mmio: Vec<Peripheral>,
-    irb: &'irb IRBuilderArena,
-    cache: Arc<RwLock<TranslationCache<'irb>>>,
 
     events: VecDeque<Event>,
 }
 
-impl<'irb> fmt::Debug for Backend<'irb> {
+impl<'irb> fmt::Debug for Backend {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Context {{ id: {:#x} }}", self.id)
     }
 }
 
 
-impl<'irb> Backend<'irb> {
+impl Backend {
 
     pub fn new_with(
         builder: &LanguageBuilder,
-        irb: &'irb IRBuilderArena,
         scs_config: Option<SysCtrlConfig>,
     ) -> Result<Self, super::Error> {
         let lang = builder.build("ARM:LE:32:Cortex", "default")?;
@@ -191,9 +187,7 @@ impl<'irb> Backend<'irb> {
             scs: SysCtrlSpace::new_from(scs_config),
             mem: vec![],
             mmio: vec![],
-            cache: Arc::new(RwLock::new(TranslationCache::default())),
             events: VecDeque::new(),
-            irb,
             lang,
         })
     }
@@ -215,7 +209,7 @@ impl<'irb> Backend<'irb> {
     }
 }
 
-impl<'irb> BackendTrait<'irb> for Backend<'irb> {
+impl BackendTrait for Backend {
     fn lang(&self) -> &Language {
         &self.lang
     }
@@ -309,18 +303,21 @@ impl<'irb> BackendTrait<'irb> for Backend<'irb> {
         Ok(())
     }
 
-    #[instrument]
-    fn fetch(&mut self, address: &Address) -> LiftResult<'irb> {
-        let address: Address = (address.offset() & !1).into();
-
-        if !self.cache.read().contains_key(&address.offset()) {
-            self._lift_block(address);
+    fn fetch<'irb>(&self, address: &Address, irb: &'irb IRBuilderArena) -> LiftResult<'irb> {
+        let mut lifter = self.lang.lifter();
+        let bytes = self._mem_view_bytes(address, Some(MAX_INSN_SIZE))?;
+        let pcode_result = lifter.lift(irb, address.clone(), bytes);
+        if let Err(err) = pcode_result {
+            return Err(Arc::new(err.into()));
         }
+        let pcode = pcode_result.unwrap();
+        let disasm_result = lifter.disassemble(irb, address.clone(), bytes);
+        if let Err(err) = disasm_result {
+            return Err(Arc::new(err.into()));
+        }
+        let disasm = disasm_result.unwrap();
 
-        self.cache.read()
-            .get(&address.offset())
-            .ok_or(LiftError::AddressNotLifted(address.clone()))?
-            .clone()
+        Ok(Arc::new(Insn { disasm, pcode }))
     }
 
     fn load(&mut self, address: &Address, size: usize) -> Result<BitVec, super::Error> {
@@ -451,99 +448,7 @@ impl<'irb> BackendTrait<'irb> for Backend<'irb> {
     }
 }
 
-impl<'irb> Backend<'irb> {
-
-    #[instrument]
-    fn _lift_block(&mut self,
-        address: impl Into<Address> + fmt::Debug,
-        // irb: &'irb IRBuilderArena,
-    ) {
-        let mut lifter = self.lang.lifter();
-        let base = address.into();
-        let mut offset = 0usize;
-        // largest expected instruction 16 bytes in x86, 4 in ARM
-        const MAX_INSN_SIZE: usize = 4;
-        
-        let mut branch = false;
-        while !branch {
-            let address = base + offset as u64;
-
-            let read_result = self._mem_view_bytes(&address, MAX_INSN_SIZE);
-            if let Err(err) = read_result {
-                // read failed
-                self.cache.write().insert(address.offset(), Err(err.into()));
-                break;
-            }
-            let bytes = read_result.unwrap();
-            let bytes_str = format!("{:#02x}", bytes.iter().format(" "));
-            debug!("[{}]", bytes_str);
-            let lift_result = Self::_lift(self.irb, address, bytes, &mut lifter);
-            if lift_result.is_err() {
-                self.cache.write().insert(address.offset(), lift_result);
-                break;
-            }
-            let insn = lift_result.unwrap();
-            let pcode = &insn.pcode;
-            
-            offset += pcode.len();
-
-            debug!("{:#x?}", pcode);
-
-            if let Some(last_op) = pcode.operations.last() {
-                match last_op.opcode {
-                    Opcode::Branch
-                    | Opcode::CBranch
-                    | Opcode::IBranch
-                    | Opcode::Call
-                    | Opcode::ICall
-                    | Opcode::Return
-                    | Opcode::CallOther => {
-                        // usually we can tell if the last opcode is branching
-                        branch = true;
-                    },
-                    _ => {
-                        // otherwise we need to check if the pc gets written to
-                        // this may never happen in pcode semantics but idk for sure.
-                        // we leave it commented out for now b/c it probably doesn't matter and better performance
-                        // if it turns out it's possible we will uncomment and kill this comment
-                        // branch = pcode.operations.iter().any(|pcodedata| {
-                        //     if let Some(vnd) = pcodedata.output {
-                        //         vnd == self.pc
-                        //     } else {
-                        //         false
-                        //     }
-                        // });
-                    },
-                }
-            }
-
-            self.cache.write().insert(address.offset(), Ok(insn));
-        }
-
-        // maybe return something here at some point?
-    }
-
-    fn _lift(
-        irb: &'irb IRBuilderArena,
-        address: impl Into<Address>,
-        bytes: &[u8],
-        lifter: &mut Lifter,
-    ) -> LiftResult<'irb> {
-        let address: Address = address.into();
-
-        let pcode_result = lifter.lift(irb, address.clone(), bytes);
-        if let Err(err) = pcode_result {
-            return Err(Arc::new(err.into()));
-        }
-        let pcode = pcode_result.unwrap();
-        let disasm_result = lifter.disassemble(irb, address.clone(), bytes);
-        if let Err(err) = disasm_result {
-            return Err(Arc::new(err.into()));
-        }
-        let disasm = disasm_result.unwrap();
-
-        Ok(Arc::new(Insn { disasm, pcode }))
-    }
+impl Backend {
 
     fn _get_mapped_region(&self, address: impl Into<Address>) -> Result<(Range<Address>, MapIx), super::Error> {
         let address: Address = address.into();
@@ -556,8 +461,9 @@ impl<'irb> Backend<'irb> {
         Ok((range, val.clone()))
     }
 
-    fn _mem_view_bytes(&self, address: &Address, size: usize) -> Result<&[u8], super::Error> {
+    fn _mem_view_bytes(&self, address: &Address, size: Option<usize>) -> Result<&[u8], super::Error> {
         let (range, val) = self._get_mapped_region(address.clone())?;
+        let size = size.unwrap_or((range.end.offset() - range.start.offset()) as usize);
         match val {
             MapIx::Mem(idx) => {
                 let state = self.mem.get(idx).unwrap();
@@ -575,8 +481,9 @@ impl<'irb> Backend<'irb> {
         }
     }
 
-    fn _mem_view_bytes_mut(&mut self, address: &Address, size: usize) -> Result<&mut [u8], super::Error> {
+    fn _mem_view_bytes_mut(&mut self, address: &Address, size: Option<usize>) -> Result<&mut [u8], super::Error> {
         let (range, val) = self._get_mapped_region(address.clone())?;
+        let size = size.unwrap_or((range.end.offset() - range.start.offset()) as usize);
         match val {
             MapIx::Mem(idx) => {
                 let state = self.mem.get_mut(idx).unwrap();

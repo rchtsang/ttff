@@ -9,7 +9,7 @@ use fugue_core::eval::fixed_state::FixedStateError;
 use thiserror::Error;
 
 use fugue_ir::{Address, VarnodeData};
-use fugue_ir::disassembly::PCodeData;
+use fugue_ir::disassembly::{IRBuilderArena, PCodeData};
 use fugue_core::ir::Location;
 use fugue_core::language::{Language, LanguageBuilderError};
 use fugue_bv::BitVec;
@@ -47,7 +47,7 @@ pub enum Error {
 }
 
 
-pub trait Backend<'irb>: fmt::Debug {
+pub trait Backend: fmt::Debug {
 
     fn lang(&self) -> &Language;
 
@@ -61,8 +61,8 @@ pub trait Backend<'irb>: fmt::Debug {
     /// initialize a peripheral in the context's memory map
     fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error>;
 
-    /// fetch the lifted instruction at the given address
-    fn fetch(&mut self, address: &Address) -> LiftResult<'irb>;
+    /// fetch the instruction bytes at the given address
+    fn fetch<'irb>(&self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb>;
 
     /// read a varnode
     fn read(&mut self, vnd: &VarnodeData) -> Result<BitVec, Error>;
@@ -143,4 +143,23 @@ impl From<Error> for Arc<LiftError> {
     fn from(err: Error) -> Self {
         Arc::new(LiftError::from(err))
     }
+}
+
+impl<'backend> Backend for Box<dyn Backend + 'backend> {
+    fn lang(&self) -> &Language { (**self).lang() }
+    fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String { (**self).fmt_pcodeop(pcodeop) }
+    fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error> { (**self).map_mem(base, size) }
+    fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error> { (**self).map_mmio(peripheral) }
+    fn fetch<'irb>(&self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb> { (**self).fetch(address, arena) }
+    fn read(&mut self, vnd: &VarnodeData) -> Result<BitVec, Error> { (**self).read(vnd) }
+    fn write(&mut self, vnd: &VarnodeData, val: &BitVec) -> Result<(), Error> { (**self).write(vnd, val) }
+    fn read_pc(&mut self) -> Result<Address, Error> { (**self).read_pc() }
+    fn write_pc(&mut self, address: &Address) -> Result<(), Error> { (**self).write_pc(address) }
+    fn read_sp(&mut self) -> Result<Address, Error> { (**self).read_sp() }
+    fn write_sp(&mut self, address: &Address) -> Result<(), Error> { (**self).write_sp(address) }
+    fn load(&mut self, address: &Address, size: usize) -> Result<BitVec, Error> { (**self).load(address, size) }
+    fn store(&mut self, address: &Address, val: &BitVec) -> Result<(), Error> { (**self).store(address, val) }
+    fn load_bytes(&mut self, address: &Address, dst: &mut [u8]) -> Result<(), Error> { (**self).load_bytes(address, dst) }
+    fn store_bytes<'a>(&mut self, address: &Address, bytes: &'a [u8]) -> Result<(), Error> { (**self).store_bytes(address, bytes) }
+    fn userop(&mut self, output: Option<&VarnodeData>, inputs: &[VarnodeData]) -> Result<Option<Location>, Error> { (**self).userop(output, inputs) }
 }

@@ -11,6 +11,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     use fugue_core::prelude::*;
     use fugue_core::ir::Location;
     use fugue_ir::disassembly::IRBuilderArena;
+    use crate::programdb::ProgramDB;
     use crate::backend::armv7m;
     use crate::dft::{
         self,
@@ -30,7 +31,8 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     let irb = IRBuilderArena::with_capacity(0x1000);
 
     info!("building backend...");
-    let backend = armv7m::Backend::new_with(&builder, &irb, None)?;
+    let backend = armv7m::Backend::new_with(&builder, None)?;
+    let mut pdb = ProgramDB::new_with(backend.lang().clone(), &irb);
     let lang = Arc::new(backend.lang().clone());
     let policy = TaintedJumpPolicy::new_with(lang);
 
@@ -62,7 +64,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
 
     let mut cycles = 0;
     while cycles < 500 {
-        let result = evaluator.step(&mut context);
+        let result = evaluator.step(&mut context, &mut pdb);
         match result {
             Err(dft::eval::Error::Policy(err)) => {
                 error!("policy violation: {err:?}");

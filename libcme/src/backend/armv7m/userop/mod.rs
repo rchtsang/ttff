@@ -15,7 +15,7 @@ use crate::backend;
 
 use super::*;
 
-impl<'irb> Backend<'irb> {
+impl Backend {
 
     pub fn _userop(&mut self,
         index: usize,

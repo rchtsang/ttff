@@ -72,7 +72,7 @@ impl From<peripheral::Event> for Event {
     }
 }
 
-impl<'irb> Backend<'irb> {
+impl Backend {
     fn _process_events(&mut self) -> Result<(), super::Error> {
         while let Some(evt) = self.events.pop_front() {
             self._handle_event(evt).map_err(Into::<super::Error>::into)?;
@@ -170,7 +170,7 @@ impl<'irb> Backend<'irb> {
     }
 }
 
-impl<'irb> Backend<'irb> {
+impl Backend {
     /// returns true if the event is a WFE wakeup event based on current
     /// processor state (see B1.5.18)
     #[instrument]

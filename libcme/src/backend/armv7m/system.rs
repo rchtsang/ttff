@@ -10,7 +10,7 @@ use bitfield_struct::bitfield;
 use crate::backend;
 use super::*;
 
-impl<'irb> Backend<'irb> {
+impl Backend {
 
     /// derived from CurrentModeIsPrivileged() pseudocode in B1.3.1
     pub fn current_mode_is_privileged(&self) -> bool {

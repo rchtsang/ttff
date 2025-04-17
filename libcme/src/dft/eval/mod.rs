@@ -10,6 +10,7 @@ use fugue_core::ir::Location;
 use fugue_ir::disassembly::{Opcode, VarnodeData, PCodeData};
 
 use crate::dft::context::{self, Context};
+use crate::programdb::ProgramDB;
 use crate::types::*;
 use crate::utils::*;
 
@@ -106,14 +107,16 @@ fn _absolute_loc(base: Address, vnd: VarnodeData, position: u32) -> Location {
 impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     #[instrument(skip_all)]
     pub fn step(&mut self,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         let (pc, tag) = context.read_pc()?;
         self.pc = pc.into();
         self.pc_tag = tag;
         let address = self.pc.address();
 
-        let insn = context.fetch(address)?;
+        // let insn = context.fetch(address, pdb.arena)?;
+        let insn = pdb.fetch(address, context.backend())?;
         info!("pc @ {:#010x} (tag={}): {}", address.offset(), &self.pc_tag, insn.disasm_str());
         let pcode = &insn.pcode;
         let op_count = pcode.operations.len() as u32;
@@ -148,7 +151,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     #[instrument(skip_all)]
     fn _evaluate(&self,
         operation: &PCodeData,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<FlowType, Error> {
         let loc = self.pc.clone();
         debug!("{:#010x}_{}: {}", loc.address.offset(), loc.position, context.fmt_pcodeop(operation));
@@ -359,7 +362,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
 
     fn _read_bool(&self,
         vnd: &VarnodeData,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(bool, Tag), Error> {
         let (val, tag) = context.read(vnd)?;
         Ok((!val.is_zero(), tag))
@@ -367,7 +370,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
 
     fn _read_addr(&self,
         vnd: &VarnodeData,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(Address, Tag), Error> {
         let (val, tag) = context.read(vnd)?;
         val.to_u64()
@@ -379,7 +382,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     fn _read_mem(&self,
         address: &Address,
         size: usize,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(BitVec, Tag), Error> {
         let spc = context.lang()
             .translator()
@@ -393,7 +396,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         address: &Address,
         val: &BitVec,
         tag: &Tag,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(), Error> {
         let spc = context.lang()
             .translator()
@@ -408,7 +411,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         vnd: &VarnodeData,
         val: BitVec,
         tag: Tag,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(), Error> {
         self.policy.check_assign(vnd, &tag)?;
         context.write(vnd, &val.cast(vnd.bits()), &tag)
@@ -417,7 +420,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
 
     fn _subpiece(&self,
         operation: &PCodeData,
-        context: &mut Context<'irb, 'backend>
+        context: &mut Context<'backend>
     ) -> Result<(), Error> {
         let (src, tag) = context.read(&operation.inputs[0])?;
         let src_size = src.bits();
@@ -450,7 +453,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         operation: &PCodeData,
         cast: F,
         op: G,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(), Error>
     where
         F: Fn(BitVec, u32) -> BitVec,
@@ -471,7 +474,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     fn _apply_signed_int2<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(), Error>
     where
         F: FnOnce(BitVec, BitVec) -> Result<BitVec, Error>,
@@ -482,7 +485,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     fn _apply_unsigned_int2<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(), Error>
     where
         F: FnOnce(BitVec, BitVec) -> Result<BitVec, Error>,
@@ -494,7 +497,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         operation: &PCodeData,
         cast: F,
         op: G,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(), Error>
     where
         F: Fn(BitVec) -> BitVec,
@@ -513,7 +516,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     fn _apply_signed_int1<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(), Error>
     where 
         F: FnOnce(BitVec) -> Result<BitVec, Error>,
@@ -524,7 +527,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     fn _apply_unsigned_int1<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(), Error>
     where
         F: FnOnce(BitVec) -> Result<BitVec, Error>,
@@ -535,7 +538,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     fn _apply_bool2<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(), Error>
     where
         F: FnOnce(bool, bool) -> Result<bool, Error>,
@@ -555,7 +558,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     fn _apply_bool1<F>(&self,
         operation: &PCodeData,
         op: F,
-        context: &mut Context<'irb, 'backend>,
+        context: &mut Context<'backend>,
     ) -> Result<(), Error>
     where 
         F: FnOnce(bool) -> Result<bool, Error>,
