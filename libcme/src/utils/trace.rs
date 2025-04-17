@@ -57,7 +57,7 @@ pub fn compact_dbg_logger() -> FmtSubscriber<DefaultFields, Format<Compact>> {
 /// configure tracing to output to stdout and file
 pub fn compact_dbg_file_logger(path: &str) -> impl Subscriber {
     let log_file = OpenOptions::new()
-        .append(true)
+        .write(true)
         .create(true)
         .open(path)
         .unwrap();
