@@ -14,7 +14,7 @@ impl Backend {
 
     /// derived from CurrentModeIsPrivileged() pseudocode in B1.3.1
     pub fn current_mode_is_privileged(&self) -> bool {
-        self.mode == Mode::Handler || !self.control.npriv()
+        matches!(self.mode, Mode::Handler(_)) || !self.control.npriv()
     }
 
     /// derived from LookUpSP() pseudocode in B1.4.7

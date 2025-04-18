@@ -14,7 +14,7 @@ use fugue_core::ir::Location;
 use fugue_core::language::{Language, LanguageBuilderError};
 use fugue_bv::BitVec;
 
-use crate::types::{LiftResult, LiftError};
+use crate::types::*;
 use crate::peripheral::{self, Peripheral};
 
 pub mod armv7m;
@@ -54,6 +54,9 @@ pub trait Backend: fmt::Debug {
     fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String {
         crate::utils::fmt_pcodeop(pcodeop, self.lang().translator(), Some(true))
     }
+
+    /// get context's current thread
+    fn current_thread(&self) -> EmuThread;
 
     /// initialize a memory region in the context's memory map
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error>;
@@ -148,6 +151,7 @@ impl From<Error> for Arc<LiftError> {
 impl<'backend> Backend for Box<dyn Backend + 'backend> {
     fn lang(&self) -> &Language { (**self).lang() }
     fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String { (**self).fmt_pcodeop(pcodeop) }
+    fn current_thread(&self) -> EmuThread { (**self).current_thread() }
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error> { (**self).map_mem(base, size) }
     fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error> { (**self).map_mmio(peripheral) }
     fn fetch<'irb>(&self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb> { (**self).fetch(address, arena) }

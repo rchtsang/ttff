@@ -8,6 +8,17 @@ use flagset::flags;
 use fugue_core::ir;
 use fugue_ir::Address;
 
+/// a lift result wrapper
+pub type LiftResult<'irb> = Result<Arc<Insn<'irb>>, Arc<LiftError>>;
+
+/// thread indexing for dealing with concurrency
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum EmuThread {
+    Main,
+    ISR { num: u32 },
+}
+
+
 /// control flow types
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FlowType {
@@ -59,9 +70,6 @@ pub enum LiftError {
     #[error("{0:?}")]
     Backend(anyhow::Error),
 }
-
-/// a lift result wrapper
-pub type LiftResult<'irb> = Result<Arc<Insn<'irb>>, Arc<LiftError>>;
 
 flags! {
     /// a bitflags permission enumeration

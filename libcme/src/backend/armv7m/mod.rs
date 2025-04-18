@@ -82,9 +82,19 @@ pub enum Mode {
     Thread,
     /// entered on exception. must be in handler mode to issue exception return.
     /// always privileged execution
-    Handler,
+    Handler(ExceptionType),
     /// entered if halt on debug event
     Debug,
+}
+
+impl Into<EmuThread> for Mode {
+    fn into(self) -> EmuThread {
+        match self {
+            Mode::Thread => { EmuThread::Main },
+            Mode::Handler(ref exc_type) => { EmuThread::ISR { num: exc_type.into() } },
+            Mode::Debug => { panic!("debug mode is not a valid thread, need to save state") }
+        }
+    }
 }
 
 /// processor execution status
@@ -212,6 +222,10 @@ impl Backend {
 impl BackendTrait for Backend {
     fn lang(&self) -> &Language {
         &self.lang
+    }
+
+    fn current_thread(&self) -> EmuThread {
+        self.mode.into()
     }
 
     fn map_mem(&mut self,
