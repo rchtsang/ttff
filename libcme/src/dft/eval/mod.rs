@@ -51,6 +51,8 @@ pub struct Evaluator<'policy> {
     pub pc: Location,
     pub pc_tag: Tag,
     pub policy: &'policy dyn TaintPolicy,
+    pub target: FlowType,
+    pub prev_pc: Option<Location>,
 }
 
 impl<'policy> Default for Evaluator<'policy> {
@@ -59,6 +61,8 @@ impl<'policy> Default for Evaluator<'policy> {
             pc: Location::default(),
             pc_tag: Tag::from(tag::ACCESSED),
             policy: policy::default(),
+            target: FlowType::Entry,
+            prev_pc: None,
         }
     }
 }
@@ -69,11 +73,9 @@ impl<'policy> Evaluator<'policy> {
     }
 
     pub fn new_with_policy(policy: &'policy dyn TaintPolicy) -> Self {
-        Self {
-            pc: Location::default(),
-            pc_tag: Tag::from(tag::ACCESSED),
-            policy,
-        }
+        let mut evaluator = Self::default();
+        evaluator.policy = policy;
+        evaluator
     }
 }
 
@@ -102,22 +104,23 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         let (pc, tag) = context.read_pc()?;
+        let prev_pc = pc.into();
         self.pc = pc.into();
         self.pc_tag = tag;
         let address = self.pc.address();
 
         // let insn = context.fetch(address, pdb.arena)?;
-        let insn = pdb.fetch(address, context.backend())?;
+        let prev_address = self.prev_pc.map(|loc| loc.address());
+        let insn = pdb.fetch(address, context.backend(), self.target, prev_address)?;
         info!("pc @ {:#010x} (tag={}): {}", address.offset(), &self.pc_tag, insn.disasm_str());
         let pcode = &insn.pcode;
         let op_count = pcode.operations.len() as u32;
-        let mut target = FlowType::Fall;
         while address == self.pc.address() && self.pc.position() < op_count {
             let pos = self.pc.position() as usize;
             let op = &pcode.operations[pos];
-            target = self._evaluate(op, context)?;
+            self.target = self._evaluate(op, context)?;
 
-            match target {
+            match self.target {
                 FlowType::Branch(loc)
                 | FlowType::IBranch(loc)
                 | FlowType::Call(loc)
@@ -125,16 +128,20 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
                 | FlowType::Return(loc) => {
                     self.pc = loc
                 }
-                FlowType::Fall => {
+                FlowType::Fall
+                | FlowType::Entry => {
                     self.pc.position += 1u32;
                 }
                 _ => {
-                    panic!("{target:?} is an analysis-only flow-type");
+                    panic!("{:?} is an analysis-only flow-type", self.target);
                 }
             }
         }
+
+        self.prev_pc = Some(prev_pc);
+
         // update context pc value
-        if matches!(target, FlowType::Fall) {
+        if matches!(self.target, FlowType::Fall | FlowType::Entry) {
             self.pc = Location::from(address + pcode.len());
         }
         context.write_pc(self.pc.address(), &self.pc_tag)?;

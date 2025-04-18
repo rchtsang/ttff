@@ -6,7 +6,7 @@ use thiserror::Error;
 use flagset::flags;
 
 use fugue_core::ir;
-use fugue_ir::Address;
+use fugue_ir::{disassembly::Opcode, Address};
 
 /// a lift result wrapper
 pub type LiftResult<'irb> = Result<Arc<Insn<'irb>>, Arc<LiftError>>;
@@ -23,10 +23,12 @@ pub enum EmuThread {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FlowType {
     Branch(ir::Location),
+    CBranch(ir::Location),
     IBranch(ir::Location),
     Call(ir::Location),
     ICall(ir::Location),
     Return(ir::Location),
+    Entry,
     Fall,
     Unknown,
     CallThrough,
@@ -100,5 +102,19 @@ pub enum Alignment {
 impl From<fugue_ir::error::Error> for LiftError {
     fn from(err: fugue_ir::error::Error) -> Self {
         Self::IR(err)
+    }
+}
+
+impl FlowType {
+    pub fn new_with(opcode: Opcode, loc: ir::Location) -> Self {
+        match opcode {
+            Opcode::Branch  => { Self::Branch(loc) }
+            Opcode::CBranch => { Self::CBranch(loc) }
+            Opcode::IBranch => { Self::IBranch(loc) }
+            Opcode::Call    => { Self::Call(loc) }
+            Opcode::ICall   => { Self::ICall(loc) }
+            Opcode::Return  => { Self::Return(loc) }
+            _ => { Self::Fall }
+        }
     }
 }
