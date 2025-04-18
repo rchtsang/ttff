@@ -228,6 +228,14 @@ impl BackendTrait for Backend {
         self.mode.into()
     }
 
+    fn is_isr_preempt(&self) -> bool {
+        todo!()
+    }
+
+    fn is_isr_return(&self) -> bool {
+        todo!()
+    }
+
     fn map_mem(&mut self,
         base: &Address,
         size: usize,

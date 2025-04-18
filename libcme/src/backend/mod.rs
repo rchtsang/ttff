@@ -58,6 +58,12 @@ pub trait Backend: fmt::Debug {
     /// get context's current thread
     fn current_thread(&self) -> EmuThread;
 
+    /// check if isr preempt is occurring
+    fn is_isr_preempt(&self) -> bool;
+
+    /// check if isr return is occurring
+    fn is_isr_return(&self) -> bool;
+
     /// initialize a memory region in the context's memory map
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error>;
 
@@ -152,6 +158,8 @@ impl<'backend> Backend for Box<dyn Backend + 'backend> {
     fn lang(&self) -> &Language { (**self).lang() }
     fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String { (**self).fmt_pcodeop(pcodeop) }
     fn current_thread(&self) -> EmuThread { (**self).current_thread() }
+    fn is_isr_preempt(&self) -> bool { (**self).is_isr_preempt() }
+    fn is_isr_return(&self) -> bool { (**self).is_isr_return() }
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error> { (**self).map_mem(base, size) }
     fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error> { (**self).map_mmio(peripheral) }
     fn fetch<'irb>(&self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb> { (**self).fetch(address, arena) }
