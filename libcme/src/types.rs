@@ -8,6 +8,19 @@ use flagset::flags;
 use fugue_core::ir;
 use fugue_ir::Address;
 
+/// control flow types
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FlowType {
+    Branch(ir::Location),
+    IBranch(ir::Location),
+    Call(ir::Location),
+    ICall(ir::Location),
+    Return(ir::Location),
+    Fall,
+    Unknown,
+    CallThrough,
+}
+
 /// a lifted instruction
 #[derive(Debug)]
 pub struct Insn<'irb> {

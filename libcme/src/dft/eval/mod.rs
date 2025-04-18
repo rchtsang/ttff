@@ -45,15 +45,6 @@ impl From<policy::Error> for Error {
     }
 }
 
-/// control flow types
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum FlowType {
-    Branch(Location),
-    Call(Location),
-    Return(Location),
-    Fall,
-}
-
 /// concrete pcode evaluator
 #[derive(Debug)]
 pub struct Evaluator<'policy> {
@@ -128,12 +119,17 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
 
             match target {
                 FlowType::Branch(loc)
+                | FlowType::IBranch(loc)
                 | FlowType::Call(loc)
+                | FlowType::ICall(loc)
                 | FlowType::Return(loc) => {
                     self.pc = loc
                 }
                 FlowType::Fall => {
                     self.pc.position += 1u32;
+                }
+                _ => {
+                    panic!("{target:?} is an analysis-only flow-type");
                 }
             }
         }
