@@ -111,30 +111,30 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         info!("pc @ {:#010x} (tag={}): {}", address.offset(), &self.pc_tag, insn.disasm_str());
         let pcode = &insn.pcode;
         let op_count = pcode.operations.len() as u32;
-        let mut target = FlowType::Fall;
+        let mut flow = FlowType::Fall.into();
         while address == self.pc.address() && self.pc.position() < op_count {
             let pos = self.pc.position() as usize;
             let op = &pcode.operations[pos];
-            target = self._evaluate(op, context)?;
+            flow = self._evaluate(op, context)?;
 
-            match target {
-                FlowType::Branch(loc)
-                | FlowType::IBranch(loc)
-                | FlowType::Call(loc)
-                | FlowType::ICall(loc)
-                | FlowType::Return(loc) => {
-                    self.pc = loc
+            match flow.flowtype {
+                FlowType::Branch
+                | FlowType::IBranch
+                | FlowType::Call
+                | FlowType::ICall
+                | FlowType::Return => {
+                    self.pc = flow.target.unwrap();
                 }
                 FlowType::Fall => {
                     self.pc.position += 1u32;
                 }
                 _ => {
-                    panic!("{target:?} is an analysis-only flow-type");
+                    panic!("{flow:?} is an analysis-only flow-type");
                 }
             }
         }
         // update context pc value
-        if matches!(target, FlowType::Fall) {
+        if matches!(flow.flowtype, FlowType::Fall) {
             self.pc = Location::from(address + pcode.len());
         }
         context.write_pc(self.pc.address(), &self.pc_tag)?;
@@ -148,7 +148,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     fn _evaluate(&self,
         operation: &PCodeData,
         context: &mut Context<'backend>,
-    ) -> Result<FlowType, Error> {
+    ) -> Result<Flow, Error> {
         let loc = self.pc.clone();
         debug!("{:#010x}_{}: {}", loc.address.offset(), loc.position, context.fmt_pcodeop(operation));
         debug!("    inputs: {}", context.fmt_inputs(operation)?);
@@ -308,41 +308,41 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
             Opcode::Branch => {
                 let target = _absolute_loc(loc.address(), operation.inputs[0], loc.position());
                 // no taint check is needed on a constant direct branch (constants never tainted)
-                return Ok(FlowType::Branch(target));
+                return Ok(FlowType::Branch.target(target));
             }
             Opcode::CBranch => {
                 let (bool_val, bool_tag) = self._read_bool(&operation.inputs[1], context)?;
                 self.policy.check_branch(&operation.opcode, &bool_tag)?;
                 if bool_val {
                     let target = _absolute_loc(loc.address(), operation.inputs[0], loc.position());
-                    return Ok(FlowType::Branch(target));
+                    return Ok(FlowType::Branch.target(target));
                 }
             }
             Opcode::IBranch => {
                 let (address, tag) = self._read_addr(&operation.inputs[0], context)?;
                 self.policy.check_branch(&operation.opcode, &tag)?;
-                return Ok(FlowType::Branch(address.into()));
+                return Ok(FlowType::IBranch.target(address.into()));
             }
             Opcode::Call => {
                 let target = _absolute_loc(loc.address(), operation.inputs[0], loc.position());
                 // no taint check is needed on a constant direct call (constants never tainted)
-                return Ok(FlowType::Call(target));
+                return Ok(FlowType::Call.target(target));
             }
             Opcode::ICall => {
                 let (address, tag) = self._read_addr(&operation.inputs[0], context)?;
                 self.policy.check_branch(&operation.opcode, &tag)?;
-                return Ok(FlowType::Call(address.into()));
+                return Ok(FlowType::Call.target(address.into()));
             }
             Opcode::Return => {
                 let (address, tag) = self._read_addr(&operation.inputs[0], context)?;
                 self.policy.check_branch(&operation.opcode, &tag)?;
-                return Ok(FlowType::Return(address.into()));
+                return Ok(FlowType::Return.target(address.into()));
             }
             Opcode::CallOther => {
                 let output = operation.output.as_ref();
                 let inputs = &operation.inputs[..];
                 if let Some(target) = context.userop(output, inputs)? {
-                    return Ok(FlowType::Branch(target));
+                    return Ok(FlowType::Unknown.target(target));
                 }
             }
             op => {
@@ -350,7 +350,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
                 return Err(Error::Unsupported(op).into())
             }
         }
-        Ok(FlowType::Fall)
+        Ok(FlowType::Fall.into())
     }
 }
 

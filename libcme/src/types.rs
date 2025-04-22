@@ -21,15 +21,23 @@ pub enum EmuThread {
 
 /// control flow types
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(u8)]
 pub enum FlowType {
-    Branch(ir::Location),
-    IBranch(ir::Location),
-    Call(ir::Location),
-    ICall(ir::Location),
-    Return(ir::Location),
+    Branch,
+    IBranch,
+    Call,
+    ICall,
+    Return,
     Fall,
     Unknown,
     CallThrough,
+}
+
+/// flow target
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Flow {
+    pub flowtype: FlowType,
+    pub target: Option<ir::Location>,
 }
 
 /// a lifted instruction
@@ -100,5 +108,29 @@ pub enum Alignment {
 impl From<fugue_ir::error::Error> for LiftError {
     fn from(err: fugue_ir::error::Error) -> Self {
         Self::IR(err)
+    }
+}
+
+impl FlowType {
+    pub fn target(&self, target: ir::Location) -> Flow {
+        let flowtype = *self;
+        let target = Some(target);
+        Flow { flowtype, target }
+    }
+}
+
+impl From<FlowType> for Flow {
+    fn from(flowtype: FlowType) -> Self {
+        match flowtype {
+            FlowType::Fall => { Self { flowtype, target: None } },
+            FlowType::CallThrough => { Self { flowtype, target: None } },
+            _ => { panic!("cannot convert {flowtype:?} to Flow struct") }
+        }
+    }
+}
+
+impl From<&Flow> for FlowType {
+    fn from(flow: &Flow) -> Self {
+        flow.flowtype.clone()
     }
 }
