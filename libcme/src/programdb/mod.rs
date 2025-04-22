@@ -5,16 +5,18 @@ use std::sync::Arc;
 
 use thiserror::Error;
 use parking_lot::RwLock;
-use nohash::IntMap;
 
-use fugue_core::prelude::*;
+// use fugue_core::prelude::*;
 use fugue_ir::disassembly::{ Opcode, IRBuilderArena };
 
 use crate::types::*;
 use crate::utils::*;
 use crate::backend::Backend;
 
-type TranslationCache<'irb> = IntMap<u64, LiftResult<'irb>>;
+mod cfg;
+pub use cfg::*;
+mod types;
+pub use types::*;
 
 /// programdb errors
 #[derive(Error, Debug)]
@@ -32,15 +34,20 @@ pub struct ProgramDB<'irb> {
     pub(crate) lang: Language,
     pub(crate) cache: Arc<RwLock<TranslationCache<'irb>>>,
     pub(crate) arena: &'irb IRBuilderArena,
+    pub(crate) cfg: CFGraph<'irb>,
 }
 
 
 impl<'irb> ProgramDB<'irb> {
 
-    pub fn new_with(lang: Language, arena: &'irb IRBuilderArena) -> Self {
+    pub fn new_with(
+        lang: Language,
+        arena: &'irb IRBuilderArena,
+    ) -> Self {
         let cache = Arc::new(RwLock::new(TranslationCache::default()));
+        let cfg = CFGraph::new_with(arena.inner());
 
-        Self { lang, cache, arena }
+        Self { lang, cache, arena, cfg }
     }
 
     pub fn fetch(&mut self, address: Address, backend: &impl Backend) -> LiftResult<'irb> {
@@ -65,10 +72,15 @@ impl<'irb> ProgramDB<'irb> {
     ) {
         let base = address.into();
         let mut offset = 0usize;
+
+        let mut insns = vec![];
+        let mut successors = vec![];
+        let mut flow = Flow::from(FlowType::Fall);
         
         let mut branch = false;
         while !branch {
             let address = base + offset as u64;
+            insns.push(address);
 
             let fetch_result = backend.fetch(&address, self.arena);
             if fetch_result.is_err() {
@@ -93,6 +105,12 @@ impl<'irb> ProgramDB<'irb> {
                     | Opcode::Return
                     | Opcode::CallOther => {
                         // usually we can tell if the last opcode is branching
+                        let loc = _absolute_loc(
+                            address.into(),
+                            last_op.inputs[0],
+                            (pcode.operations.len() - 1) as u32,
+                        );
+                        flow = FlowType::from(last_op.opcode).target(loc);
                         branch = true;
                     },
                     _ => {
@@ -114,6 +132,38 @@ impl<'irb> ProgramDB<'irb> {
             self.cache.write().insert(address.offset(), Ok(insn));
         }
 
+        // get the known block successors
+        let flowtype = flow.flowtype;
+        match flowtype {
+            FlowType::Branch
+            | FlowType::Call => {
+                let dest = flow.target.unwrap().address().offset();
+                successors.push((flowtype, dest));
+            }
+            FlowType::CBranch => {
+                let dest = flow.target.unwrap().address().offset();
+                successors.push((flowtype, dest));
+                successors.push((FlowType::Fall, offset as u64));
+            }
+            FlowType::IBranch
+            | FlowType::ICall => {
+                // successors are unknown until runtime
+                // since blocks are prefetched, we cannot read the target from
+                // the backend in this function.
+            }
+            _ => {
+                successors.push((FlowType::Fall, offset as u64));
+            }
+        }
+
+        let range = base.offset()..(offset as u64);
+        let insns = insns.into_iter().map(|addr| addr.offset());
+        let block = Block::new_in(self.arena.inner(), range, insns, successors);
+
+        match self.cfg.add_block(block, None) {
+            Ok(_) => { () }
+            Err(err) => { panic!("unexpected error: {err:?}") }
+        }
         // maybe return something here at some point?
     }
 }
