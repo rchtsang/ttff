@@ -54,8 +54,7 @@ impl<'arena> CFGraph<'arena> {
         Self { bump, blocks, blkmap, graph }
     }
 
-    #[instrument]
-    pub fn add_block(
+    pub fn new_block(
         &mut self,
         range: Range<u64>,
         insns: impl IntoIterator<Item=u64> + fmt::Debug,
@@ -63,6 +62,15 @@ impl<'arena> CFGraph<'arena> {
         parent: Option<(FlowType, u64)>,
     ) -> Result<(), Error> {
         let block = Block::new_in(self.bump, range, insns, successors);
+        self.add_block(block, parent)
+    }
+
+    #[instrument]
+    pub fn add_block(
+        &mut self,
+        block: Block<'arena>,
+        parent: Option<(FlowType, u64)>,
+    ) -> Result<(), Error> {
         let address = block.address();
         if self.blocks.contains_key(&address) {
             return Err(Error::BlockAlreadyExists(block.address()));

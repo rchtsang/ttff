@@ -6,7 +6,7 @@ use thiserror::Error;
 use flagset::flags;
 
 use fugue_core::ir;
-use fugue_ir::Address;
+use fugue_ir::{disassembly::Opcode, Address};
 
 /// a lift result wrapper
 pub type LiftResult<'irb> = Result<Arc<Insn<'irb>>, Arc<LiftError>>;
@@ -24,6 +24,7 @@ pub enum EmuThread {
 #[repr(u8)]
 pub enum FlowType {
     Branch,
+    CBranch,
     IBranch,
     Call,
     ICall,
@@ -132,5 +133,20 @@ impl From<FlowType> for Flow {
 impl From<&Flow> for FlowType {
     fn from(flow: &Flow) -> Self {
         flow.flowtype.clone()
+    }
+}
+
+impl From<Opcode> for FlowType {
+    fn from(op: Opcode) -> Self {
+        match op {
+            Opcode::Branch    => { FlowType::Branch }
+            Opcode::CBranch   => { FlowType::CBranch }
+            Opcode::IBranch   => { FlowType::IBranch }
+            Opcode::Call      => { FlowType::Call }
+            Opcode::ICall     => { FlowType::ICall }
+            Opcode::Return    => { FlowType::Return }
+            Opcode::CallOther => { FlowType::Unknown }
+            _                 => { FlowType::Fall }
+        }
     }
 }
