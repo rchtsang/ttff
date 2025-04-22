@@ -53,6 +53,10 @@ impl<'arena> Block<'arena> {
     pub fn successors(&self) -> &[(FlowType, u64)] {
         &self.successors[..]
     }
+
+    pub fn add_successor(&mut self, child: u64, flowtype: FlowType) {
+        self.successors.push((flowtype, child))
+    }
 }
 
 

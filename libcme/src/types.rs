@@ -118,6 +118,15 @@ impl FlowType {
         let target = Some(target);
         Flow { flowtype, target }
     }
+
+    pub fn is_branch(&self) -> bool {
+        match self {
+            FlowType::Fall
+            | FlowType::CallThrough
+            | FlowType::Unknown => { false }
+            _ => { true }
+        }
+    }
 }
 
 impl From<FlowType> for Flow {

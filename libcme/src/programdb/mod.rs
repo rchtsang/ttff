@@ -21,7 +21,8 @@ pub use types::*;
 /// programdb errors
 #[derive(Error, Debug)]
 pub enum Error {
-    
+    #[error(transparent)]
+    CFG(#[from] cfg::Error),
 }
 
 
@@ -62,6 +63,11 @@ impl<'irb> ProgramDB<'irb> {
             .ok_or(LiftError::AddressNotLifted(address.into()))?
             .clone()
     }
+
+    pub fn add_edge(&mut self, parent: Address, child: Address, flowtype: FlowType) -> Result<(), Error> {
+        self.cfg.add_edge(parent.into(), child.into(), flowtype)
+            .map_err(Error::from)
+    }
 }
 
 impl<'irb> ProgramDB<'irb> {
@@ -74,8 +80,6 @@ impl<'irb> ProgramDB<'irb> {
         let mut offset = 0usize;
 
         let mut insns = vec![];
-        let mut successors = vec![];
-        let mut flow = Flow::from(FlowType::Fall);
         
         let mut branch = false;
         while !branch {
@@ -105,12 +109,6 @@ impl<'irb> ProgramDB<'irb> {
                     | Opcode::Return
                     | Opcode::CallOther => {
                         // usually we can tell if the last opcode is branching
-                        let loc = _absolute_loc(
-                            address.into(),
-                            last_op.inputs[0],
-                            (pcode.operations.len() - 1) as u32,
-                        );
-                        flow = FlowType::from(last_op.opcode).target(loc);
                         branch = true;
                     },
                     _ => {
@@ -132,33 +130,9 @@ impl<'irb> ProgramDB<'irb> {
             self.cache.write().insert(address.offset(), Ok(insn));
         }
 
-        // get the known block successors
-        let flowtype = flow.flowtype;
-        match flowtype {
-            FlowType::Branch
-            | FlowType::Call => {
-                let dest = flow.target.unwrap().address().offset();
-                successors.push((flowtype, dest));
-            }
-            FlowType::CBranch => {
-                let dest = flow.target.unwrap().address().offset();
-                successors.push((flowtype, dest));
-                successors.push((FlowType::Fall, offset as u64));
-            }
-            FlowType::IBranch
-            | FlowType::ICall => {
-                // successors are unknown until runtime
-                // since blocks are prefetched, we cannot read the target from
-                // the backend in this function.
-            }
-            _ => {
-                successors.push((FlowType::Fall, offset as u64));
-            }
-        }
-
         let range = base.offset()..(offset as u64);
         let insns = insns.into_iter().map(|addr| addr.offset());
-        let block = Block::new_in(self.arena.inner(), range, insns, successors);
+        let block = Block::new_in(self.arena.inner(), range, insns, vec![]);
 
         match self.cfg.add_block(block, None) {
             Ok(_) => { () }

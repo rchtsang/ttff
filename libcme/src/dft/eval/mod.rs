@@ -10,7 +10,7 @@ use fugue_core::ir::Location;
 use fugue_ir::disassembly::{Opcode, VarnodeData, PCodeData};
 
 use crate::dft::context::{self, Context};
-use crate::programdb::ProgramDB;
+use crate::programdb::{self, ProgramDB};
 use crate::types::*;
 use crate::utils::*;
 
@@ -35,6 +35,8 @@ pub enum Error {
     Context(#[from] context::Error),
     #[error(transparent)]
     Lift(#[from] Arc<LiftError>),
+    #[error(transparent)]
+    ProgramDB(#[from] programdb::Error),
     #[error("policy violation: {0}")]
     Policy(anyhow::Error),
 }
@@ -101,11 +103,14 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
 
             match flow.flowtype {
                 FlowType::Branch
+                | FlowType::CBranch
                 | FlowType::IBranch
                 | FlowType::Call
                 | FlowType::ICall
-                | FlowType::Return => {
+                | FlowType::Return
+                | FlowType::Unknown => {
                     self.pc = flow.target.unwrap();
+                    pdb.add_edge(address, self.pc.address(), flow.flowtype)?;
                 }
                 FlowType::Fall => {
                     self.pc.position += 1u32;
