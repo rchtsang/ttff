@@ -77,24 +77,6 @@ impl<'policy> Evaluator<'policy> {
     }
 }
 
-/// helper function to get absolute location
-fn _absolute_loc(base: Address, vnd: VarnodeData, position: u32) -> Location {
-    if !vnd.space().is_constant() {
-        return Location { address: vnd.offset().into(), position: 0u32 };
-    }
-
-    let offset = vnd.offset() as i64;
-    let position = if offset.is_negative() {
-        position.checked_sub(offset.abs() as u32)
-            .expect("negative offset from position in valid range")
-    } else {
-        position.checked_add(offset as u32)
-            .expect("positive offset from position in valid range")
-    };
-
-    Location { address: base.into(), position }
-}
-
 impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     #[instrument(skip_all)]
     pub fn step(&mut self,

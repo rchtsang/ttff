@@ -1,7 +1,8 @@
 //! conversion.rs
 //! 
 //! byte to int conversion functions
-use fugue_ir::Address;
+use fugue_core::ir::Location;
+use fugue_ir::{Address, VarnodeData};
 use fugue_bv::BitVec;
 
 pub fn bytes_as_u32_le(src: &[u8]) -> u32 {
@@ -28,4 +29,23 @@ pub fn bv2addr(bv: BitVec) -> Option<Address> {
 #[inline(always)]
 pub fn bool2bv(val: bool) -> BitVec {
     BitVec::from(if val { 1u8 } else { 0u8 })
+}
+
+
+/// helper function to get absolute location
+pub(crate) fn _absolute_loc(base: Address, vnd: VarnodeData, position: u32) -> Location {
+    if !vnd.space().is_constant() {
+        return Location { address: vnd.offset().into(), position: 0u32 };
+    }
+
+    let offset = vnd.offset() as i64;
+    let position = if offset.is_negative() {
+        position.checked_sub(offset.abs() as u32)
+            .expect("negative offset from position in valid range")
+    } else {
+        position.checked_add(offset as u32)
+            .expect("positive offset from position in valid range")
+    };
+
+    Location { address: base.into(), position }
 }
