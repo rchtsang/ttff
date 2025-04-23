@@ -130,7 +130,7 @@ impl<'irb> ProgramDB<'irb> {
             self.cache.write().insert(address.offset(), Ok(insn));
         }
 
-        let range = base.offset()..(offset as u64);
+        let range = base.offset()..(base.offset() + offset as u64);
         let insns = insns.into_iter().map(|addr| addr.offset());
         let block = Block::new_in(self.arena.inner(), range, insns, vec![]);
 

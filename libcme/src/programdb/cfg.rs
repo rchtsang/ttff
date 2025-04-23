@@ -109,15 +109,15 @@ impl<'arena> CFGraph<'arena> {
             parent,
             "parent must be last instruction in its block",
         );
-        let Some((_, child_base)) = self.blkmap.overlap(child).next() else {
-            return Err(Error::BlockDoesNotExist(child))
-        };
-        if let Some(edge) = self.graph.add_edge(*parent_base, *child_base, flowtype) {
+        let child_base = self.blkmap.overlap(child).next()
+            .map(|(_, child_base)| *child_base)
+            .unwrap_or(child);
+        if let Some(edge) = self.graph.add_edge(*parent_base, child_base, flowtype) {
             warn!("edge already exists: {edge:?}({parent_base:#x} -> {child:#x})");
         }
         self.blocks.entry(*parent_base)
-            .and_modify(|block| block.add_successor(*child_base, flowtype));
-        
+            .and_modify(|block| block.add_successor(child_base, flowtype));
+
         Ok(())
     }
 
