@@ -23,6 +23,9 @@ use super::tag::{
     Tag,
 };
 
+pub mod hooks;
+pub use hooks::*;
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("invalid address: {0:x}")]
@@ -39,11 +42,19 @@ pub enum Error {
     ProgramDB(#[from] programdb::Error),
     #[error("policy violation: {0}")]
     Policy(anyhow::Error),
+    #[error("hook error: {0}")]
+    Hook(anyhow::Error),
 }
 
 impl From<policy::Error> for Error {
     fn from(err: policy::Error) -> Self {
         Self::Policy(err.0)
+    }
+}
+
+impl From<hooks::Error> for Error {
+    fn from(err: hooks::Error) -> Self {
+        Self::Hook(err.0)
     }
 }
 
@@ -53,6 +64,7 @@ pub struct Evaluator<'policy> {
     pub pc: Location,
     pub pc_tag: Tag,
     pub policy: &'policy dyn TaintPolicy,
+    hooks: Vec<Hook>,
 }
 
 impl<'policy> Default for Evaluator<'policy> {
@@ -61,6 +73,7 @@ impl<'policy> Default for Evaluator<'policy> {
             pc: Location::default(),
             pc_tag: Tag::from(tag::ACCESSED),
             policy: policy::default(),
+            hooks: vec![],
         }
     }
 }
@@ -75,6 +88,7 @@ impl<'policy> Evaluator<'policy> {
             pc: Location::default(),
             pc_tag: Tag::from(tag::ACCESSED),
             policy,
+            hooks: vec![],
         }
     }
 }
