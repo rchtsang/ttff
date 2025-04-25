@@ -29,6 +29,7 @@ pub use dummy::DummyEvalPlugin;
 pub struct Error(pub(crate) anyhow::Error);
 
 
+/// plugin trait for evaluator
 #[allow(unused)]
 pub trait EvalPlugin: fmt::Debug {
 
@@ -89,8 +90,6 @@ pub trait EvalPlugin: fmt::Debug {
         result: &Option<Location>,
     ) -> Result<(), Error> { Ok(()) }
 }
-
-
 
 
 /// evaluator plugin

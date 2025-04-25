@@ -111,12 +111,15 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         let insn = pdb.fetch(address, context.backend())?;
         info!("pc @ {:#010x} (tag={}): {}", address.offset(), &self.pc_tag, insn.disasm_str());
         self.plugin.pre_insn_cb(&self.pc, insn.as_ref(), context)?;
+
         let pcode = &insn.pcode;
         let op_count = pcode.operations.len() as u32;
         let mut flow = FlowType::Fall.into();
+
         while address == self.pc.address() && self.pc.position() < op_count {
             let pos = self.pc.position() as usize;
             let op = &pcode.operations[pos];
+
             self.plugin.pre_pcode_cb(&self.pc, op, context)?;
             flow = self._evaluate(op, context)?;
             self.plugin.post_pcode_cb(&self.pc, op, context)?;
@@ -140,12 +143,15 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
                 }
             }
         }
+
         // update context pc value
         if matches!(flow.flowtype, FlowType::Fall) {
             self.pc = Location::from(address + pcode.len());
         }
         context.write_pc(self.pc.address(), &self.pc_tag)?;
+        
         self.plugin.post_insn_cb(&self.pc, insn.as_ref(), context)?;
+
         Ok(())
     }
 }
