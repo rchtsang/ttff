@@ -11,7 +11,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     use fugue_core::prelude::*;
     use fugue_core::ir::Location;
     use fugue_ir::disassembly::IRBuilderArena;
-    use crate::programdb::ProgramDB;
+    use crate::programdb::{self, ProgramDB};
     use crate::backend::armv7m;
     use crate::dft::{
         self,
@@ -57,8 +57,10 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     context.write_sp(0x1000u64, &Tag::from(tag::ACCESSED))?;
     context.write_pc(0u64, &Tag::from(tag::ACCESSED))?;
 
-    info!("initializing dummy plugin...");
+    info!("initializing dummy plugins...");
     let eval_plugin = Box::new(dft::plugin::DummyEvalPlugin::default());
+    let pdb_plugin = Box::new(programdb::plugin::DummyAnalysisPlugin::default());
+    pdb.add_plugin(pdb_plugin);
 
     info!("executing program...");
     let mut evaluator = Evaluator::new_with_policy(&policy);

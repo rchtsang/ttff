@@ -114,9 +114,10 @@ impl<'arena> CFGraph<'arena> {
             .unwrap_or(child);
         if let Some(edge) = self.graph.add_edge(*parent_base, child_base, flowtype) {
             warn!("edge already exists: {edge:?}({parent_base:#x} -> {child:#x})");
+        } else {
+            self.blocks.entry(*parent_base)
+                .and_modify(|block| block.add_successor(child_base, flowtype));
         }
-        self.blocks.entry(*parent_base)
-            .and_modify(|block| block.add_successor(child_base, flowtype));
 
         Ok(())
     }
@@ -125,6 +126,12 @@ impl<'arena> CFGraph<'arena> {
         let address = address.into();
         let (_, blk_address) = self.blkmap.overlap(address).next()?;
         self.blocks.get(blk_address)
+    }
+
+    pub fn get_block_mut(&mut self, address: impl Into<u64>) -> Option<&mut Block<'arena>> {
+        let address = address.into();
+        let (_, blk_address) = self.blkmap.overlap(address).next()?;
+        self.blocks.get_mut(blk_address)
     }
 }
 

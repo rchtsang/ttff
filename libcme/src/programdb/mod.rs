@@ -13,6 +13,8 @@ use crate::types::*;
 use crate::utils::*;
 use crate::backend::Backend;
 
+pub mod plugin;
+pub use plugin::*;
 mod cfg;
 pub use cfg::*;
 mod types;
@@ -23,6 +25,8 @@ pub use types::*;
 pub enum Error {
     #[error(transparent)]
     CFG(#[from] cfg::Error),
+    #[error("plugin error: {0}")]
+    Plugin(anyhow::Error),
 }
 
 
@@ -36,6 +40,7 @@ pub struct ProgramDB<'irb> {
     pub(crate) cache: Arc<RwLock<TranslationCache<'irb>>>,
     pub(crate) arena: &'irb IRBuilderArena,
     pub(crate) cfg: CFGraph<'irb>,
+    plugin: PDBPlugin,
 }
 
 
@@ -47,8 +52,13 @@ impl<'irb> ProgramDB<'irb> {
     ) -> Self {
         let cache = Arc::new(RwLock::new(TranslationCache::default()));
         let cfg = CFGraph::new_with(arena.inner());
+        let plugin = PDBPlugin::default();
 
-        Self { lang, cache, arena, cfg }
+        Self { lang, cache, arena, cfg, plugin }
+    }
+
+    pub fn add_plugin(&mut self, plugin: Box<dyn AnalysisPlugin>) {
+        self.plugin.add_plugin(plugin)
     }
 
     pub fn fetch(&mut self, address: Address, backend: &impl Backend) -> LiftResult<'irb> {
@@ -65,13 +75,15 @@ impl<'irb> ProgramDB<'irb> {
     }
 
     pub fn add_edge(&mut self, parent: Address, child: Address, flowtype: FlowType) -> Result<(), Error> {
-        self.cfg.add_edge(parent.into(), child.into(), flowtype)
+        let (parent, child) = (parent.into(), child.into());
+        self.plugin.pre_edge_cb(parent, child, flowtype)?;
+        self.cfg.add_edge(parent, child, flowtype)
             .map_err(Error::from)
     }
 }
 
 impl<'irb> ProgramDB<'irb> {
-    #[instrument]
+    #[instrument(skip_all)]
     fn _lift_block(&mut self,
         address: impl Into<Address> + fmt::Debug,
         backend: &impl Backend,
@@ -134,10 +146,11 @@ impl<'irb> ProgramDB<'irb> {
         let insns = insns.into_iter().map(|addr| addr.offset());
         let block = Block::new_in(self.arena.inner(), range, insns, vec![]);
 
-        match self.cfg.add_block(block, None) {
-            Ok(_) => { () }
-            Err(err) => { panic!("unexpected error: {err:?}") }
+        if let Err(err) = self.cfg.add_block(block, None) {
+            panic!("unexpected error: {err:?}");
         }
+
+        self.plugin.post_lift_block_cb(self.cfg.get_block_mut(base.offset()).unwrap());
         // maybe return something here at some point?
     }
 }
@@ -146,5 +159,11 @@ impl<'irb> fmt::Debug for ProgramDB<'irb> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let arch = self.lang.translator().architecture();
         write!(f, "ProgramDB {{ {arch} }}")
+    }
+}
+
+impl From<plugin::Error> for Error {
+    fn from(err: plugin::Error) -> Self {
+        Self::Plugin(err.0)
     }
 }
