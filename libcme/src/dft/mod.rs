@@ -13,6 +13,7 @@ pub mod policy;
 pub use context::Context;
 pub use eval::Evaluator;
 pub use plugin::EvalPlugin;
+pub use tag::Tag;
 
 #[cfg(test)]
 pub(crate) mod test;

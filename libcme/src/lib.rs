@@ -15,31 +15,23 @@ mod test;
 
 pub mod prelude {
     pub use fugue_core::prelude::*;
-    // pub use super::concrete::{
-    //     context::{
-    //         self,
-    //         Permission,
-    //         Alignment,
-    //         CtxRequest,
-    //         CtxResponse,
-    //         Context as ContextTrait,
-    //     },
-    //     context::arch::{
-    //         self,
-    //         armv7m,
-    //     },
-    //     eval::{
-    //         self,
-    //         FlowType,
-    //         Evaluator,
-    //         bv2addr,
-    //         bool2bv,
-    //     },
-    // };
+    pub use fugue_core::ir::Location;
+    pub use fugue_ir::disassembly::IRBuilderArena;
     pub use super::peripheral::{
         self,
         Peripheral,
         PeripheralState,
     };
+    pub use super::backend::{self, armv7m, Backend};
+    pub use super::dft::{
+        self,
+        policy,
+        tag,
+    };
+    pub use super::programdb::{self, ProgramDB};
     pub use super::utils::*;
+    pub use super::types::*;
+
+    pub use super::programdb::plugin::AnalysisPlugin;
+    pub use super::dft::plugin::EvalPlugin;
 }

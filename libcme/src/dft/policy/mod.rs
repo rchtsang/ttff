@@ -10,7 +10,10 @@ use fugue_ir::disassembly::{
 use super::tag::{self, Tag};
 
 pub mod jump;
-
+pub use jump::{
+    TaintedJumpPolicy,
+    PolicyViolation as TaintedJumpPolicyViolation,
+};
 
 #[derive(Debug, derive_more::Display, Error)]
 pub struct Error(pub(crate) anyhow::Error);
