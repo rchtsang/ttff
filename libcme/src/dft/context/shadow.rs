@@ -1,6 +1,7 @@
 //! shadow.rs
 //! 
 //! a generic implementation of shadow memory given a language
+use std::fmt;
 use std::ops::Range;
 
 use thiserror::Error;
@@ -195,5 +196,12 @@ impl ShadowState {
             return Err(Error::MapConflict(range, conflict));
         }
         Ok((range, mem))
+    }
+}
+
+
+impl fmt::Debug for ShadowState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ShadowState {{ {:?} }}", self.lang.translator().architecture())
     }
 }

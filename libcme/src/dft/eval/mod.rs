@@ -14,6 +14,7 @@ use crate::programdb::{self, ProgramDB};
 use crate::types::*;
 use crate::utils::*;
 
+use super::plugin::{self, EvaluatorPlugin};
 use super::policy::{
     self,
     TaintPolicy,
@@ -22,6 +23,7 @@ use super::tag::{
     self,
     Tag,
 };
+use super::Plugin;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -39,11 +41,19 @@ pub enum Error {
     ProgramDB(#[from] programdb::Error),
     #[error("policy violation: {0}")]
     Policy(anyhow::Error),
+    #[error("plugin error: {0}")]
+    Plugin(anyhow::Error),
 }
 
 impl From<policy::Error> for Error {
     fn from(err: policy::Error) -> Self {
         Self::Policy(err.0)
+    }
+}
+
+impl From<plugin::Error> for Error {
+    fn from(err: plugin::Error) -> Self {
+        Self::Plugin(err.0)
     }
 }
 
@@ -53,6 +63,7 @@ pub struct Evaluator<'policy> {
     pub pc: Location,
     pub pc_tag: Tag,
     pub policy: &'policy dyn TaintPolicy,
+    pub plugin: EvaluatorPlugin,
 }
 
 impl<'policy> Default for Evaluator<'policy> {
@@ -61,6 +72,7 @@ impl<'policy> Default for Evaluator<'policy> {
             pc: Location::default(),
             pc_tag: Tag::from(tag::ACCESSED),
             policy: policy::default(),
+            plugin: EvaluatorPlugin::default(),
         }
     }
 }
@@ -75,7 +87,12 @@ impl<'policy> Evaluator<'policy> {
             pc: Location::default(),
             pc_tag: Tag::from(tag::ACCESSED),
             policy,
+            plugin: EvaluatorPlugin::default(),
         }
+    }
+
+    pub fn add_plugin(&mut self, plugin: Box<dyn Plugin>) {
+        self.plugin.add_plugin(plugin)
     }
 }
 
@@ -93,13 +110,16 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         // let insn = context.fetch(address, pdb.arena)?;
         let insn = pdb.fetch(address, context.backend())?;
         info!("pc @ {:#010x} (tag={}): {}", address.offset(), &self.pc_tag, insn.disasm_str());
+        self.plugin.pre_insn_cb(&self.pc, insn.as_ref(), context)?;
         let pcode = &insn.pcode;
         let op_count = pcode.operations.len() as u32;
         let mut flow = FlowType::Fall.into();
         while address == self.pc.address() && self.pc.position() < op_count {
             let pos = self.pc.position() as usize;
             let op = &pcode.operations[pos];
+            self.plugin.pre_pcode_cb(&self.pc, op, context)?;
             flow = self._evaluate(op, context)?;
+            self.plugin.post_pcode_cb(&self.pc, op, context)?;
 
             match flow.flowtype {
                 FlowType::Branch
@@ -125,6 +145,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
             self.pc = Location::from(address + pcode.len());
         }
         context.write_pc(self.pc.address(), &self.pc_tag)?;
+        self.plugin.post_insn_cb(&self.pc, insn.as_ref(), context)?;
         Ok(())
     }
 }
@@ -132,7 +153,8 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
 impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     /// evaluate a single pcode operation
     #[instrument(skip_all)]
-    fn _evaluate(&self,
+    fn _evaluate(
+        &mut self,
         operation: &PCodeData,
         context: &mut Context<'backend>,
     ) -> Result<Flow, Error> {
@@ -153,6 +175,10 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
                 let (val, val_tag) = self._read_mem(&loc, lsz, context)?;
 
                 let tag = self.policy.propagate_load(dst, &val_tag, &loc_tag)?;
+                let mem_size = val.bytes();
+                let mut value = (val, tag);
+                self.plugin.mem_access_cb(&self.pc, &loc, mem_size, Permission::R, &mut value, context)?;
+                let (val, tag) = value;
                 self._assign(dst, val, tag, context)?;
             }
             Opcode::Store => {
@@ -163,6 +189,10 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
                 let (loc, loc_tag) = self._read_addr(dst, context)?;
 
                 let tag = self.policy.propagate_store(dst, &val_tag, &loc_tag)?;
+                let mem_size = val.bytes();
+                let mut value = (val, tag);
+                self.plugin.mem_access_cb(&self.pc, &loc, mem_size, Permission::W, &mut value, context)?;
+                let (val, tag) = value;
                 self._write_mem(&loc, &val, &tag, context)?;
             }
             Opcode::IntAdd => {
