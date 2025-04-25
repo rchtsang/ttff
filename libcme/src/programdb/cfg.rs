@@ -106,7 +106,7 @@ impl<'arena> CFGraph<'arena> {
         };
         assert_eq!(
             *self.blocks.get(parent_base).unwrap().insns().last().unwrap(),
-            parent,
+            parent & !1,
             "parent must be last instruction in its block",
         );
         let child_base = self.blkmap.overlap(child).next()
