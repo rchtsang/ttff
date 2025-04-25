@@ -1,0 +1,2216 @@
+[
+  {
+    "num": 36,
+    "value": 373,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "char_out"
+  },
+  {
+    "num": 51,
+    "value": 14963,
+    "size": 56,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "process_recheck"
+  },
+  {
+    "num": 53,
+    "value": 15019,
+    "size": 32,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "validate_args"
+  },
+  {
+    "num": 55,
+    "value": 15051,
+    "size": 44,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "notify_one"
+  },
+  {
+    "num": 57,
+    "value": 497,
+    "size": 540,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "process_event"
+  },
+  {
+    "num": 60,
+    "value": 15095,
+    "size": 26,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "transition_complete"
+  },
+  {
+    "num": 84,
+    "value": 1161,
+    "size": 160,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "mem_manage_fault"
+  },
+  {
+    "num": 87,
+    "value": 1321,
+    "size": 84,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "usage_fault.cons[...]"
+  },
+  {
+    "num": 90,
+    "value": 1405,
+    "size": 108,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "bus_fault.constprop.0"
+  },
+  {
+    "num": 160,
+    "value": 2621,
+    "size": 40,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "region_init"
+  },
+  {
+    "num": 163,
+    "value": 15507,
+    "size": 32,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "size_to_mpu_rasr_size"
+  },
+  {
+    "num": 165,
+    "value": 2661,
+    "size": 108,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "mpu_configure_regions"
+  },
+  {
+    "num": 184,
+    "value": 15539,
+    "size": 10,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "picolibc_put"
+  },
+  {
+    "num": 193,
+    "value": 3289,
+    "size": 36,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "malloc_prepare"
+  },
+  {
+    "num": 201,
+    "value": 3325,
+    "size": 64,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nordicsemi_nrf52_init"
+  },
+  {
+    "num": 212,
+    "value": 15549,
+    "size": 18,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "get_status"
+  },
+  {
+    "num": 214,
+    "value": 15567,
+    "size": 82,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "stop"
+  },
+  {
+    "num": 216,
+    "value": 15649,
+    "size": 6,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "api_stop"
+  },
+  {
+    "num": 218,
+    "value": 15655,
+    "size": 92,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "async_start"
+  },
+  {
+    "num": 220,
+    "value": 15747,
+    "size": 14,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "api_start"
+  },
+  {
+    "num": 222,
+    "value": 3409,
+    "size": 48,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "onoff_stop"
+  },
+  {
+    "num": 226,
+    "value": 15761,
+    "size": 18,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "onoff_started_ca[...]"
+  },
+  {
+    "num": 228,
+    "value": 3457,
+    "size": 68,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "onoff_start"
+  },
+  {
+    "num": 231,
+    "value": 15779,
+    "size": 6,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "lfclk_start"
+  },
+  {
+    "num": 233,
+    "value": 3525,
+    "size": 52,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "generic_hfclk_stop"
+  },
+  {
+    "num": 237,
+    "value": 15785,
+    "size": 6,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "lfclk_stop"
+  },
+  {
+    "num": 239,
+    "value": 15791,
+    "size": 6,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "blocking_start_c[...]"
+  },
+  {
+    "num": 241,
+    "value": 3577,
+    "size": 88,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "clk_init"
+  },
+  {
+    "num": 243,
+    "value": 3913,
+    "size": 28,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "clock_event_handler"
+  },
+  {
+    "num": 246,
+    "value": 3665,
+    "size": 52,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "api_blocking_start"
+  },
+  {
+    "num": 249,
+    "value": 3717,
+    "size": 76,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "clkstarted_handl[...]"
+  },
+  {
+    "num": 252,
+    "value": 3793,
+    "size": 120,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "generic_hfclk_start"
+  },
+  {
+    "num": 276,
+    "value": 4193,
+    "size": 40,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "uart_console_init"
+  },
+  {
+    "num": 278,
+    "value": 4233,
+    "size": 40,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "console_out"
+  },
+  {
+    "num": 285,
+    "value": 15797,
+    "size": 14,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "gpio_nrfx_port_g[...]"
+  },
+  {
+    "num": 287,
+    "value": 15811,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "gpio_nrfx_port_s[...]"
+  },
+  {
+    "num": 289,
+    "value": 15835,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "gpio_nrfx_port_s[...]"
+  },
+  {
+    "num": 291,
+    "value": 15847,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "gpio_nrfx_port_c[...]"
+  },
+  {
+    "num": 293,
+    "value": 15859,
+    "size": 26,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "gpio_nrfx_port_t[...]"
+  },
+  {
+    "num": 295,
+    "value": 15885,
+    "size": 82,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "gpio_nrfx_manage[...]"
+  },
+  {
+    "num": 297,
+    "value": 4273,
+    "size": 256,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "gpio_nrfx_pin_in[...]"
+  },
+  {
+    "num": 300,
+    "value": 4529,
+    "size": 72,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "gpio_nrfx_init"
+  },
+  {
+    "num": 302,
+    "value": 4601,
+    "size": 76,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpio_handler"
+  },
+  {
+    "num": 306,
+    "value": 4677,
+    "size": 396,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "gpio_nrfx_pin_co[...]"
+  },
+  {
+    "num": 328,
+    "value": 5073,
+    "size": 32,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrf_gpio_pin_por[...]"
+  },
+  {
+    "num": 338,
+    "value": 16005,
+    "size": 14,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "uarte_nrfx_err_check"
+  },
+  {
+    "num": 340,
+    "value": 16019,
+    "size": 40,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "uarte_nrfx_poll_in"
+  },
+  {
+    "num": 342,
+    "value": 16059,
+    "size": 32,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "is_tx_ready.isra.0"
+  },
+  {
+    "num": 344,
+    "value": 16091,
+    "size": 110,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "uarte_nrfx_isr_int"
+  },
+  {
+    "num": 346,
+    "value": 5525,
+    "size": 220,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "uarte_0_init"
+  },
+  {
+    "num": 349,
+    "value": 5745,
+    "size": 204,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "uarte_nrfx_poll_out"
+  },
+  {
+    "num": 374,
+    "value": 16201,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "event_clear"
+  },
+  {
+    "num": 376,
+    "value": 5949,
+    "size": 72,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "compare_int_lock"
+  },
+  {
+    "num": 380,
+    "value": 6021,
+    "size": 72,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "sys_clock_timeou[...]"
+  },
+  {
+    "num": 386,
+    "value": 6093,
+    "size": 92,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "compare_int_unlock"
+  },
+  {
+    "num": 393,
+    "value": 6253,
+    "size": 304,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "compare_set"
+  },
+  {
+    "num": 396,
+    "value": 6557,
+    "size": 144,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "sys_clock_driver_init"
+  },
+  {
+    "num": 414,
+    "value": 7025,
+    "size": 36,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrf52_errata_98"
+  },
+  {
+    "num": 417,
+    "value": 7025,
+    "size": 36,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrf52_errata_120"
+  },
+  {
+    "num": 418,
+    "value": 7025,
+    "size": 36,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrf52_errata_115"
+  },
+  {
+    "num": 419,
+    "value": 7025,
+    "size": 36,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrf52_errata_103"
+  },
+  {
+    "num": 436,
+    "value": 7669,
+    "size": 196,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "clock_stop"
+  },
+  {
+    "num": 451,
+    "value": 8205,
+    "size": 32,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrf_gpio_pin_por[...]"
+  },
+  {
+    "num": 454,
+    "value": 16255,
+    "size": 146,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrf_gpio_reconfigure"
+  },
+  {
+    "num": 456,
+    "value": 16401,
+    "size": 30,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrf_gpio_cfg_sen[...]"
+  },
+  {
+    "num": 458,
+    "value": 8237,
+    "size": 20,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "get_pin_idx"
+  },
+  {
+    "num": 462,
+    "value": 8257,
+    "size": 64,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "call_handler.con[...]"
+  },
+  {
+    "num": 466,
+    "value": 8321,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "pin_te_get.const[...]"
+  },
+  {
+    "num": 469,
+    "value": 8345,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "pin_is_output.co[...]"
+  },
+  {
+    "num": 472,
+    "value": 8369,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "pin_in_use_by_te[...]"
+  },
+  {
+    "num": 475,
+    "value": 8393,
+    "size": 64,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "latch_pending_re[...]"
+  },
+  {
+    "num": 478,
+    "value": 8457,
+    "size": 88,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "release_handler.[...]"
+  },
+  {
+    "num": 481,
+    "value": 8545,
+    "size": 92,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "__nrfy_internal_[...]"
+  },
+  {
+    "num": 484,
+    "value": 16431,
+    "size": 72,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "pin_trigger_disable"
+  },
+  {
+    "num": 486,
+    "value": 8637,
+    "size": 128,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "pin_uninit"
+  },
+  {
+    "num": 520,
+    "value": 10233,
+    "size": 104,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "_DoInit"
+  },
+  {
+    "num": 534,
+    "value": 16579,
+    "size": 48,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "do_device_init"
+  },
+  {
+    "num": 536,
+    "value": 10385,
+    "size": 44,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_sys_init_run_level"
+  },
+  {
+    "num": 540,
+    "value": 10429,
+    "size": 196,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "bg_thread_main"
+  },
+  {
+    "num": 572,
+    "value": 16675,
+    "size": 16,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "sys_dlist_remove"
+  },
+  {
+    "num": 574,
+    "value": 16691,
+    "size": 20,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "unpend_thread_no[...]"
+  },
+  {
+    "num": 576,
+    "value": 11281,
+    "size": 60,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "update_cache"
+  },
+  {
+    "num": 579,
+    "value": 11341,
+    "size": 48,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "unready_thread"
+  },
+  {
+    "num": 582,
+    "value": 11389,
+    "size": 104,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "ready_thread"
+  },
+  {
+    "num": 585,
+    "value": 11493,
+    "size": 220,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_thread_halt"
+  },
+  {
+    "num": 588,
+    "value": 16711,
+    "size": 80,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "add_to_waitq_locked"
+  },
+  {
+    "num": 613,
+    "value": 12297,
+    "size": 136,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_tick_sleep"
+  },
+  {
+    "num": 623,
+    "value": 12505,
+    "size": 32,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "slice_timeout"
+  },
+  {
+    "num": 645,
+    "value": 12825,
+    "size": 20,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "elapsed"
+  },
+  {
+    "num": 649,
+    "value": 12845,
+    "size": 56,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "remove_timeout"
+  },
+  {
+    "num": 653,
+    "value": 12901,
+    "size": 64,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "next_timeout"
+  },
+  {
+    "num": 675,
+    "value": 17143,
+    "size": 174,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "__ultoa_invert"
+  },
+  {
+    "num": 688,
+    "value": 14723,
+    "size": 10,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "chunk_size"
+  },
+  {
+    "num": 690,
+    "value": 14733,
+    "size": 78,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "free_list_add"
+  },
+  {
+    "num": 709,
+    "value": 16515,
+    "size": 10,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "rtt_init"
+  },
+  {
+    "num": 759,
+    "value": 17069,
+    "size": 42,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_abort_timeout"
+  },
+  {
+    "num": 760,
+    "value": 2889,
+    "size": 360,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_mpu_init"
+  },
+  {
+    "num": 761,
+    "value": 1833,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_bus_fault"
+  },
+  {
+    "num": 765,
+    "value": 2065,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_pendsv"
+  },
+  {
+    "num": 767,
+    "value": 16659,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "k_is_in_isr"
+  },
+  {
+    "num": 770,
+    "value": 11713,
+    "size": 116,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "move_thread_to_e[...]"
+  },
+  {
+    "num": 774,
+    "value": 1853,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_reset"
+  },
+  {
+    "num": 776,
+    "value": 13209,
+    "size": 208,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "sys_clock_announce"
+  },
+  {
+    "num": 785,
+    "value": 16225,
+    "size": 2,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_isr"
+  },
+  {
+    "num": 788,
+    "value": 3249,
+    "size": 16,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_impl_zephyr_fputc"
+  },
+  {
+    "num": 789,
+    "value": 17111,
+    "size": 8,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "sys_clock_tick_get_32"
+  },
+  {
+    "num": 799,
+    "value": 16507,
+    "size": 4,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_trig[...]"
+  },
+  {
+    "num": 800,
+    "value": 17361,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "__aeabi_read_tp"
+  },
+  {
+    "num": 804,
+    "value": 13477,
+    "size": 36,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "printf"
+  },
+  {
+    "num": 816,
+    "value": 7593,
+    "size": 64,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_flag32_free"
+  },
+  {
+    "num": 818,
+    "value": 13417,
+    "size": 48,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "sys_clock_tick_get"
+  },
+  {
+    "num": 819,
+    "value": 1833,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_usage_fault"
+  },
+  {
+    "num": 824,
+    "value": 2205,
+    "size": 48,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_irq_priori[...]"
+  },
+  {
+    "num": 828,
+    "value": 1833,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_mpu_fault"
+  },
+  {
+    "num": 842,
+    "value": 16227,
+    "size": 4,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_busy_wait"
+  },
+  {
+    "num": 847,
+    "value": 2177,
+    "size": 28,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_irq_is_enabled"
+  },
+  {
+    "num": 853,
+    "value": 445,
+    "size": 52,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_thread_entry"
+  },
+  {
+    "num": 854,
+    "value": 12173,
+    "size": 124,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_impl_k_yield"
+  },
+  {
+    "num": 861,
+    "value": 6185,
+    "size": 68,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_nrf_rtc_timer_read"
+  },
+  {
+    "num": 877,
+    "value": 15477,
+    "size": 30,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_cpu_atomic_idle"
+  },
+  {
+    "num": 883,
+    "value": 9453,
+    "size": 104,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_init"
+  },
+  {
+    "num": 884,
+    "value": 16573,
+    "size": 6,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "k_sys_fatal_erro[...]"
+  },
+  {
+    "num": 887,
+    "value": 17317,
+    "size": 28,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "memcpy"
+  },
+  {
+    "num": 891,
+    "value": 15407,
+    "size": 8,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_do_kernel_oops"
+  },
+  {
+    "num": 897,
+    "value": 16873,
+    "size": 66,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_sched_wake_thread"
+  },
+  {
+    "num": 902,
+    "value": 10761,
+    "size": 220,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_cstart"
+  },
+  {
+    "num": 904,
+    "value": 13513,
+    "size": 1208,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "__l_vfprintf"
+  },
+  {
+    "num": 908,
+    "value": 2381,
+    "size": 44,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_check_thread_s[...]"
+  },
+  {
+    "num": 913,
+    "value": 9601,
+    "size": 176,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_trig[...]"
+  },
+  {
+    "num": 919,
+    "value": 2589,
+    "size": 32,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_configure_[...]"
+  },
+  {
+    "num": 921,
+    "value": 9589,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_chan[...]"
+  },
+  {
+    "num": 924,
+    "value": 16635,
+    "size": 2,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_init_static"
+  },
+  {
+    "num": 926,
+    "value": 9401,
+    "size": 52,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_chan[...]"
+  },
+  {
+    "num": 930,
+    "value": 1037,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "mem_attr_get_regions"
+  },
+  {
+    "num": 931,
+    "value": 2833,
+    "size": 56,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arm_core_mpu_con[...]"
+  },
+  {
+    "num": 934,
+    "value": 17317,
+    "size": 28,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "__aeabi_memcpy"
+  },
+  {
+    "num": 935,
+    "value": 12157,
+    "size": 16,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_sched_init"
+  },
+  {
+    "num": 943,
+    "value": 14721,
+    "size": 2,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "_OffsetAbsSyms"
+  },
+  {
+    "num": 944,
+    "value": 11053,
+    "size": 76,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_impl_k_sem_take"
+  },
+  {
+    "num": 945,
+    "value": 385,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "__printk_hook_install"
+  },
+  {
+    "num": 947,
+    "value": 1993,
+    "size": 72,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_pendsv_c"
+  },
+  {
+    "num": 953,
+    "value": 15333,
+    "size": 34,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "sys_notify_validate"
+  },
+  {
+    "num": 954,
+    "value": 12053,
+    "size": 40,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "k_sched_lock"
+  },
+  {
+    "num": 958,
+    "value": 6913,
+    "size": 92,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "sys_clock_set_timeout"
+  },
+  {
+    "num": 971,
+    "value": 8765,
+    "size": 372,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_inpu[...]"
+  },
+  {
+    "num": 975,
+    "value": 16503,
+    "size": 4,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_pin_[...]"
+  },
+  {
+    "num": 989,
+    "value": 16525,
+    "size": 8,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_impl_k_busy_wait"
+  },
+  {
+    "num": 993,
+    "value": 9557,
+    "size": 20,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_init[...]"
+  },
+  {
+    "num": 994,
+    "value": 17317,
+    "size": 28,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "__aeabi_memcpy4"
+  },
+  {
+    "num": 1003,
+    "value": 10625,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_bss_zero"
+  },
+  {
+    "num": 1007,
+    "value": 11953,
+    "size": 60,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_sched_start"
+  },
+  {
+    "num": 1008,
+    "value": 15451,
+    "size": 26,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_cpu_idle"
+  },
+  {
+    "num": 1020,
+    "value": 9137,
+    "size": 252,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_outp[...]"
+  },
+  {
+    "num": 1030,
+    "value": 6701,
+    "size": 212,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "rtc_nrf_isr"
+  },
+  {
+    "num": 1033,
+    "value": 17119,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "strnlen"
+  },
+  {
+    "num": 1049,
+    "value": 16631,
+    "size": 4,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_early_memcpy"
+  },
+  {
+    "num": 1054,
+    "value": 16511,
+    "size": 4,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "SEGGER_RTT_Init"
+  },
+  {
+    "num": 1055,
+    "value": 2565,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_configure_[...]"
+  },
+  {
+    "num": 1059,
+    "value": 7521,
+    "size": 72,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_flag32_alloc"
+  },
+  {
+    "num": 1068,
+    "value": 15367,
+    "size": 26,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "sys_notify_finalize"
+  },
+  {
+    "num": 1069,
+    "value": 1121,
+    "size": 40,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_exc_exit"
+  },
+  {
+    "num": 1082,
+    "value": 7865,
+    "size": 32,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_clock_init"
+  },
+  {
+    "num": 1084,
+    "value": 17317,
+    "size": 28,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "__aeabi_memcpy8"
+  },
+  {
+    "num": 1085,
+    "value": 3941,
+    "size": 252,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_nrf_clock_cont[...]"
+  },
+  {
+    "num": 1091,
+    "value": 2425,
+    "size": 60,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_switch_to_m[...]"
+  },
+  {
+    "num": 1092,
+    "value": 2769,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arm_core_mpu_enable"
+  },
+  {
+    "num": 1093,
+    "value": 12773,
+    "size": 52,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_data_copy"
+  },
+  {
+    "num": 1094,
+    "value": 7657,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gppi_channe[...]"
+  },
+  {
+    "num": 1096,
+    "value": 2149,
+    "size": 28,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_irq_enable"
+  },
+  {
+    "num": 1099,
+    "value": 1853,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "__start"
+  },
+  {
+    "num": 1102,
+    "value": 7061,
+    "size": 16,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nvmc_wait"
+  },
+  {
+    "num": 1106,
+    "value": 7897,
+    "size": 36,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_clock_enable"
+  },
+  {
+    "num": 1114,
+    "value": 1901,
+    "size": 44,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_impl_k_thread_abort"
+  },
+  {
+    "num": 1115,
+    "value": 16627,
+    "size": 4,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_early_memset"
+  },
+  {
+    "num": 1125,
+    "value": 14933,
+    "size": 4,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_printk_char_out"
+  },
+  {
+    "num": 1140,
+    "value": 16637,
+    "size": 22,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "idle"
+  },
+  {
+    "num": 1147,
+    "value": 10981,
+    "size": 72,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_impl_k_sem_give"
+  },
+  {
+    "num": 1152,
+    "value": 9777,
+    "size": 444,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_0_ir[...]"
+  },
+  {
+    "num": 1154,
+    "value": 12537,
+    "size": 60,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "thread_is_sliceable"
+  },
+  {
+    "num": 1157,
+    "value": 12433,
+    "size": 60,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_impl_k_sleep"
+  },
+  {
+    "num": 1158,
+    "value": 397,
+    "size": 48,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "vprintk"
+  },
+  {
+    "num": 1170,
+    "value": 16939,
+    "size": 8,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_thread_timeout"
+  },
+  {
+    "num": 1172,
+    "value": 16535,
+    "size": 22,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_impl_device_is[...]"
+  },
+  {
+    "num": 1180,
+    "value": 17001,
+    "size": 68,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_thread_abort"
+  },
+  {
+    "num": 1181,
+    "value": 11829,
+    "size": 88,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_pend_curr"
+  },
+  {
+    "num": 1183,
+    "value": 2529,
+    "size": 36,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "_isr_wrapper"
+  },
+  {
+    "num": 1184,
+    "value": 1513,
+    "size": 296,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_fault"
+  },
+  {
+    "num": 1195,
+    "value": 11917,
+    "size": 36,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_reschedule"
+  },
+  {
+    "num": 1200,
+    "value": 15393,
+    "size": 2,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "_ConfigAbsSyms"
+  },
+  {
+    "num": 1208,
+    "value": 1833,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_exc_spurious"
+  },
+  {
+    "num": 1210,
+    "value": 14937,
+    "size": 26,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "printk"
+  },
+  {
+    "num": 1211,
+    "value": 16557,
+    "size": 16,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_system_halt"
+  },
+  {
+    "num": 1224,
+    "value": 12093,
+    "size": 64,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "k_sched_unlock"
+  },
+  {
+    "num": 1226,
+    "value": 2505,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_interrupt_init"
+  },
+  {
+    "num": 1241,
+    "value": 7077,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_platform_init"
+  },
+  {
+    "num": 1246,
+    "value": 17345,
+    "size": 16,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "memset"
+  },
+  {
+    "num": 1249,
+    "value": 14811,
+    "size": 122,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "sys_heap_init"
+  },
+  {
+    "num": 1250,
+    "value": 257,
+    "size": 116,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "main"
+  },
+  {
+    "num": 1262,
+    "value": 16671,
+    "size": 4,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_impl_k_thread_start"
+  },
+  {
+    "num": 1264,
+    "value": 8101,
+    "size": 104,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_power_clock[...]"
+  },
+  {
+    "num": 1266,
+    "value": 1049,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_SysNmiOnReset"
+  },
+  {
+    "num": 1269,
+    "value": 15429,
+    "size": 8,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_irq_spurious"
+  },
+  {
+    "num": 1278,
+    "value": 2793,
+    "size": 20,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arm_core_mpu_disable"
+  },
+  {
+    "num": 1288,
+    "value": 1121,
+    "size": 40,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_int_exit"
+  },
+  {
+    "num": 1296,
+    "value": 3265,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "__stdout_hook_install"
+  },
+  {
+    "num": 1297,
+    "value": 7077,
+    "size": 444,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "SystemInit"
+  },
+  {
+    "num": 1304,
+    "value": 15967,
+    "size": 38,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "pinctrl_lookup_state"
+  },
+  {
+    "num": 1305,
+    "value": 1833,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_debug_monitor"
+  },
+  {
+    "num": 1306,
+    "value": 16533,
+    "size": 2,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_device_state_init"
+  },
+  {
+    "num": 1315,
+    "value": 1945,
+    "size": 48,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_swap"
+  },
+  {
+    "num": 1320,
+    "value": 3389,
+    "size": 20,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_busy_wait"
+  },
+  {
+    "num": 1328,
+    "value": 16821,
+    "size": 52,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_impl_k_thread_[...]"
+  },
+  {
+    "num": 1329,
+    "value": 12965,
+    "size": 244,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_add_timeout"
+  },
+  {
+    "num": 1343,
+    "value": 2813,
+    "size": 20,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arm_core_mpu_con[...]"
+  },
+  {
+    "num": 1353,
+    "value": 10649,
+    "size": 112,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_init_cpu"
+  },
+  {
+    "num": 1360,
+    "value": 1057,
+    "size": 64,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_tls_stack_setup"
+  },
+  {
+    "num": 1374,
+    "value": 9389,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_glob[...]"
+  },
+  {
+    "num": 1375,
+    "value": 7005,
+    "size": 20,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "sys_clock_elapsed"
+  },
+  {
+    "num": 1378,
+    "value": 16251,
+    "size": 4,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_clock_stop"
+  },
+  {
+    "num": 1383,
+    "value": 16791,
+    "size": 30,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_ready_thread"
+  },
+  {
+    "num": 1388,
+    "value": 2253,
+    "size": 72,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_prep_c"
+  },
+  {
+    "num": 1389,
+    "value": 1,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "ABS",
+    "name": "vfscanf"
+  },
+  {
+    "num": 1401,
+    "value": 7933,
+    "size": 168,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_clock_start"
+  },
+  {
+    "num": 1406,
+    "value": 2325,
+    "size": 56,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_new_thread"
+  },
+  {
+    "num": 1409,
+    "value": 10221,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_ppi_channel[...]"
+  },
+  {
+    "num": 1415,
+    "value": 5105,
+    "size": 420,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "pinctrl_configur[...]"
+  },
+  {
+    "num": 1417,
+    "value": 12013,
+    "size": 40,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_reschedule_irqlock"
+  },
+  {
+    "num": 1418,
+    "value": 15121,
+    "size": 38,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "onoff_manager_init"
+  },
+  {
+    "num": 1421,
+    "value": 11129,
+    "size": 152,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_setup_new_thread"
+  },
+  {
+    "num": 1424,
+    "value": 15159,
+    "size": 174,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "onoff_request"
+  },
+  {
+    "num": 1433,
+    "value": 16947,
+    "size": 54,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_unpend_first_thread"
+  },
+  {
+    "num": 1437,
+    "value": 9577,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gpiote_chan[...]"
+  },
+  {
+    "num": 1438,
+    "value": 1809,
+    "size": 24,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_fault_init"
+  },
+  {
+    "num": 1453,
+    "value": 15395,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_fatal_error"
+  },
+  {
+    "num": 1455,
+    "value": 2117,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_svc"
+  },
+  {
+    "num": 1462,
+    "value": 2493,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_cpu_idle_init"
+  },
+  {
+    "num": 1472,
+    "value": 12597,
+    "size": 80,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_reset_time_slice"
+  },
+  {
+    "num": 1478,
+    "value": 15415,
+    "size": 14,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_nmi"
+  },
+  {
+    "num": 1480,
+    "value": 12677,
+    "size": 96,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_time_slice"
+  },
+  {
+    "num": 1486,
+    "value": 16231,
+    "size": 20,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "nrfx_gppi_channe[...]"
+  },
+  {
+    "num": 1488,
+    "value": 12493,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_impl_k_sched_c[...]"
+  },
+  {
+    "num": 1489,
+    "value": 10337,
+    "size": 48,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_fatal_error"
+  },
+  {
+    "num": 1492,
+    "value": 13465,
+    "size": 12,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "boot_banner"
+  },
+  {
+    "num": 1510,
+    "value": 13513,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "vfprintf"
+  },
+  {
+    "num": 1516,
+    "value": 15437,
+    "size": 14,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "arch_irq_unlock_[...]"
+  },
+  {
+    "num": 1517,
+    "value": 1833,
+    "size": 0,
+    "type": "FUNC",
+    "vis": "DEFAULT",
+    "ndx": "2",
+    "name": "z_arm_hard_fault"
+  }
+]

@@ -1,0 +1,20 @@
+logFile $ORIGIN/philosophers-renode.log True
+
+using sysbus
+$name?="nrf52840dk_nrf52840"
+mach create $name
+
+machine LoadPlatformDescription $ORIGIN/philosophers.repl
+
+showAnalyzer uart0
+
+uart0 RecordToAsciinema $ORIGIN/philosophers-asciinema
+
+macro reset
+"""
+    sysbus LoadELF @https://zephyr-dashboard.renode.io/zephyr/cce7e9a706ca848f73e4ef2c435668e358b73305/nrf52840dk_nrf52840/philosophers/philosophers.elf
+    cpu0 VectorTableOffset `sysbus GetSymbolAddress "_vector_table"`
+    cpu0 EnableProfilerCollapsedStack $ORIGIN/philosophers-profile true
+"""
+
+runMacro $reset
