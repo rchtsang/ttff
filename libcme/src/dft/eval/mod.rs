@@ -23,7 +23,7 @@ use super::tag::{
     self,
     Tag,
 };
-use super::Plugin;
+use super::EvalPlugin;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -63,7 +63,7 @@ pub struct Evaluator<'policy> {
     pub pc: Location,
     pub pc_tag: Tag,
     pub policy: &'policy dyn TaintPolicy,
-    pub plugin: EvaluatorPlugin,
+    plugin: EvaluatorPlugin,
 }
 
 impl<'policy> Default for Evaluator<'policy> {
@@ -91,7 +91,7 @@ impl<'policy> Evaluator<'policy> {
         }
     }
 
-    pub fn add_plugin(&mut self, plugin: Box<dyn Plugin>) {
+    pub fn add_plugin(&mut self, plugin:  Box<dyn EvalPlugin>) {
         self.plugin.add_plugin(plugin)
     }
 }
@@ -358,8 +358,14 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
             Opcode::CallOther => {
                 let output = operation.output.as_ref();
                 let inputs = &operation.inputs[..];
-                if let Some(target) = context.userop(output, inputs)? {
-                    return Ok(FlowType::Unknown.target(target));
+
+                let (cb_index, cb_inputs, cb_output) = get_userop_params(output, inputs);
+                self.plugin.pre_userop_cb(&loc, cb_index, cb_inputs, cb_output, context)?;
+                let result = context.userop(output, inputs)?;
+                self.plugin.post_userop_cb(&loc, cb_index, cb_inputs, cb_output, context, &result)?;
+                
+                if result.is_some() {
+                    return Ok(FlowType::Unknown.target(result.unwrap()));
                 }
             }
             op => {

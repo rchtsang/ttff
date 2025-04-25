@@ -58,11 +58,11 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     context.write_pc(0u64, &Tag::from(tag::ACCESSED))?;
 
     info!("initializing dummy plugin...");
-    let plugin = Box::new(dft::plugin::DummyPlugin::default());
+    let eval_plugin = Box::new(dft::plugin::DummyEvalPlugin::default());
 
     info!("executing program...");
     let mut evaluator = Evaluator::new_with_policy(&policy);
-    evaluator.add_plugin(plugin);
+    evaluator.add_plugin(eval_plugin);
     (evaluator.pc, evaluator.pc_tag) = context.read_pc()
         .map(|(pc, tag)| (Location::from(pc), tag))?;
 

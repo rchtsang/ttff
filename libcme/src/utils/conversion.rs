@@ -49,3 +49,13 @@ pub(crate) fn _absolute_loc(base: Address, vnd: VarnodeData, position: u32) -> L
 
     Location { address: base.into(), position }
 }
+
+/// helper to split userop parameters
+pub fn get_userop_params<'a>(
+    output: Option<&'a VarnodeData>,
+    inputs: &'a [VarnodeData],
+) -> (usize, &'a [VarnodeData], Option<&'a VarnodeData>) {
+    assert!(inputs[0].space().is_constant(), "input0 of userop must be constant id per pcode spec");
+    let index = inputs[0].offset() as usize;
+    (index, &inputs[1..], output)
+}

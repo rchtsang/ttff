@@ -15,14 +15,14 @@ use thiserror::Error;
 
 use fugue_core::prelude::*;
 use fugue_core::ir::Location;
-use fugue_ir::disassembly::PCodeData;
+use fugue_ir::disassembly::{PCodeData, VarnodeData};
 
 use crate::types::*;
 use crate::dft::Context;
 use crate::dft::tag::Tag;
 
 mod dummy;
-pub use dummy::DummyPlugin;
+pub use dummy::DummyEvalPlugin;
 
 /// allow arbitrary plugin error types
 #[derive(Debug, derive_more::Display, Error)]
@@ -30,7 +30,7 @@ pub struct Error(pub(crate) anyhow::Error);
 
 
 #[allow(unused)]
-pub trait Plugin: fmt::Debug {
+pub trait EvalPlugin: fmt::Debug {
 
     fn pre_insn_cb<'irb, 'backend>(
         &mut self,
@@ -69,6 +69,25 @@ pub trait Plugin: fmt::Debug {
         value: &mut (BitVec, Tag),
         context: &mut Context<'backend>,
     ) -> Result<(), Error> { Ok(()) }
+
+    fn pre_userop_cb<'backend>(
+        &mut self,
+        loc: &Location,
+        index: usize,
+        inputs: &[VarnodeData],
+        output: Option<&VarnodeData>,
+        context: &mut Context<'backend>,
+    ) -> Result<(), Error> { Ok(()) }
+
+    fn post_userop_cb<'backend>(
+        &mut self,
+        loc: &Location,
+        index: usize,
+        inputs: &[VarnodeData],
+        output: Option<&VarnodeData>,
+        context: &mut Context<'backend>,
+        result: &Option<Location>,
+    ) -> Result<(), Error> { Ok(()) }
 }
 
 
@@ -79,16 +98,16 @@ pub trait Plugin: fmt::Debug {
 /// a wrapper for the plugin(s) that will be provided to the
 /// evaluator upon instantiation
 #[derive(Debug)]
-pub struct EvaluatorPlugin {
-    plugins: Vec<Box<dyn Plugin>>,
+pub(crate) struct EvaluatorPlugin {
+    plugins: Vec<Box<dyn EvalPlugin>>,
 }
 
 impl EvaluatorPlugin {
-    pub fn new_with(plugins: Vec<Box<dyn Plugin>>) -> Self {
+    pub(crate) fn new_with(plugins: Vec<Box<dyn EvalPlugin>>) -> Self {
         Self { plugins }
     }
 
-    pub fn add_plugin(&mut self, plugin: Box<dyn Plugin>) {
+    pub(crate) fn add_plugin(&mut self, plugin: Box<dyn EvalPlugin>) {
         self.plugins.push(plugin)
     }
 }
@@ -99,7 +118,7 @@ impl Default for EvaluatorPlugin {
     }
 }
 
-impl Plugin for EvaluatorPlugin {
+impl EvalPlugin for EvaluatorPlugin {
 
     fn pre_insn_cb<'irb, 'backend>(
         &mut self,

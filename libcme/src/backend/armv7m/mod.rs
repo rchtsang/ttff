@@ -464,9 +464,8 @@ impl BackendTrait for Backend {
         output: Option<&VarnodeData>,
         inputs: &[VarnodeData],
     ) -> Result<Option<fugue_core::ir::Location>, super::Error> {
-        assert!(inputs[0].space().is_constant(), "input0 of userop must be constant id per pcode spec");
-        let index = inputs[0].offset() as usize;
-        self._userop(index, &inputs[1..], output)
+        let (index, inputs, output) = get_userop_params(output, inputs);
+        self._userop(index, inputs, output)
     }
 }
 

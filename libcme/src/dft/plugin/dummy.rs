@@ -7,7 +7,7 @@ use super::*;
 
 /// a dummy plugin with a number of various counters
 #[derive(Debug, Default)]
-pub struct DummyPlugin {
+pub struct DummyEvalPlugin {
     pub pre_insn_cnt: usize,
     pub post_insn_cnt: usize,
     pub pre_pcode_cnt: usize,
@@ -16,7 +16,7 @@ pub struct DummyPlugin {
     pub write_access_cnt: usize,
 }
 
-impl Plugin for DummyPlugin {
+impl EvalPlugin for DummyEvalPlugin {
     #[instrument(skip_all)]
     fn pre_insn_cb<'irb, 'backend>(
         &mut self,
