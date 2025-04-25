@@ -1,6 +1,7 @@
 //! dummy.rs
 //! 
 //! a dummy plugin implementation
+use nohash::IntMap;
 
 use crate::utils::*;
 use super::*;
@@ -14,6 +15,7 @@ pub struct DummyEvalPlugin {
     pub post_pcode_cnt: usize,
     pub read_access_cnt: usize,
     pub write_access_cnt: usize,
+    pub userops_called: IntMap<usize, usize>,
 }
 
 impl EvalPlugin for DummyEvalPlugin {
@@ -86,6 +88,20 @@ impl EvalPlugin for DummyEvalPlugin {
             }
             _ => { panic!("expected read or write permission to indicate load or store") }
         }
+        Ok(())
+    }
+
+    #[instrument(skip_all)]
+    fn pre_userop_cb<'backend>(
+        &mut self,
+        _loc: &Location,
+        index: usize,
+        _inputs: &[VarnodeData],
+        _output: Option<&VarnodeData>,
+        _context: &mut Context<'backend>,
+    ) -> Result<(), Error> {
+        info!("called userop: {}", index);
+        *(self.userops_called.entry(index).or_insert(0)) += 1;
         Ok(())
     }
 }
