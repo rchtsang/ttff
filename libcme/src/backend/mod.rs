@@ -5,13 +5,14 @@ use std::sync::Arc;
 use std::ops::Range;
 use std::fmt;
 
-use fugue_core::eval::fixed_state::FixedStateError;
 use thiserror::Error;
+use dyn_clone::{DynClone, clone_trait_object};
 
 use fugue_ir::{Address, VarnodeData};
 use fugue_ir::disassembly::{IRBuilderArena, PCodeData};
 use fugue_core::ir::Location;
 use fugue_core::language::{Language, LanguageBuilderError};
+use fugue_core::eval::fixed_state::FixedStateError;
 use fugue_bv::BitVec;
 
 use crate::types::*;
@@ -47,7 +48,7 @@ pub enum Error {
 }
 
 
-pub trait Backend: fmt::Debug {
+pub trait Backend: fmt::Debug + DynClone {
 
     fn lang(&self) -> &Language;
 
@@ -110,6 +111,7 @@ pub trait Backend: fmt::Debug {
     /// but this is left as is for future support if necessry.
     fn userop(&mut self, output: Option<&VarnodeData>, inputs: &[VarnodeData]) -> Result<Option<Location>, Error>;
 }
+clone_trait_object!(Backend);
 
 
 impl From<fugue_ir::error::Error> for Error {
