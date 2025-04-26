@@ -18,7 +18,7 @@ use fugue_core::eval::fixed_state::FixedStateError;
 use fugue_bv::BitVec;
 
 use crate::types::*;
-use crate::peripheral;
+use crate::peripheral::{self, Peripheral};
 use crate::utils;
 
 use crate::backend::{self, Backend};
@@ -178,6 +178,18 @@ impl<'backend> Context<'backend> {
         let base = base.into();
         self.backend.map_mem(&base, size)?;
         self.shadow.map_mem(base, size, None)?;
+        Ok(())
+    }
+
+    pub fn map_mmio(
+        &mut self,
+        peripheral: Peripheral,
+        tag: Option<Tag>,
+    ) -> Result<(), Error> {
+        let base = peripheral.base_address();
+        let size = peripheral.size() as usize;
+        self.shadow.map_mem(base, size, tag)?;
+        self.backend.map_mmio(peripheral)?;
         Ok(())
     }
 }

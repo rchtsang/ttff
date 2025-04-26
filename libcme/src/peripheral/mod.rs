@@ -64,11 +64,11 @@ impl Peripheral {
     }
 
     pub fn base_address(&self) -> Address {
-        self.range.start.clone()
+        self.state.base_address()
     }
 
     pub fn size(&self) -> u64 {
-        (self.range.end.offset() - self.range.start.offset()) as u64
+        self.state.size()
     }
 
     pub fn read_bytes(&mut self,
@@ -86,5 +86,4 @@ impl Peripheral {
     ) -> Result<(), Error> {
         self.state.write_bytes(address, src, events)
     }
-
 }
