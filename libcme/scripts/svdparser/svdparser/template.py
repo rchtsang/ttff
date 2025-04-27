@@ -3,8 +3,8 @@ import re
 from copy import copy
 from pathlib import Path
 
-from models import AccessType
-from utils import *
+from .models import AccessType
+from .utils import *
 
 PARENT_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = PARENT_DIR / "templates"

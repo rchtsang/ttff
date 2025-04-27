@@ -2,7 +2,7 @@ import re
 from collections import namedtuple
 from enum import Enum
 
-from utils import (
+from .utils import (
     camel_to_snake,
     snake_to_camel,
 )
