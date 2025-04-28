@@ -161,7 +161,7 @@ impl SysCtrlSpace {
                 return Err(backend::Error::from(err).into());
             }
             SCRegType::SysTick(_streg_type) => {
-                let mut stregs = self.systick_regs();
+                let mut stregs = self.systick_regs_mut();
                 return stregs.read_bytes(offset, dst, events);
             }
             SCRegType::NVIC(_nvicreg_type) => {
@@ -581,7 +581,7 @@ impl SysCtrlSpace {
             // SCRegType::ACTLR => todo!(),
             SCRegType::STIR => todo!(),
             SCRegType::SysTick(_streg_type) => {
-                let mut stregs = self.systick_regs();
+                let mut stregs = self.systick_regs_mut();
                 return stregs.write_bytes(offset, src, events);
             }
             SCRegType::NVIC(_nvicreg_type) => {
@@ -607,11 +607,21 @@ impl SysCtrlSpace {
     }
 
     /// get wrapper for interacting with systick registers
-    pub fn systick_regs(&mut self) -> SysTickRegs {
+    pub fn systick_regs_mut(&mut self) -> SysTickRegsMut {
         let slice = &mut self.backing[..0x40];
         assert_eq!(slice.len(), 0x40);
         let backing = unsafe {
             &mut *(slice as *mut [u32] as *mut [u32; 0x40])
+        };
+        SysTickRegsMut::new(backing)
+    }
+
+    /// get wrapper for reading systick registers
+    pub fn systick_regs(&self) -> SysTickRegs {
+        let slice = &self.backing[..0x40];
+        assert_eq!(slice.len(), 0x40);
+        let backing = unsafe {
+            &*(slice as *const [u32] as *const [u32; 0x40])
         };
         SysTickRegs::new(backing)
     }
@@ -646,7 +656,7 @@ impl SysCtrlSpace {
         MPURegsMut::new(backing)
     }
 
-    /// get wrapper for interacting with mpu registers
+    /// get wrapper for reading mpu registers
     pub fn mpu_regs(&self) -> MPURegs {
         let slice = &self.backing[..0xdec];
         assert_eq!(slice.len(), 0xdec);

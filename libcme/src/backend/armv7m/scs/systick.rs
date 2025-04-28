@@ -151,15 +151,94 @@ pub struct CALIB {
     pub noref: bool,
 }
 
+
+/// SysTick register shared reference accessor trait
+pub trait SysTick {
+    fn view_bytes(&self, word_offset: usize) -> &[u8; 4];
+
+    fn get_csr(&self) -> &CSR {
+        let word_offset = SysTickRegType::CSR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const CSR) }
+    }
+
+    fn get_rvr(&self) -> &RVR {
+        let word_offset = SysTickRegType::RVR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const RVR) }
+    }
+
+    fn get_cvr(&self) -> &CVR {
+        let word_offset = SysTickRegType::CVR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const CVR) }
+    }
+
+    fn get_calib(&self) -> &CALIB {
+        let word_offset = SysTickRegType::CALIB.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const CALIB) }
+    }
+}
+
+/// SysTick register exclusive reference accessor trait
+pub trait SysTickMut: SysTick {
+    fn view_bytes_mut(&mut self, word_offset: usize) -> &mut [u8; 4];
+
+    fn get_csr_mut(&mut self) -> &mut CSR {
+        let word_offset = SysTickRegType::CSR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut CSR) }
+    }
+
+    fn get_rvr_mut(&mut self) -> &mut RVR {
+        let word_offset = SysTickRegType::RVR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut RVR) }
+    }
+
+    fn get_cvr_mut(&mut self) -> &mut CVR {
+        let word_offset = SysTickRegType::CVR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut CVR) }
+    }
+
+    fn get_calib_mut(&mut self) -> &mut CALIB {
+        let word_offset = SysTickRegType::CALIB.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut CALIB) }
+    }
+}
+
 /// systick wrapper struct
 /// 
 /// used as a temporary wrapper struct to interact with the 
 /// systick registers in the scs and perform systick-related operations
 pub struct SysTickRegs<'a> {
-    backing: &'a mut [u32; 0x40],
+    backing: &'a [u32; 0x40],
 }
 
 impl<'a> SysTickRegs<'a> {
+    pub fn new(backing: &'a [u32; 0x40]) -> Self {
+        Self { backing }
+    }
+}
+
+impl<'a> SysTick for SysTickRegs<'a> {
+    fn view_bytes(&self, word_offset: usize) -> &[u8; 4] {
+        unsafe { &*(&self.backing[word_offset] as *const u32 as *const [u8; 4]) }
+    }
+}
+
+pub struct SysTickRegsMut<'a> {
+    backing: &'a mut [u32; 0x40],
+}
+
+impl<'a> SysTick for SysTickRegsMut<'a> {
+    fn view_bytes(&self, word_offset: usize) -> &[u8; 4] {
+        unsafe { &*(&self.backing[word_offset] as *const u32 as *const [u8; 4]) }
+    }
+}
+
+impl<'a> SysTickMut for SysTickRegsMut<'a> {
+    fn view_bytes_mut(&mut self, word_offset: usize) -> &mut [u8; 4] {
+        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut [u8; 4]) }
+    }
+}
+
+impl<'a> SysTickRegsMut<'a> {
     pub fn new(backing: &'a mut [u32; 0x40]) -> Self {
         Self { backing }
     }
@@ -272,47 +351,5 @@ impl<'a> SysTickRegs<'a> {
             }
         }
         Ok(())
-    }
-}
-
-impl<'a> SysTickRegs<'a> {
-    pub fn get_csr(&self) -> &CSR {
-        let offset = SysTickRegType::CSR.offset() / 4;
-        unsafe { &*(&self.backing[offset] as *const u32 as *const CSR) }
-    }
-
-    pub fn get_rvr(&self) -> &RVR {
-        let offset = SysTickRegType::RVR.offset() / 4;
-        unsafe { &*(&self.backing[offset] as *const u32 as *const RVR) }
-    }
-
-    pub fn get_cvr(&self) -> &CVR {
-        let offset = SysTickRegType::CVR.offset() / 4;
-        unsafe { &*(&self.backing[offset] as *const u32 as *const CVR) }
-    }
-
-    pub fn get_calib(&self) -> &CALIB {
-        let offset = SysTickRegType::CALIB.offset() / 4;
-        unsafe { &*(&self.backing[offset] as *const u32 as *const CALIB) }
-    }
-
-    pub fn get_csr_mut(&mut self) -> &mut CSR {
-        let offset = SysTickRegType::CSR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CSR) }
-    }
-
-    pub fn get_rvr_mut(&mut self) -> &mut RVR {
-        let offset = SysTickRegType::RVR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut RVR) }
-    }
-
-    pub fn get_cvr_mut(&mut self) -> &mut CVR {
-        let offset = SysTickRegType::CVR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CVR) }
-    }
-
-    pub fn get_calib_mut(&mut self) -> &mut CALIB {
-        let offset = SysTickRegType::CALIB.offset() / 4;
-        unsafe { &mut *(&mut self.backing[offset] as *mut u32 as *mut CALIB) }
     }
 }
