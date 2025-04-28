@@ -59,16 +59,28 @@ impl NVICRegType {
 
 #[derive(Debug)]
 pub struct NVICRegs<'a> {
-    pub backing: &'a mut [u32; 0x340]
+    backing: &'a [u32; 0x340],
 }
 
 impl<'a> NVICRegs<'a> {
+    pub fn new(backing: &'a [u32; 0x340]) -> Self {
+        Self { backing }
+    }
+}
+
+#[derive(Debug)]
+pub struct NVICRegsMut<'a> {
+    backing: &'a mut [u32; 0x340],
+}
+
+impl<'a> NVICRegsMut<'a> {
     pub fn new(backing: &'a mut [u32; 0x340]) -> Self {
         Self { backing }
     }
 
     /// perform an event-triggering read of nvic register bytes
-    pub fn read_bytes(&mut self,
+    pub fn read_bytes(
+        &mut self,
         offset: usize,
         dst: &mut [u8],
         _events: &mut VecDeque<Event>,
@@ -93,14 +105,15 @@ impl<'a> NVICRegs<'a> {
                     })?;
             }
         }
-        let reg_slice = self._view_bytes(word_offset);
+        let reg_slice = self.view_bytes(word_offset);
         let byte_offset = offset & 0b11;
         dst.copy_from_slice(&reg_slice[byte_offset..]);
         Ok(())
     }
 
     /// perform an event-triggering write of nvic register bytes
-    pub fn write_bytes(&mut self,
+    pub fn write_bytes(
+        &mut self,
         offset: usize,
         src: &[u8],
         events: &mut VecDeque<Event>,
@@ -122,7 +135,7 @@ impl<'a> NVICRegs<'a> {
         match reg_type {
             NVICRegType::IPR(_n) => {
                 let byte_offset = offset & 0b11;
-                let slice = self._view_bytes_mut(word_offset);
+                let slice = self.view_bytes_mut(word_offset);
                 let slice = &mut slice[byte_offset..];
                 slice.copy_from_slice(src);
             }
@@ -222,6 +235,211 @@ impl<'a> NVICRegs<'a> {
     }
 }
 
+pub trait NVIC {
+    fn view_bytes(&self, _word_offset: usize) -> &[u8; 4];
+
+    // scs registers
+
+    fn icsr(&self) -> &ICSR {
+        let word_offset = SCRegType::ICSR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const ICSR) }
+    }
+
+    fn vtor(&self) -> &VTOR {
+        let word_offset = SCRegType::VTOR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const VTOR) }
+    }
+
+    fn aircr(&self) -> &AIRCR {
+        let word_offset = SCRegType::AIRCR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const AIRCR) }
+    }
+
+    fn scr(&self) -> &SCR {
+        let word_offset = SCRegType::SCR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const SCR) }
+    }
+
+    fn shpr1(&self) -> &SHPR1 {
+        let word_offset = SCRegType::SHPR1(0).offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const SHPR1) }
+    }
+
+    fn shpr2(&self) -> &SHPR2 {
+        let word_offset = SCRegType::SHPR2(0).offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const SHPR2) }
+    }
+
+    fn shpr3(&self) -> &SHPR3 {
+        let word_offset = SCRegType::SHPR3(0).offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const SHPR3) }
+    }
+
+    fn shcsr(&self) -> &SHCSR {
+        let word_offset = SCRegType::SHCSR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const SHCSR) }
+    }
+
+    fn cfsr(&self) -> &CFSR {
+        let word_offset = SCRegType::CFSR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const CFSR) }
+    }
+
+    fn hfsr(&self) -> &HFSR {
+        let word_offset = SCRegType::HFSR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const HFSR) }
+    }
+
+    fn ictr(&self) -> &ICTR {
+        let word_offset = SCRegType::ICTR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const ICTR) }
+    }
+
+    fn stir(&self) -> &STIR {
+        let word_offset = SCRegType::STIR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const STIR) }
+    }
+
+    // nvic registers
+
+    fn get_iser(&self, n: u8) -> &ISER {
+        let word_offset = NVICRegType::ISER(n).offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const ISER) }
+    }
+
+    fn get_icer(&self, n: u8) -> &ICER {
+        let word_offset = NVICRegType::ICER(n).offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const ICER) }
+    }
+
+    fn get_ispr(&self, n: u8) -> &ISPR {
+        let word_offset = NVICRegType::ISPR(n).offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const ISPR) }
+    }
+
+    fn get_icpr(&self, n: u8) -> &ICPR {
+        let word_offset = NVICRegType::ICPR(n).offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const ICPR) }
+    }
+
+    fn get_iabr(&self, n: u8) -> &IABR {
+        let word_offset = NVICRegType::IABR(n).offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const IABR) }
+    }
+
+    fn get_ipr(&self, n: u8) -> &IPR {
+        let word_offset = NVICRegType::IPR(n).offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const IPR) }
+    }
+}
+
+pub trait NVICMut: NVIC {
+    fn view_bytes_mut(&mut self, _word_offset: usize) -> &mut [u8; 4];
+
+    fn icsr_mut(&mut self) -> &mut ICSR {
+        let word_offset = SCRegType::ICSR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut ICSR) }
+    }
+    
+    fn vtor_mut(&mut self) -> &mut VTOR {
+        let word_offset = SCRegType::VTOR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut VTOR) }
+    }
+    
+    fn aircr_mut(&mut self) -> &mut AIRCR {
+        let word_offset = SCRegType::AIRCR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut AIRCR) }
+    }
+    
+    fn scr_mut(&mut self) -> &mut SCR {
+        let word_offset = SCRegType::SCR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut SCR) }
+    }
+    
+    fn shpr1_mut(&mut self) -> &mut SHPR1 {
+        let word_offset = SCRegType::SHPR1(0).offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut SHPR1) }
+    }
+    
+    fn shpr2_mut(&mut self) -> &mut SHPR2 {
+        let word_offset = SCRegType::SHPR2(0).offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut SHPR2) }
+    }
+    
+    fn shpr3_mut(&mut self) -> &mut SHPR3 {
+        let word_offset = SCRegType::SHPR3(0).offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut SHPR3) }
+    }
+    
+    fn shcsr_mut(&mut self) -> &mut SHCSR {
+        let word_offset = SCRegType::SHCSR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut SHCSR) }
+    }
+    
+    fn cfsr_mut(&mut self) -> &mut CFSR {
+        let word_offset = SCRegType::CFSR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut CFSR) }
+    }
+    
+    fn hfsr_mut(&mut self) -> &mut HFSR {
+        let word_offset = SCRegType::HFSR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut HFSR) }
+    }
+    
+    fn stir_mut(&mut self) -> &mut STIR {
+        let word_offset = SCRegType::STIR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut STIR) }
+    }
+
+    fn get_iser_mut(&mut self, n: u8) -> &mut ISER {
+        let word_offset = NVICRegType::ISER(n).offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut ISER) }
+    }
+
+    fn get_icer_mut(&mut self, n: u8) -> &mut ICER {
+        let word_offset = NVICRegType::ICER(n).offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut ICER) }
+    }
+
+    fn get_ispr_mut(&mut self, n: u8) -> &mut ISPR {
+        let word_offset = NVICRegType::ISPR(n).offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut ISPR) }
+    }
+    
+    fn get_icpr_mut(&mut self, n: u8) -> &mut ICPR {
+        let word_offset = NVICRegType::ICPR(n).offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut ICPR) }
+    }
+    
+    fn get_iabr_mut(&mut self, n: u8) -> &mut IABR {
+        let word_offset = NVICRegType::IABR(n).offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut IABR) }
+    }
+    
+    fn get_ipr_mut(&mut self, n: u8) -> &mut IPR {
+        let word_offset = NVICRegType::IPR(n).offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut IPR) }
+    }
+}
+
+impl<'a> NVIC for NVICRegs<'a> {
+    fn view_bytes(&self, word_offset: usize) -> &[u8; 4] {
+        unsafe { &*(&self.backing[word_offset] as *const u32 as *const [u8; 4]) }
+    }
+}
+
+impl<'a> NVIC for NVICRegsMut<'a> {
+    fn view_bytes(&self, word_offset: usize) -> &[u8; 4] {
+        unsafe { &*(&self.backing[word_offset] as *const u32 as *const [u8; 4]) }
+    }
+}
+
+impl<'a> NVICMut for NVICRegsMut<'a> {
+    fn view_bytes_mut(&mut self, word_offset: usize) -> &mut [u8; 4] {
+        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut [u8; 4]) }
+    }
+}
+
 #[allow(unused)]
 /// state for nested vector interrupt controller
 #[derive(Debug, Clone)]
@@ -230,7 +448,6 @@ pub struct NVICState {
 
     pub(crate) internal: [Exception; 16],
     pub(crate) external: Vec<Exception>,
-    pub(crate) queue: Vec<ExceptionType>,
 }
 
 impl Default for NVICState {
@@ -255,8 +472,7 @@ impl Default for NVICState {
             Exception::new_with(ExceptionType::SysTick,        0, None),
         ];
         let external = vec![];
-        let queue = vec![];
-        Self { vtsize, internal, external, queue }
+        Self { vtsize, internal, external }
     }
 }
 
@@ -296,8 +512,7 @@ impl NVICState {
         if matches!(typ, ExceptionType::Reserved(_)) {
             return None;
         }
-        let excp_num: u32 = typ.into();
-        let excp_num = excp_num as usize;
+        let excp_num = u32::from(typ) as usize;
         if excp_num < 16 {
             Some(&self.internal[excp_num])
         } else {
@@ -305,27 +520,36 @@ impl NVICState {
         }
     }
 
-    /// add an exception to the pending queue,
-    /// reordering the queue as necessary based on priority
-    #[instrument]
-    pub fn queue_exception(&mut self, typ: ExceptionType) {
-        debug!("{typ:?}");
-        todo!()
+    /// get mutable reference to exception type
+    pub fn get_exception_mut(&mut self, typ: &ExceptionType) -> Option<&mut Exception> {
+        if matches!(typ, ExceptionType::Reserved(_)) {
+            return None;
+        }
+        let excp_num = u32::from(typ) as usize;
+        if excp_num < 16 {
+            Some(&mut self.internal[excp_num])
+        } else {
+            self.external.get_mut(excp_num)
+        }
     }
 
-    /// pop the next exception to service from the pending queue
-    pub fn pop_exception(&mut self) -> Option<ExceptionType> {
+    /// set an exception as pending
+    #[instrument]
+    pub fn set_pending(&mut self, typ: ExceptionType) {
+        debug!("{typ:?}");
+        if let Some(excp) = self.get_exception_mut(&typ) {
+            excp.state |= ExceptionState::Pending;
+        }
+    }
+
+    /// get the next pending exception to service
+    pub fn get_pending(&mut self, ) -> Option<ExceptionType> {
         todo!()
     }
 
     /// check for exception of higher priority than currently being serviced
     pub fn preempt_pending(&self) -> bool {
         todo!()
-    }
-
-    /// check for any pending exception
-    pub fn pending(&self) -> bool {
-        !self.queue.is_empty()
     }
 
     /// current exception priority
@@ -462,204 +686,3 @@ pub struct IPR {
 
 
 
-
-
-
-
-
-
-impl<'a> NVICRegs<'a> {
-    fn _view_bytes(&self, word_offset: usize) -> &[u8; 4] {
-        assert!(word_offset < self.backing.len());
-        unsafe {
-            &*(&self.backing[word_offset] as *const u32 as *const [u8; 4])
-        }
-    }
-
-    fn _view_bytes_mut(&mut self, word_offset: usize) -> &mut [u8; 4] {
-        assert!(word_offset < self.backing.len());
-        unsafe {
-            &mut *(&mut self.backing[word_offset] as *mut u32 as *mut [u8; 4])
-        }
-    }
-
-    
-    // scs registers
-
-    pub fn icsr(&self) -> &ICSR {
-        let word_offset = SCRegType::ICSR.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const ICSR) }
-    }
-
-    pub fn vtor(&self) -> &VTOR {
-        let word_offset = SCRegType::VTOR.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const VTOR) }
-    }
-
-    pub fn aircr(&self) -> &AIRCR {
-        let word_offset = SCRegType::AIRCR.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const AIRCR) }
-    }
-
-    pub fn scr(&self) -> &SCR {
-        let word_offset = SCRegType::SCR.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const SCR) }
-    }
-
-    pub fn shpr1(&self) -> &SHPR1 {
-        let word_offset = SCRegType::SHPR1(0).offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const SHPR1) }
-    }
-
-    pub fn shpr2(&self) -> &SHPR2 {
-        let word_offset = SCRegType::SHPR2(0).offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const SHPR2) }
-    }
-
-    pub fn shpr3(&self) -> &SHPR3 {
-        let word_offset = SCRegType::SHPR3(0).offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const SHPR3) }
-    }
-
-    pub fn shcsr(&self) -> &SHCSR {
-        let word_offset = SCRegType::SHCSR.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const SHCSR) }
-    }
-
-    pub fn cfsr(&self) -> &CFSR {
-        let word_offset = SCRegType::CFSR.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const CFSR) }
-    }
-
-    pub fn hfsr(&self) -> &HFSR {
-        let word_offset = SCRegType::HFSR.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const HFSR) }
-    }
-
-    pub fn ictr(&self) -> &ICTR {
-        let word_offset = SCRegType::ICTR.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const ICTR) }
-    }
-
-    pub fn stir(&self) -> &STIR {
-        let word_offset = SCRegType::STIR.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const STIR) }
-    }
-
-    pub fn icsr_mut(&mut self) -> &mut ICSR {
-        let word_offset = SCRegType::ICSR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ICSR) }
-    }
-    
-    pub fn vtor_mut(&mut self) -> &mut VTOR {
-        let word_offset = SCRegType::VTOR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut VTOR) }
-    }
-    
-    pub fn aircr_mut(&mut self) -> &mut AIRCR {
-        let word_offset = SCRegType::AIRCR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut AIRCR) }
-    }
-    
-    pub fn scr_mut(&mut self) -> &mut SCR {
-        let word_offset = SCRegType::SCR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut SCR) }
-    }
-    
-    pub fn shpr1_mut(&mut self) -> &mut SHPR1 {
-        let word_offset = SCRegType::SHPR1(0).offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut SHPR1) }
-    }
-    
-    pub fn shpr2_mut(&mut self) -> &mut SHPR2 {
-        let word_offset = SCRegType::SHPR2(0).offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut SHPR2) }
-    }
-    
-    pub fn shpr3_mut(&mut self) -> &mut SHPR3 {
-        let word_offset = SCRegType::SHPR3(0).offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut SHPR3) }
-    }
-    
-    pub fn shcsr_mut(&mut self) -> &mut SHCSR {
-        let word_offset = SCRegType::SHCSR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut SHCSR) }
-    }
-    
-    pub fn cfsr_mut(&mut self) -> &mut CFSR {
-        let word_offset = SCRegType::CFSR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut CFSR) }
-    }
-    
-    pub fn hfsr_mut(&mut self) -> &mut HFSR {
-        let word_offset = SCRegType::HFSR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut HFSR) }
-    }
-    
-    pub fn stir_mut(&mut self) -> &mut STIR {
-        let word_offset = SCRegType::STIR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut STIR) }
-    }
-
-    // nvic registers
-
-    pub fn get_iser(&self, n: u8) -> &ISER {
-        let word_offset = NVICRegType::ISER(n).offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const ISER) }
-    }
-
-    pub fn get_icer(&self, n: u8) -> &ICER {
-        let word_offset = NVICRegType::ICER(n).offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const ICER) }
-    }
-
-    pub fn get_ispr(&self, n: u8) -> &ISPR {
-        let word_offset = NVICRegType::ISPR(n).offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const ISPR) }
-    }
-
-    pub fn get_icpr(&self, n: u8) -> &ICPR {
-        let word_offset = NVICRegType::ICPR(n).offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const ICPR) }
-    }
-
-    pub fn get_iabr(&self, n: u8) -> &IABR {
-        let word_offset = NVICRegType::IABR(n).offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const IABR) }
-    }
-
-    pub fn get_ipr(&self, n: u8) -> &IPR {
-        let word_offset = NVICRegType::IPR(n).offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const IPR) }
-    }
-
-    pub fn get_iser_mut(&mut self, n: u8) -> &mut ISER {
-        let word_offset = NVICRegType::ISER(n).offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ISER) }
-    }
-
-    pub fn get_icer_mut(&mut self, n: u8) -> &mut ICER {
-        let word_offset = NVICRegType::ICER(n).offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ICER) }
-    }
-
-    pub fn get_ispr_mut(&mut self, n: u8) -> &mut ISPR {
-        let word_offset = NVICRegType::ISPR(n).offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ISPR) }
-    }
-    
-    pub fn get_icpr_mut(&mut self, n: u8) -> &mut ICPR {
-        let word_offset = NVICRegType::ICPR(n).offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut ICPR) }
-    }
-    
-    pub fn get_iabr_mut(&mut self, n: u8) -> &mut IABR {
-        let word_offset = NVICRegType::IABR(n).offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut IABR) }
-    }
-    
-    pub fn get_ipr_mut(&mut self, n: u8) -> &mut IPR {
-        let word_offset = NVICRegType::IPR(n).offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut IPR) }
-    }
-}

@@ -163,7 +163,7 @@ impl SysCtrlSpace {
                 return stregs.read_bytes(offset, dst, events);
             }
             SCRegType::NVIC(_nvicreg_type) => {
-                let mut nvicregs = self.nvic_regs();
+                let mut nvicregs = self.nvic_regs_mut();
                 return nvicregs.read_bytes(offset, dst, events);
             }
             SCRegType::MPU(_mpureg_type) => {
@@ -583,7 +583,7 @@ impl SysCtrlSpace {
                 return stregs.write_bytes(offset, src, events);
             }
             SCRegType::NVIC(_nvicreg_type) => {
-                let mut nvicregs = self.nvic_regs();
+                let mut nvicregs = self.nvic_regs_mut();
                 return nvicregs.write_bytes(offset, src, events);
             }
             SCRegType::MPU(_mpureg_type) => {
@@ -615,13 +615,13 @@ impl SysCtrlSpace {
     }
 
     /// get wrapper for interacting with nvic registers
-    pub fn nvic_regs(&mut self) -> NVICRegs {
+    pub fn nvic_regs_mut(&mut self) -> NVICRegsMut {
         let slice = &mut self.backing[..0x340];
         assert_eq!(slice.len(), 0x340);
         let backing = unsafe {
             &mut *(slice as *mut [u32] as *mut [u32; 0x340])
         };
-        NVICRegs::new(backing)
+        NVICRegsMut::new(backing)
     }
 
     /// get wrapper for interacting with mpu registers
