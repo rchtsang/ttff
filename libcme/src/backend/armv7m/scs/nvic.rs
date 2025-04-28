@@ -653,6 +653,27 @@ impl NVICState {
     }
 }
 
+impl SysCtrlSpace {
+    pub fn set_exception_active(&mut self, typ: ExceptionType) {
+        let prigroup = self.get_aircr().prigroup();
+        let backing = self.backing.as_ref();
+        let nvicregs = Self::_nvic_regs(backing);
+        self.nvic.set_pending(typ, nvicregs, prigroup)
+    }
+
+    pub fn clr_exception_active(&mut self, typ: ExceptionType) {
+        self.nvic.clr_pending(typ)
+    }
+
+    pub fn set_exception_pending(&mut self, typ: ExceptionType) {
+        self.nvic.set_active(typ)
+    }
+
+    pub fn clr_exception_pending(&mut self, typ: ExceptionType) {
+        self.nvic.clr_active(typ)
+    }
+}
+
 /// Interrupt Set-Enable Registers.
 /// Enables or reads the enable state of a group of interrupts.
 /// Word-accessible only. 

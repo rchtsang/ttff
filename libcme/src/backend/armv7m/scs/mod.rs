@@ -609,9 +609,13 @@ impl SysCtrlSpace {
     /// get wrapper for interacting with systick registers
     pub fn systick_regs_mut(&mut self) -> SysTickRegsMut {
         let slice = &mut self.backing[..0x40];
-        assert_eq!(slice.len(), 0x40);
+        Self::_systick_regs_mut(slice)
+    }
+
+    fn _systick_regs_mut<'a>(backing: &'a mut [u32]) -> SysTickRegsMut<'a> {
+        assert!(backing.len() >= 0x40, "backing not long enough");
         let backing = unsafe {
-            &mut *(slice as *mut [u32] as *mut [u32; 0x40])
+            &mut *(backing as *mut [u32] as *mut [u32; 0x40])
         };
         SysTickRegsMut::new(backing)
     }
@@ -619,9 +623,13 @@ impl SysCtrlSpace {
     /// get wrapper for reading systick registers
     pub fn systick_regs(&self) -> SysTickRegs {
         let slice = &self.backing[..0x40];
-        assert_eq!(slice.len(), 0x40);
+        Self::_systick_regs(slice)
+    }
+
+    fn _systick_regs<'a>(backing: &'a [u32]) -> SysTickRegs<'a> {
+        assert!(backing.len() >= 0x40, "backing not long enough");
         let backing = unsafe {
-            &*(slice as *const [u32] as *const [u32; 0x40])
+            &*(backing as *const [u32] as *const [u32; 0x40])
         };
         SysTickRegs::new(backing)
     }
@@ -629,9 +637,13 @@ impl SysCtrlSpace {
     /// get wrapper for interacting with nvic registers
     pub fn nvic_regs_mut(&mut self) -> NVICRegsMut {
         let slice = &mut self.backing[..0x340];
-        assert_eq!(slice.len(), 0x340);
+        Self::_nvic_regs_mut(slice)
+    }
+
+    fn _nvic_regs_mut<'a>(backing: &'a mut [u32]) -> NVICRegsMut<'a> {
+        assert!(backing.len() >= 0x340, "backing not long enough");
         let backing = unsafe {
-            &mut *(slice as *mut [u32] as *mut [u32; 0x340])
+            &mut *(backing as *mut [u32] as *mut [u32; 0x340])
         };
         NVICRegsMut::new(backing)
     }
@@ -639,9 +651,13 @@ impl SysCtrlSpace {
     /// get wrapper for reading nvic registers
     pub fn nvic_regs(&self) -> NVICRegs {
         let slice = &self.backing[..0x340];
-        assert_eq!(slice.len(), 0x340);
+        Self::_nvic_regs(slice)
+    }
+
+    fn _nvic_regs<'a>(backing: &'a [u32]) -> NVICRegs<'a> {
+        assert!(backing.len() >= 0x340, "backing not long enough");
         let backing = unsafe {
-            &*(slice as *const [u32] as *const [u32; 0x340])
+            &*(backing as *const [u32] as *const [u32; 0x340])
         };
         NVICRegs::new(backing)
     }
@@ -649,9 +665,13 @@ impl SysCtrlSpace {
     /// get wrapper for interacting with mpu registers
     pub fn mpu_regs_mut(&mut self) -> MPURegsMut {
         let slice = &mut self.backing[..0xdec];
-        assert_eq!(slice.len(), 0xdec);
+        Self::_mpu_regs_mut(slice)
+    }
+
+    fn _mpu_regs_mut<'a>(backing: &'a mut [u32]) -> MPURegsMut<'a> {
+        assert!(backing.len() >= 0xdec, "backing not long enough");
         let backing = unsafe {
-            &mut *(slice as *mut [u32] as *mut [u32; 0xdec])
+            &mut *(backing as *mut [u32] as *mut [u32; 0xdec])
         };
         MPURegsMut::new(backing)
     }
@@ -659,9 +679,13 @@ impl SysCtrlSpace {
     /// get wrapper for reading mpu registers
     pub fn mpu_regs(&self) -> MPURegs {
         let slice = &self.backing[..0xdec];
-        assert_eq!(slice.len(), 0xdec);
+        Self::_mpu_regs(slice)
+    }
+
+    fn _mpu_regs<'a>(backing: &'a [u32]) -> MPURegs<'a> {
+        assert!(backing.len() >= 0xdec, "backing not long enough");
         let backing = unsafe {
-            &*(slice as *const [u32] as *const [u32; 0xdec])
+            &*(backing as *const [u32] as *const [u32; 0xdec])
         };
         MPURegs::new(backing)
     }
@@ -669,7 +693,7 @@ impl SysCtrlSpace {
     /// get wrapper for interacting with dbg registers
     pub fn debug_regs(&mut self) -> DebugRegs {
         let slice = &mut self.backing[..0x3c0];
-        assert_eq!(slice.len(), 0x3c0);
+        assert!(slice.len() >= 0x3c0, "backing not long enough");
         let backing = unsafe {
             &mut *(slice as *mut [u32] as *mut [u32; 0x3c0])
         };

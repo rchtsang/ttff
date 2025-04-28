@@ -88,10 +88,20 @@ impl Backend {
                 Ok(())
             }
             Event::ExceptionSetActive(exception_type, val) => {
-                todo!()
+                if val {
+                    self.scs.set_exception_active(exception_type);
+                } else {
+                    self.scs.clr_exception_active(exception_type);
+                }
+                Ok(())
             }
             Event::ExceptionSetPending(exception_type, val) => {
-                todo!()
+                if val {
+                    self.scs.set_exception_pending(exception_type);
+                } else {
+                    self.scs.clr_exception_pending(exception_type);
+                }
+                Ok(())
             }
             Event::ExceptionEnabled(exception_type, val) => {
                 todo!()
