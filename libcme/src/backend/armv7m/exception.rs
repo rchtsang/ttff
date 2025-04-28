@@ -88,9 +88,9 @@ impl From<u32> for ExceptionType {
     }
 }
 
-impl Into<u32> for &ExceptionType {
-    fn into(self) -> u32 {
-        match self {
+impl From<&ExceptionType> for u32 {
+    fn from(value: &ExceptionType) -> u32 {
+        match value {
             ExceptionType::Reset => { 1 }
             ExceptionType::NMI => { 2 }
             ExceptionType::HardFault => { 3 }
