@@ -15,11 +15,22 @@ impl SysCtrlSpace {
         primask: &PRIMASK,
         faultmask: &FAULTMASK,
     ) -> i16 {
+        // priority of thread mode with no active exceptions
+        // this value is PriorityMax + 1 = 256
+        // (configurable priority maximum bit field is 8 bits)
         let mut highestpri: i16 = 256;
+        // priority influence of basepri, primask, and faultmask
         let mut boostedpri: i16 = 256;
+
         let subgroupshift = self.get_aircr().prigroup();
+        // used by priority grouping
         let groupvalue  = 0b10 << subgroupshift;
 
+        // valid ipsr values should be in range of 2 to 511
+        // to save time, we keep a list of active exceptions
+        // instead of looping over the full range of exception values.
+        // if desired, we can switch to looping to save memory and
+        // removing nvic.active list
         for excp_type in self.nvic.active() {
             let excp_num = u32::from(excp_type) as u8;
             let pri = self.nvic_regs()
