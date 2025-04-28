@@ -543,7 +543,7 @@ impl NVICState {
     pub fn set_pending(
         &mut self,
         typ: ExceptionType,
-        mut nvicregs: impl NVICMut,
+        nvicregs: impl NVIC,
         prigroup: u8,
     ) {
         debug!("{typ:?}");
@@ -551,9 +551,6 @@ impl NVICState {
             if !excp.state.contains(ExceptionState::Pending) {
                 excp.state |= ExceptionState::Pending;
                 self.queue.push(typ);
-                let excp_n = u32::from(&typ) as u8;
-                nvicregs.get_ispr_mut(excp_n / 32).0 |= 1 << (excp_n % 32);
-                nvicregs.get_icpr_mut(excp_n / 32).0 |= 1 << (excp_n % 32);
             }
         }
         self.sort_pending(nvicregs, prigroup);
@@ -565,7 +562,6 @@ impl NVICState {
     pub fn clr_pending(
         &mut self,
         typ: ExceptionType,
-        mut nvicregs: impl NVICMut,
     ) {
         if let Some(excp) = self.get_exception_mut(&typ) {
             if excp.state.contains(ExceptionState::Pending) {
@@ -576,9 +572,6 @@ impl NVICState {
                     .map(|(idx, _excp)| idx)
                     .unwrap();
                 self.queue.remove(idx);
-                let excp_n = u32::from(&typ) as u8;
-                nvicregs.get_ispr_mut(excp_n / 32).0 &= !(1 << (excp_n % 32));
-                nvicregs.get_icpr_mut(excp_n / 32).0 &= !(1 << (excp_n % 32));
             }
         }
     }
@@ -588,14 +581,11 @@ impl NVICState {
     pub fn set_active(
         &mut self,
         typ: ExceptionType,
-        mut nvicregs: impl NVICMut,
     ) {
         if let Some(excp) = self.get_exception_mut(&typ) {
             if !excp.state.contains(ExceptionState::Active) {
                 excp.state |= ExceptionState::Active;
                 self.active.push(typ);
-                let excp_n = u32::from(&typ) as u8;
-                nvicregs.get_iabr_mut(excp_n / 32).0 |= 1 << (excp_n % 32);
             }
         }
     }
@@ -605,7 +595,6 @@ impl NVICState {
     pub fn clr_active(
         &mut self,
         typ: ExceptionType,
-        mut nvicregs: impl NVICMut,
     ) {
         if let Some(excp) = self.get_exception_mut(&typ) {
             if excp.state.contains(ExceptionState::Active) {
@@ -616,8 +605,6 @@ impl NVICState {
                     .map(|(idx, _excp)| idx)
                     .unwrap();
                 self.active.swap_remove(idx);
-                let excp_n = u32::from(&typ) as u8;
-                nvicregs.get_iabr_mut(excp_n / 32).0 &= !(1 << (excp_n % 32));
             }
         }
     }
@@ -663,21 +650,15 @@ impl SysCtrlSpace {
     }
 
     pub fn clr_exception_active(&mut self, typ: ExceptionType) {
-        let backing = self.backing.as_mut();
-        let nvicregs = Self::_nvic_regs_mut(backing);
-        self.nvic.clr_pending(typ, nvicregs)
+        self.nvic.clr_pending(typ)
     }
 
     pub fn set_exception_pending(&mut self, typ: ExceptionType) {
-        let backing = self.backing.as_mut();
-        let nvicregs = Self::_nvic_regs_mut(backing);
-        self.nvic.set_active(typ, nvicregs)
+        self.nvic.set_active(typ)
     }
 
     pub fn clr_exception_pending(&mut self, typ: ExceptionType) {
-        let backing = self.backing.as_mut();
-        let nvicregs = Self::_nvic_regs_mut(backing);
-        self.nvic.clr_active(typ, nvicregs)
+        self.nvic.clr_active(typ)
     }
 }
 
