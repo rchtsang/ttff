@@ -195,7 +195,7 @@ impl Backend {
                 };
                 let priority = exception.priority;
                 
-                priority < self.scs.nvic.current_priority(&self.scs)
+                priority < self.scs.current_priority(&self.basepri, &self.primask, &self.faultmask)
             }
             // a debug event with debug enabled
             Event::Debug(_) => {
