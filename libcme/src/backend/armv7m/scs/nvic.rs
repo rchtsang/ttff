@@ -540,10 +540,10 @@ impl NVICState {
     /// set an exception as pending
     /// reorder exception queue as needed based on prioirity
     #[instrument(skip_all)]
-    pub fn set_pending<'a>(
+    pub fn set_pending(
         &mut self,
         typ: ExceptionType,
-        nvicregs: NVICRegs<'a>,
+        mut nvicregs: impl NVICMut,
         prigroup: u8,
     ) {
         debug!("{typ:?}");
@@ -551,6 +551,9 @@ impl NVICState {
             if !excp.state.contains(ExceptionState::Pending) {
                 excp.state |= ExceptionState::Pending;
                 self.queue.push(typ);
+                let excp_n = u32::from(&typ) as u8;
+                nvicregs.get_ispr_mut(excp_n / 32).0 |= 1 << (excp_n % 32);
+                nvicregs.get_icpr_mut(excp_n / 32).0 |= 1 << (excp_n % 32);
             }
         }
         self.sort_pending(nvicregs, prigroup);
@@ -562,49 +565,59 @@ impl NVICState {
     pub fn clr_pending(
         &mut self,
         typ: ExceptionType,
+        mut nvicregs: impl NVICMut,
     ) {
         if let Some(excp) = self.get_exception_mut(&typ) {
             if excp.state.contains(ExceptionState::Pending) {
-                excp.state ^= ExceptionState::Pending;
+                excp.state -= ExceptionState::Pending;
                 let idx = self.queue.iter()
                     .enumerate()
                     .find(|&(_idx, excp)| excp == &typ)
                     .map(|(idx, _excp)| idx)
                     .unwrap();
                 self.queue.remove(idx);
+                let excp_n = u32::from(&typ) as u8;
+                nvicregs.get_ispr_mut(excp_n / 32).0 &= !(1 << (excp_n % 32));
+                nvicregs.get_icpr_mut(excp_n / 32).0 &= !(1 << (excp_n % 32));
             }
         }
     }
 
     /// set an exception as active
-    #[instrument]
+    #[instrument(skip_all)]
     pub fn set_active(
         &mut self,
         typ: ExceptionType,
+        mut nvicregs: impl NVICMut,
     ) {
         if let Some(excp) = self.get_exception_mut(&typ) {
             if !excp.state.contains(ExceptionState::Active) {
                 excp.state |= ExceptionState::Active;
                 self.active.push(typ);
+                let excp_n = u32::from(&typ) as u8;
+                nvicregs.get_iabr_mut(excp_n / 32).0 |= 1 << (excp_n % 32);
             }
         }
     }
 
     /// clear an exception
-    #[instrument]
+    #[instrument(skip_all)]
     pub fn clr_active(
         &mut self,
         typ: ExceptionType,
+        mut nvicregs: impl NVICMut,
     ) {
         if let Some(excp) = self.get_exception_mut(&typ) {
             if excp.state.contains(ExceptionState::Active) {
-                excp.state ^= ExceptionState::Active;
+                excp.state -= ExceptionState::Active;
                 let idx = self.active.iter()
                     .enumerate()
                     .find(|&(_idx, excp)| excp == &typ)
                     .map(|(idx, _excp)| idx)
                     .unwrap();
                 self.active.swap_remove(idx);
+                let excp_n = u32::from(&typ) as u8;
+                nvicregs.get_iabr_mut(excp_n / 32).0 &= !(1 << (excp_n % 32));
             }
         }
     }
@@ -616,26 +629,14 @@ impl NVICState {
     /// sort pending exceptions by current priority
     /// based on nvic registers and prigroup value
     /// (does not implement priority boosting)
-    fn sort_pending<'a>(&mut self, nvicregs: NVICRegs<'a>, prigroup: u8) {
+    fn sort_pending<'a>(&mut self, nvicregs: impl NVIC, prigroup: u8) {
         self.queue.sort_by(|excp1, excp2| {
-            let excp_num1 = u32::from(excp1);
-            let excp_num2 = u32::from(excp2);
-            let n1 = (excp_num1 / 4) as u8;
-            let n2 = (excp_num2 / 4) as u8;
-            let pri1 = match excp_num1 % 4 {
-                0 => { nvicregs.get_ipr(n1).pri_n0() }
-                1 => { nvicregs.get_ipr(n1).pri_n1() }
-                2 => { nvicregs.get_ipr(n1).pri_n2() }
-                3 => { nvicregs.get_ipr(n1).pri_n3() }
-                val => { unreachable!("excp_num1 % 4 cannot equal {val}") }
-            };
-            let pri2 = match excp_num2 % 4 {
-                0 => { nvicregs.get_ipr(n2).pri_n0() }
-                1 => { nvicregs.get_ipr(n2).pri_n1() }
-                2 => { nvicregs.get_ipr(n2).pri_n2() }
-                3 => { nvicregs.get_ipr(n2).pri_n3() }
-                val => { unreachable!("excp_num2 % 4 cannot equal {val}") }
-            };
+            let excp_num1 = u32::from(excp1) as u8;
+            let excp_num2 = u32::from(excp2) as u8;
+            let n1 = excp_num1 / 4;
+            let n2 = excp_num2 / 4;
+            let pri1 = nvicregs.get_ipr(n1).pri_n(excp_num1 % 4);
+            let pri2 = nvicregs.get_ipr(n2).pri_n(excp_num2 % 4);
 
             Priority::compare(pri1, pri2, prigroup)
         })
@@ -656,21 +657,27 @@ impl NVICState {
 impl SysCtrlSpace {
     pub fn set_exception_active(&mut self, typ: ExceptionType) {
         let prigroup = self.get_aircr().prigroup();
-        let backing = self.backing.as_ref();
-        let nvicregs = Self::_nvic_regs(backing);
+        let backing = self.backing.as_mut();
+        let nvicregs = Self::_nvic_regs_mut(backing);
         self.nvic.set_pending(typ, nvicregs, prigroup)
     }
 
     pub fn clr_exception_active(&mut self, typ: ExceptionType) {
-        self.nvic.clr_pending(typ)
+        let backing = self.backing.as_mut();
+        let nvicregs = Self::_nvic_regs_mut(backing);
+        self.nvic.clr_pending(typ, nvicregs)
     }
 
     pub fn set_exception_pending(&mut self, typ: ExceptionType) {
-        self.nvic.set_active(typ)
+        let backing = self.backing.as_mut();
+        let nvicregs = Self::_nvic_regs_mut(backing);
+        self.nvic.set_active(typ, nvicregs)
     }
 
     pub fn clr_exception_pending(&mut self, typ: ExceptionType) {
-        self.nvic.clr_active(typ)
+        let backing = self.backing.as_mut();
+        let nvicregs = Self::_nvic_regs_mut(backing);
+        self.nvic.clr_active(typ, nvicregs)
     }
 }
 
