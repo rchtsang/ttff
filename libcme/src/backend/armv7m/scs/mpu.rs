@@ -93,10 +93,105 @@ impl MPURegType {
 /// used as temporary wrapper struct to interact with mpu registers
 /// and perform mpu-related register operations
 pub struct MPURegs<'a> {
+    backing: &'a [u32; 0xdec],
+}
+
+pub struct MPURegsMut<'a> {
     backing: &'a mut [u32; 0xdec],
 }
 
+pub trait MPU {
+    fn view_bytes(&self, word_offset: usize) -> &[u8; 4];
+
+    fn get_type(&self) -> &TYPE {
+        let word_offset = MPURegType::TYPE.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const TYPE) }
+    }
+
+    fn get_ctrl(&self) -> &CTRL {
+        let word_offset = MPURegType::CTRL.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const CTRL) }
+    }
+
+    fn get_rnr(&self) -> &RNR {
+        let word_offset = MPURegType::RNR.offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const RNR) }
+    }
+
+    fn get_rbar(&self, n: u8) -> &RBAR {
+        let word_offset = MPURegType::RBAR(n).offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const RBAR) }
+    }
+
+    fn get_rasr(&self, n: u8) -> &RASR {
+        let word_offset = MPURegType::RASR(n).offset() / 4;
+        unsafe { &*(self.view_bytes(word_offset) as *const [u8; 4] as *const u32 as *const RASR) }
+    }
+}
+
+pub trait MPUMut: MPU {
+    fn view_bytes_mut(&mut self, word_offset: usize) -> &mut [u8; 4];
+
+    fn get_type_mut(&mut self) -> &mut TYPE {
+        let word_offset = MPURegType::TYPE.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut TYPE) }
+    }
+
+    fn get_ctrl_mut(&mut self) -> &mut CTRL {
+        let word_offset = MPURegType::CTRL.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut CTRL) }
+    }
+
+    fn get_rnr_mut(&mut self) -> &mut RNR {
+        let word_offset = MPURegType::RNR.offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut RNR) }
+    }
+
+    fn get_rbar_mut(&mut self, n: u8) -> &mut RBAR {
+        let word_offset = MPURegType::RBAR(n).offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut RBAR) }
+    }
+    
+    fn get_rasr_mut(&mut self, n: u8) -> &mut RASR {
+        let word_offset = MPURegType::RASR(n).offset() / 4;
+        unsafe { &mut *(self.view_bytes_mut(word_offset) as *mut [u8; 4] as *mut u32 as *mut RASR) }
+    }
+}
+
+impl<'a> MPU for MPURegs<'a> {
+    fn view_bytes(&self, word_offset: usize) -> &[u8; 4] {
+        assert!(word_offset < self.backing.len());
+        unsafe {
+            &*(&self.backing[word_offset] as *const u32 as *const [u8; 4])
+        }
+    }
+}
+
+impl<'a> MPU for MPURegsMut<'a> {
+    fn view_bytes(&self, word_offset: usize) -> &[u8; 4] {
+        assert!(word_offset < self.backing.len());
+        unsafe {
+            &*(&self.backing[word_offset] as *const u32 as *const [u8; 4])
+        }
+    }
+}
+
+impl<'a> MPUMut for MPURegsMut<'a> {
+    fn view_bytes_mut(&mut self, word_offset: usize) -> &mut [u8; 4] {
+        assert!(word_offset < self.backing.len());
+        unsafe {
+            &mut *(&mut self.backing[word_offset] as *mut u32 as *mut [u8; 4])
+        }
+    }
+}
+
 impl<'a> MPURegs<'a> {
+    pub fn new(backing: &'a [u32; 0xdec]) -> Self {
+        Self { backing }
+    }
+}
+
+impl<'a> MPURegsMut<'a> {
     pub fn new(backing: &'a mut [u32; 0xdec]) -> Self {
         Self { backing }
     }
@@ -294,70 +389,3 @@ pub struct RASR {
 
 
 
-impl<'a> MPURegs<'a> {
-    fn _view_bytes(&self, word_offset: usize) -> &[u8; 4] {
-        assert!(word_offset < self.backing.len());
-        unsafe {
-            &*(&self.backing[word_offset] as *const u32 as *const [u8; 4])
-        }
-    }
-
-    fn _view_bytes_mut(&mut self, word_offset: usize) -> &mut [u8; 4] {
-        assert!(word_offset < self.backing.len());
-        unsafe {
-            &mut *(&mut self.backing[word_offset] as *mut u32 as *mut [u8; 4])
-        }
-    }
-
-    // register reference accessors
-
-    pub fn get_type(&self) -> &TYPE {
-        let word_offset = MPURegType::TYPE.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const TYPE) }
-    }
-
-    pub fn get_ctrl(&self) -> &CTRL {
-        let word_offset = MPURegType::CTRL.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const CTRL) }
-    }
-
-    pub fn get_rnr(&self) -> &RNR {
-        let word_offset = MPURegType::RNR.offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const RNR) }
-    }
-
-    pub fn get_rbar(&self, n: u8) -> &RBAR {
-        let word_offset = MPURegType::RBAR(n).offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const RBAR) }
-    }
-
-    pub fn get_rasr(&self, n: u8) -> &RASR {
-        let word_offset = MPURegType::RASR(n).offset() / 4;
-        unsafe { &*(&self.backing[word_offset] as *const u32 as *const RASR) }
-    }
-
-    pub fn get_type_mut(&mut self) -> &mut TYPE {
-        let word_offset = MPURegType::TYPE.offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut TYPE) }
-    }
-
-    pub fn get_ctrl_mut(&mut self) -> &mut CTRL {
-        let word_offset = MPURegType::CTRL.offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut CTRL) }
-    }
-
-    pub fn get_rnr_mut(&mut self) -> &mut RNR {
-        let word_offset = MPURegType::RNR.offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut RNR) }
-    }
-
-    pub fn get_rbar_mut(&mut self, n: u8) -> &mut RBAR {
-        let word_offset = MPURegType::RBAR(n).offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut RBAR) }
-    }
-    pub fn get_rasr_mut(&mut self, n: u8) -> &mut RASR {
-        let word_offset = MPURegType::RASR(n).offset() / 4;
-        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut RASR) }
-    }
-
-}

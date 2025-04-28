@@ -169,7 +169,7 @@ impl SysCtrlSpace {
                 return nvicregs.read_bytes(offset, dst, events);
             }
             SCRegType::MPU(_mpureg_type) => {
-                let mut mpuregs = self.mpu_regs();
+                let mut mpuregs = self.mpu_regs_mut();
                 return mpuregs.read_bytes(offset, dst, events);
             }
             SCRegType::SHPR1(_)
@@ -589,7 +589,7 @@ impl SysCtrlSpace {
                 return nvicregs.write_bytes(offset, src, events);
             }
             SCRegType::MPU(_mpureg_type) => {
-                let mut mpuregs = self.mpu_regs();
+                let mut mpuregs = self.mpu_regs_mut();
                 return mpuregs.write_bytes(offset, src, events);
             }
             _ => {
@@ -637,11 +637,21 @@ impl SysCtrlSpace {
     }
 
     /// get wrapper for interacting with mpu registers
-    pub fn mpu_regs(&mut self) -> MPURegs {
+    pub fn mpu_regs_mut(&mut self) -> MPURegsMut {
         let slice = &mut self.backing[..0xdec];
         assert_eq!(slice.len(), 0xdec);
         let backing = unsafe {
             &mut *(slice as *mut [u32] as *mut [u32; 0xdec])
+        };
+        MPURegsMut::new(backing)
+    }
+
+    /// get wrapper for interacting with mpu registers
+    pub fn mpu_regs(&self) -> MPURegs {
+        let slice = &self.backing[..0xdec];
+        assert_eq!(slice.len(), 0xdec);
+        let backing = unsafe {
+            &*(slice as *const [u32] as *const [u32; 0xdec])
         };
         MPURegs::new(backing)
     }
