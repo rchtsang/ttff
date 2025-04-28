@@ -543,8 +543,25 @@ impl NVICState {
         }
     }
 
+    /// enable an exception
+    #[instrument]
+    pub fn enable(&mut self, typ: ExceptionType) {
+        if let Some(excp) = self.get_exception_mut(&typ) {
+            excp.enabled = true;
+        }
+    }
+
+    /// disable an exception
+    #[instrument]
+    pub fn disable(&mut self, typ: ExceptionType) {
+        if let Some(excp) = self.get_exception_mut(&typ) {
+            excp.enabled = false;
+        }
+    }
+
     /// set an exception as pending
     /// reorder exception queue as needed based on prioirity
+    /// exceptions can be set to pending even when disabled
     #[instrument(skip_all)]
     pub fn set_pending(
         &mut self,
@@ -582,13 +599,14 @@ impl NVICState {
     }
 
     /// set an exception as active
+    /// exception will not be set active unless it is enabled per B3.4.1
     #[instrument(skip_all)]
     pub fn set_active(
         &mut self,
         typ: ExceptionType,
     ) {
         if let Some(excp) = self.get_exception_mut(&typ) {
-            if !excp.state.contains(ExceptionState::Active) {
+            if !excp.state.contains(ExceptionState::Active) && excp.enabled {
                 excp.state |= ExceptionState::Active;
                 self.active.push(typ);
             }
@@ -662,6 +680,14 @@ impl SysCtrlSpace {
     pub fn set_exception_active(&mut self, typ: ExceptionType) {
         let prigroup = self.get_aircr().prigroup();
         self.nvic.set_pending(typ, prigroup)
+    }
+
+    pub fn enable_exception(&mut self, typ: ExceptionType) {
+        self.nvic.enable(typ)
+    }
+
+    pub fn disable_exception(&mut self, typ: ExceptionType) {
+        self.nvic.disable(typ)
     }
 
     pub fn clr_exception_active(&mut self, typ: ExceptionType) {

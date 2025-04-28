@@ -109,7 +109,12 @@ impl Backend {
                 Ok(())
             }
             Event::ExceptionEnabled(exception_type, val) => {
-                todo!()
+                if val {
+                    self.scs.enable_exception(exception_type);
+                } else {
+                    self.scs.disable_exception(exception_type);
+                }
+                Ok(())
             }
             Event::VectorTableOffsetWrite(offset) => {
                 todo!()

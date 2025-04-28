@@ -14,6 +14,7 @@ pub struct Exception {
     pub num: u32,
     pub typ: ExceptionType,
     pub priority: i16,
+    pub enabled: bool,
     // offset into vector table
     pub offset: usize,
     pub entry: Option<Address>,
@@ -31,12 +32,13 @@ impl Exception {
             ExceptionType::HardFault    => { -1 }
             _ => { priority }
         };
+        let enabled = false;
         let entry = entry.map(|slice| {
             assert_eq!(slice.len(), 4, "entry must be word-aligned");
             Address::from(bytes_as_u32_le(slice))
         });
 
-        Self { num, typ, priority, offset, entry, state }
+        Self { num, typ, priority, enabled, offset, entry, state }
     }
 }
 
@@ -46,6 +48,7 @@ impl Default for Exception {
             num: 0,
             typ: ExceptionType::Reserved(0),
             priority: 256,
+            enabled: false,
             offset: 0,
             entry: None,
             state: FlagSet::default(),
