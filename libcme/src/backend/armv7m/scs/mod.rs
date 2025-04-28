@@ -28,6 +28,8 @@ pub use mpu::*;
 pub mod dcb;
 pub use dcb::*;
 
+mod helpers;
+
 /// system control space base address
 static BASE: u32 = 0xe000e000;
 
@@ -622,6 +624,16 @@ impl SysCtrlSpace {
             &mut *(slice as *mut [u32] as *mut [u32; 0x340])
         };
         NVICRegsMut::new(backing)
+    }
+
+    /// get wrapper for reading nvic registers
+    pub fn nvic_regs(&self) -> NVICRegs {
+        let slice = &self.backing[..0x340];
+        assert_eq!(slice.len(), 0x340);
+        let backing = unsafe {
+            &*(slice as *const [u32] as *const [u32; 0x340])
+        };
+        NVICRegs::new(backing)
     }
 
     /// get wrapper for interacting with mpu registers

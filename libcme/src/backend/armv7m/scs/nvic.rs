@@ -448,6 +448,8 @@ pub struct NVICState {
 
     pub(crate) internal: [Exception; 16],
     pub(crate) external: Vec<Exception>,
+    queue: Vec<ExceptionType>,
+    active: Vec<ExceptionType>,
 }
 
 impl Default for NVICState {
@@ -472,7 +474,9 @@ impl Default for NVICState {
             Exception::new_with(ExceptionType::SysTick,        0, None),
         ];
         let external = vec![];
-        Self { vtsize, internal, external }
+        let queue = vec![];
+        let active = vec![];
+        Self { vtsize, internal, external, queue, active }
     }
 }
 
@@ -534,34 +538,117 @@ impl NVICState {
     }
 
     /// set an exception as pending
-    #[instrument]
-    pub fn set_pending(&mut self, typ: ExceptionType) {
+    /// reorder exception queue as needed based on prioirity
+    #[instrument(skip_all)]
+    pub fn set_pending<'a>(
+        &mut self,
+        typ: ExceptionType,
+        nvicregs: NVICRegs<'a>,
+        prigroup: u8,
+    ) {
         debug!("{typ:?}");
         if let Some(excp) = self.get_exception_mut(&typ) {
-            excp.state |= ExceptionState::Pending;
+            if !excp.state.contains(ExceptionState::Pending) {
+                excp.state |= ExceptionState::Pending;
+                self.queue.push(typ);
+            }
+        }
+        self.sort_pending(nvicregs, prigroup);
+    }
+
+    /// clr a pending interrupt (does nothing if not pending)
+    /// will not reorder exception queue
+    #[instrument(skip_all)]
+    pub fn clr_pending(
+        &mut self,
+        typ: ExceptionType,
+    ) {
+        if let Some(excp) = self.get_exception_mut(&typ) {
+            if excp.state.contains(ExceptionState::Pending) {
+                excp.state ^= ExceptionState::Pending;
+                let idx = self.queue.iter()
+                    .enumerate()
+                    .find(|&(_idx, excp)| excp == &typ)
+                    .map(|(idx, _excp)| idx)
+                    .unwrap();
+                self.queue.remove(idx);
+            }
         }
     }
 
+    /// set an exception as active
+    #[instrument]
+    pub fn set_active(
+        &mut self,
+        typ: ExceptionType,
+    ) {
+        if let Some(excp) = self.get_exception_mut(&typ) {
+            if !excp.state.contains(ExceptionState::Active) {
+                excp.state |= ExceptionState::Active;
+                self.active.push(typ);
+            }
+        }
+    }
+
+    /// clear an exception
+    #[instrument]
+    pub fn clr_active(
+        &mut self,
+        typ: ExceptionType,
+    ) {
+        if let Some(excp) = self.get_exception_mut(&typ) {
+            if excp.state.contains(ExceptionState::Active) {
+                excp.state ^= ExceptionState::Active;
+                let idx = self.active.iter()
+                    .enumerate()
+                    .find(|&(_idx, excp)| excp == &typ)
+                    .map(|(idx, _excp)| idx)
+                    .unwrap();
+                self.active.swap_remove(idx);
+            }
+        }
+    }
+
+    pub fn active(&self) -> impl Iterator<Item=&ExceptionType> {
+        self.active.iter()
+    }
+
+    /// sort pending exceptions by current priority
+    /// based on nvic registers and prigroup value
+    /// (does not implement priority boosting)
+    fn sort_pending<'a>(&mut self, nvicregs: NVICRegs<'a>, prigroup: u8) {
+        self.queue.sort_by(|excp1, excp2| {
+            let excp_num1 = u32::from(excp1);
+            let excp_num2 = u32::from(excp2);
+            let n1 = (excp_num1 / 4) as u8;
+            let n2 = (excp_num2 / 4) as u8;
+            let pri1 = match excp_num1 % 4 {
+                0 => { nvicregs.get_ipr(n1).pri_n0() }
+                1 => { nvicregs.get_ipr(n1).pri_n1() }
+                2 => { nvicregs.get_ipr(n1).pri_n2() }
+                3 => { nvicregs.get_ipr(n1).pri_n3() }
+                val => { unreachable!("excp_num1 % 4 cannot equal {val}") }
+            };
+            let pri2 = match excp_num2 % 4 {
+                0 => { nvicregs.get_ipr(n2).pri_n0() }
+                1 => { nvicregs.get_ipr(n2).pri_n1() }
+                2 => { nvicregs.get_ipr(n2).pri_n2() }
+                3 => { nvicregs.get_ipr(n2).pri_n3() }
+                val => { unreachable!("excp_num2 % 4 cannot equal {val}") }
+            };
+
+            Priority::compare(pri1, pri2, prigroup)
+        })
+    }
+
     /// get the next pending exception to service
-    pub fn get_pending(&mut self, ) -> Option<ExceptionType> {
-        todo!()
+    pub fn get_pending<'a>(&mut self, nvicregs: NVICRegs<'a>, prigroup: u8) -> Option<&ExceptionType> {
+        self.sort_pending(nvicregs, prigroup);
+        self.queue.first()
     }
 
     /// check for exception of higher priority than currently being serviced
     pub fn preempt_pending(&self) -> bool {
-        todo!()
-    }
-
-    /// current exception priority
-    /// from B1.5.4 page B1-529
-    #[allow(unused)]
-    pub fn current_priority(&self,
-        scs: &SysCtrlSpace,
-    ) -> i16 {
-        // priority x
-        let highestpri = 256;
-        let boostedpri = 256;
-        let subgroupshift = todo!();
         todo!()
     }
 }
@@ -672,17 +759,37 @@ pub struct IABR {
 pub struct IPR {
     /// Priority of interrupt number 4n + 3.
     #[bits(8)]
-    pub pri_n3: u32,
+    pub pri_n3: u8,
     /// Priority of interrupt number 4n + 2.
     #[bits(8)]
-    pub pri_n2: u32,
+    pub pri_n2: u8,
     /// Priority of interrupt number 4n + 1.
     #[bits(8)]
-    pub pri_n1: u32,
+    pub pri_n1: u8,
     /// Priority of interrupt number 4n.
     #[bits(8)]
-    pub pri_n0: u32,
+    pub pri_n0: u8,
 }
 
+impl IPR {
+    pub fn pri_n(&self, offset: u8) -> u8 {
+        match offset {
+            0 => { self.pri_n0() }
+            1 => { self.pri_n1() }
+            2 => { self.pri_n2() }
+            3 => { self.pri_n3() }
+            _ => { unreachable!("pri_n offset must be < 4") }
+        }
+    }
 
+    pub fn set_pri_n(&mut self, offset: u8, value: u8) {
+        match offset {
+            0 => { self.0 = self.with_pri_n0(value).0 }
+            1 => { self.0 = self.with_pri_n1(value).0 }
+            2 => { self.0 = self.with_pri_n2(value).0 }
+            3 => { self.0 = self.with_pri_n3(value).0 }
+            _ => { unreachable!("pri_n offset must be < 4") }
+        }
+    }
+}
 
