@@ -1,60 +1,284 @@
 import os
-from pathlib import Path
 from copy import copy
+from pathlib import Path
+from collections import namedtuple
 
-from .parse import *
-from .template import *
+import jinja2
+from jinja2 import Environment, FileSystemLoader
 
-def gen_peripheral_mod(dst: Path, peripheral: str, device: dict):
-    peripheral = device['#peripheral_groups'][peripheral]
+from .models import AccessType
+from .utils import *
 
-    if "@derivedFrom" in peripheral:
-        src = peripheral['@derivedFrom'].lower()
-        p = copy(device['peripherals'][src])
-        p.update(peripheral)
-        peripheral = p
+PARENT_DIR = Path(__file__).resolve().parent
+TEMPLATES_DIR = PARENT_DIR / "templates"
 
-    peripheral_content = gen_peripheral_mod_content(peripheral)
-    registers_content = gen_registers_content(peripheral)
+RegType = namedtuple('RegType', [
+    'name',
+    'description',
+    'struct',
+    'offset',
+    'perms',
+    'reset',
+    'dim',
+    'dim_increment',
+    'size',
+    'register',
+])
 
-    peripheral_filename = peripheral_content['fields']['peripheral_filename']
-    dst = dst / peripheral_filename
-    (dst / "registers").mkdir(exist_ok=True, parents=True)
+ClusterType = namedtuple('ClusterType', [
+    'name',
+    'description',
+    'struct',
+    'offset',
+    'perms',
+    'reset',
+    'dim',
+    'dim_increment',
+    'size',
+    'cluster',
+])
 
-    elements = copy(peripheral["registers"])
-    registers = []
+FieldType = namedtuple('FieldType', [
+    'name',
+    'description',
+    'width',
+    'type',
+    'field',
+])
+
+
+def _byte_size(peripheral_group: dict):
+    return int(peripheral_group['addressBlock']['size'], 0)
+
+def _backing_size(peripheral_group: dict):
+    return int(peripheral_group['addressBlock']['size'], 0) // 4
+
+def _reg_type(reg_holder: dict):
+    if isinstance(reg_holder, ClusterType):
+        reg_holder = reg_holder.cluster
+    assert reg_holder['#tag'] in ["peripheral", "cluster"], \
+        "must be a peripheral or cluster"
+    return f"{reg_holder['name'].replace('[%s]', '')}RegType"
+
+def _reg_types(reg_holder: dict | ClusterType):
+    if isinstance(reg_holder, ClusterType):
+        reg_holder = reg_holder.cluster
+    assert reg_holder['#tag'] in ["peripheral", "cluster"], \
+        "must be a peripheral or cluster"
+    reg_types = []
+    for reg in reg_holder['registers']:
+        if reg['#tag'] == 'register':
+            reg_types.append(RegType(
+                name=reg['name'].replace('[%s]', ''),
+                description=reg['description'],
+                struct=reg['name'].replace('[%s]', ''),
+                offset=int(reg['addressOffset'], 0),
+                perms=f"0b{AccessType.as_bits(reg['access']):03b}",
+                reset=f"Some({reg['resetValue']})" if 'resetValue' in reg else "None",
+                dim=int(reg['dim'], 0) if 'dim' in reg else None,
+                dim_increment=int(reg['dimIncrement'], 0) if 'dimIncrement' in reg else None,
+                size=4,
+                register=reg,
+            ))
+    return reg_types
+
+def _cluster_types(reg_holder: dict | ClusterType):
+    if isinstance(reg_holder, ClusterType):
+        reg_holder = reg_holder.cluster
+    assert reg_holder['#tag'] in ["peripheral", "cluster"], \
+        "must be a peripheral or cluster"
+    cluster_types = []
+    for reg in reg_holder['registers']:
+        if reg['#tag'] == 'cluster':
+            cluster_types.append(ClusterType(
+                name=reg['name'].replace('[%s]', ''),
+                description=reg['description'],
+                struct=reg['name'].replace('[%s]', ''),
+                offset=int(reg['addressOffset'], 0),
+                perms=f"0b{AccessType.as_bits(reg['access']):03b}",
+                reset=f"Some({reg['resetValue']})" if 'resetValue' in reg else "None",
+                dim=int(reg['dim'], 0) if 'dim' in reg else None,
+                dim_increment=int(reg['dimIncrement'], 0) if 'dimIncrement' in reg else None,
+                size=_cluster_size(reg),
+                cluster=reg,
+            ))
+    return cluster_types
+
+def _cluster_mod(cluster_type: ClusterType | dict):
+    if isinstance(cluster_type, ClusterType):
+        return cluster_type.name.lower()
+    elif isinstance(cluster_type, dict):
+        assert cluster_type['#tag'] == 'cluster', "must be cluster"
+        return cluster_type['name'].replace('[%s]', '').lower()
+    assert False, "must be ClusterType or dict"
+
+def _cluster_size(cluster: dict):
+    assert cluster['#tag'] == 'cluster', "must be a cluster"
+    cluster_offset = int(cluster['addressOffset'], 0)
+    end_offsets = []
+    for reg in cluster['registers']:
+        # address offset is relative to the start of the cluster
+        address_offset = int(reg['addressOffset'], 0)
+        end_offset = address_offset + 4
+        
+        if "dim" in reg:
+            dim = int(reg['dim'], 0)
+            incr = int(reg["dimIncrement"], 0)
+            end_offset += dim * incr
+
+        end_offsets.append(end_offset)
+
+    cluster_size = max(end_offsets)
+    return cluster_size
+
+def _fields(reg: dict | RegType):
+    if isinstance(reg, RegType):
+        reg = register.register
+    assert reg['#tag'] == 'register', "must be a register"
+    fields = []
+    width = 0
+
+    if 'fields' not in reg:
+        reg['fields'] = []
+
+    for field in reg['fields']:
+        bitoffset = field['bitOffset']
+        bitwidth = field['bitWidth']
+
+        if bitoffset > width:
+            fields.append(FieldType(
+                name="__",
+                description="",
+                width=bitoffset - width,
+                type="u32",
+                field={},
+            ))
+            width = bitoffset
+
+        width += bitwidth
+
+        fields.append(FieldType(
+            name=sanitize_name(field['name'].lower()),
+            description=field['description'],
+            width=bitwidth,
+            type=size_to_type(bitwidth),
+            field=field,
+        ))
+
+    if width < 32:
+        fields.append(FieldType(
+            name="__",
+            description="",
+            width=32 - width,
+            type="u32",
+            field={},
+        ))
+
+    return fields
+
+helpers = {
+    "_byte_size": _byte_size,
+    "_backing_size": _backing_size,
+    "_reg_type": _reg_type,
+    "_reg_types": _reg_types,
+    "_cluster_types": _cluster_types,
+    "_cluster_mod": _cluster_mod,
+    "_cluster_size": _cluster_size,
+    "_fields": _fields,
+    "int": int,
+    "str": str,
+    "range": range,
+    "hex": hex,
+}
+
+
+def generate_device_mod(
+    dst: Path,
+    device: dict,
+    peripheral_mods: list[str],
+):
+    env = Environment(
+        block_start_string='/*%',
+        block_end_string='%*/',
+        variable_start_string='/*{',
+        variable_end_string='}*/',
+        comment_start_string='/*#',
+        comment_end_string='#*/',
+        loader=FileSystemLoader(str(TEMPLATES_DIR),
+            encoding='utf-8',
+            followlinks=False)
+    )
+    env.globals.update(helpers)
+
+    device_template = env.get_template("device.rs")
+
+    for i in range(len(peripheral_mods)):
+        peripheral_mods[i] = peripheral_mods[i].lower()
+
+    # generate device module
+    with open(dst / 'mod.rs', 'w') as f:
+        f.write(device_template.render(
+            device_name=device['name'],
+            peripheral_mods=peripheral_mods,
+        ))
+
+    # generate peripheral modules
+    for p in peripheral_mods:
+        if p not in device['#peripheral_groups']:
+            print(f"peripheral not found: {p.lower()}")
+            continue
+        print(f"generating {p.lower()} module...")
+        generate_peripheral_mod(env, dst, device['#peripheral_groups'][p])
+    
+    return
+
+def generate_peripheral_mod(
+    env: Environment,
+    dst: Path,
+    peripheral_group: dict,
+):
+    peripheral_template = env.get_template(str("peripheral/mod.rs"))
+    registers_template = env.get_template(str("peripheral/registers.rs"))
+    cluster_template = env.get_template(str("peripheral/cluster.rs"))
+
+    
+    # generate peripheral mod template
+    file_dst = (dst / peripheral_group['name'].lower() / 'mod.rs')
+    file_dst.parent.mkdir(exist_ok=True, parents=True)
+    with open(file_dst, 'w') as f:
+        f.write(peripheral_template.render(
+            peripheral_group=peripheral_group))
+
+    # generate registers
+    file_dst = (dst
+        / peripheral_group['name'].lower()
+        / 'registers'
+        / 'mod.rs')
+    file_dst.parent.mkdir(exist_ok=True, parents=True)
+    with open(file_dst, 'w') as f:
+        f.write(registers_template.render(
+            peripheral_group=peripheral_group))
+
+    # find all clusters and subclusters
+    maybe_regs = copy(peripheral_group['registers'])
     clusters = []
-    while elements:
-        element = elements.pop()
-        match element['#tag']:
-            case 'register':
-                registers.append(element)
-            case 'cluster':
-                clusters.append(element)
-            case _:
-                raise ValueError(f"invalid register tag: {element['#tag']}")
+    while maybe_regs:
+        maybe_reg = maybe_regs.pop(0)
+        if maybe_reg['#tag'] != 'cluster':
+            continue
 
-    cluster_content = []
+        # clusters won't have circular references so this is ok
+        clusters.append(maybe_reg)
+        maybe_regs.extend(maybe_reg['registers'])
 
+    # generate all cluster modules
     for cluster in clusters:
-        cluster_content.append(gen_cluster_content(cluster))
+        file_dst = (dst 
+            / peripheral_group['name'].lower()
+            / 'registers'
+            / f"{_cluster_mod(cluster)}.rs")
+        file_dst.parent.mkdir(exist_ok=True, parents=True)
+        with open(file_dst, 'w') as f:
+            f.write(cluster_template.render(cluster=cluster))
 
-    peripheral_mod_template_path = TEMPLATES_DIR / "peripheral" / "mod.rs"
-    registers_template_path = TEMPLATES_DIR / "peripheral" / "registers.rs"
-    cluster_template_path = TEMPLATES_DIR / "peripheral" / "cluster.rs"
-
-    generated_peripheral_mod_content = gen_from_template(
-        peripheral_mod_template_path, **peripheral_content)
-    with open(dst / "mod.rs", 'w') as f:
-        f.write(generated_peripheral_mod_content)
-
-    generated_registers_content = gen_from_template(
-        registers_template_path, **registers_content)
-    with open(dst / "registers" / "mod.rs", 'w') as f:
-        f.write(generated_registers_content)
-
-    for kwargs in cluster_content:
-        cluster_filename = kwargs['fields']['cluster_filename']
-        generated_content = gen_from_template(cluster_template_path, **kwargs)
-        with open(dst / "registers" / f"{cluster_filename}", 'w') as f:
-            f.write(generated_content)
+    return
