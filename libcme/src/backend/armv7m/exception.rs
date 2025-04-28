@@ -126,7 +126,12 @@ flags! {
 pub struct Priority;
 
 impl Priority {
-    pub fn compare(v1: u8, v2: u8, prigroup: u8) -> Ordering {
+    pub fn compare(v1: i16, v2: i16, prigroup: u8) -> Ordering {
+        if v1 < 0 || v2 < 0 {
+            return v1.cmp(&v2);
+        }
+        let v1 = v1 as u8;
+        let v2 = v2 as u8;
         match prigroup {
             0..=7 => {
                 let g1 = v1 >> (prigroup + 1);

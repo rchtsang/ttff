@@ -1,6 +1,8 @@
 //! nvic.rs
 //! 
 //! implementation of the nested vector interrupt controller for armv7m
+use std::i16;
+
 use bitfield_struct::bitfield;
 
 use crate::backend;
@@ -133,11 +135,15 @@ impl<'a> NVICRegsMut<'a> {
                 val | ((byte as u32) << i)
             });
         match reg_type {
-            NVICRegType::IPR(_n) => {
+            NVICRegType::IPR(n) => {
                 let byte_offset = offset & 0b11;
                 let slice = self.view_bytes_mut(word_offset);
                 let slice = &mut slice[byte_offset..];
-                slice.copy_from_slice(src);
+                for (i, val) in src.iter().enumerate() {
+                    slice[i] = *val;
+                    let excp = ExceptionType::from((4 * n + byte_offset as u8) as u32);
+                    events.push_back(Event::ExceptionSetPriority(excp, *val))
+                }
             }
             NVICRegType::ISER(n) => {
                 check_alignment(BASE + offset as u32, src.len(), Alignment::Word)
@@ -543,7 +549,6 @@ impl NVICState {
     pub fn set_pending(
         &mut self,
         typ: ExceptionType,
-        nvicregs: impl NVIC,
         prigroup: u8,
     ) {
         debug!("{typ:?}");
@@ -553,7 +558,7 @@ impl NVICState {
                 self.queue.push(typ);
             }
         }
-        self.sort_pending(nvicregs, prigroup);
+        self.sort_pending(prigroup);
     }
 
     /// clr a pending interrupt (does nothing if not pending)
@@ -613,25 +618,37 @@ impl NVICState {
         self.active.iter()
     }
 
+    pub fn set_priority(
+        &mut self,
+        typ: ExceptionType,
+        priority: i16,
+    ) {
+        if let Some(excp) = self.get_exception_mut(&typ) {
+            excp.priority = priority;
+        }
+    }
+
     /// sort pending exceptions by current priority
     /// based on nvic registers and prigroup value
     /// (does not implement priority boosting)
-    fn sort_pending<'a>(&mut self, nvicregs: impl NVIC, prigroup: u8) {
-        self.queue.sort_by(|excp1, excp2| {
-            let excp_num1 = u32::from(excp1) as u8;
-            let excp_num2 = u32::from(excp2) as u8;
-            let n1 = excp_num1 / 4;
-            let n2 = excp_num2 / 4;
-            let pri1 = nvicregs.get_ipr(n1).pri_n(excp_num1 % 4);
-            let pri2 = nvicregs.get_ipr(n2).pri_n(excp_num2 % 4);
+    fn sort_pending<'a>(&mut self, prigroup: u8) {
+        let mut queue = self.queue.clone();
+        queue.sort_by(|excp1, excp2| {
+            let pri1 = self.get_exception(excp1)
+                .map(|excp| excp.priority)
+                .unwrap_or(i16::MAX);
+            let pri2 = self.get_exception(excp2)
+                .map(|excp| excp.priority)
+                .unwrap_or(i16::MAX);
 
             Priority::compare(pri1, pri2, prigroup)
-        })
+        });
+        self.queue = queue;
     }
 
     /// get the next pending exception to service
-    pub fn get_pending<'a>(&mut self, nvicregs: NVICRegs<'a>, prigroup: u8) -> Option<&ExceptionType> {
-        self.sort_pending(nvicregs, prigroup);
+    pub fn get_pending<'a>(&mut self, prigroup: u8) -> Option<&ExceptionType> {
+        self.sort_pending(prigroup);
         self.queue.first()
     }
 
@@ -644,9 +661,7 @@ impl NVICState {
 impl SysCtrlSpace {
     pub fn set_exception_active(&mut self, typ: ExceptionType) {
         let prigroup = self.get_aircr().prigroup();
-        let backing = self.backing.as_mut();
-        let nvicregs = Self::_nvic_regs_mut(backing);
-        self.nvic.set_pending(typ, nvicregs, prigroup)
+        self.nvic.set_pending(typ, prigroup)
     }
 
     pub fn clr_exception_active(&mut self, typ: ExceptionType) {
@@ -659,6 +674,10 @@ impl SysCtrlSpace {
 
     pub fn clr_exception_pending(&mut self, typ: ExceptionType) {
         self.nvic.clr_active(typ)
+    }
+
+    pub fn set_exception_priority(&mut self, typ: ExceptionType, priority: i16) {
+        self.nvic.set_priority(typ, priority);
     }
 }
 

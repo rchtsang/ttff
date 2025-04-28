@@ -17,6 +17,7 @@ pub enum Event {
     // ICSR and SHCSR
     ExceptionSetActive(ExceptionType, bool),
     ExceptionSetPending(ExceptionType, bool),
+    ExceptionSetPriority(ExceptionType, u8),
     ExceptionEnabled(ExceptionType, bool),
 
     // VTOR
@@ -101,6 +102,10 @@ impl Backend {
                 } else {
                     self.scs.clr_exception_pending(exception_type);
                 }
+                Ok(())
+            }
+            Event::ExceptionSetPriority(exception_type, priority) => {
+                self.scs.set_exception_priority(exception_type, priority as i16);
                 Ok(())
             }
             Event::ExceptionEnabled(exception_type, val) => {
