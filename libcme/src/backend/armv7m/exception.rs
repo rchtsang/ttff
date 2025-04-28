@@ -2,6 +2,8 @@
 //! 
 //! exception structs and types
 
+use std::cmp::Ordering;
+
 use crate::utils::bytes_as_u32_le;
 
 use super::*;
@@ -118,3 +120,25 @@ flags! {
     }
 }
 
+/// implementing priority values
+/// https://developer.arm.com/documentation/ka001378/latest/
+#[repr(transparent)]
+pub struct Priority;
+
+impl Priority {
+    pub fn compare(v1: u8, v2: u8, prigroup: u8) -> Ordering {
+        match prigroup {
+            0..=7 => {
+                let g1 = v1 >> (prigroup + 1);
+                let s1 = v1 & (0xFF >> (7 - prigroup));
+                let g2 = v2 >> (prigroup + 1);
+                let s2 = v2 & (0xFF >> (7 - prigroup));
+                (g1, s1).cmp(&(g2, s2))
+            }
+            _ => { unreachable!("invalid prigroup value: {prigroup}") }
+        }
+        // comment above and uncomment below to ignore prigroup effect
+        // assert!(prigroup < 8, "invalid prigroup value: {prigroup}");
+        // (v1).cmp(&v2)
+    }
+}
