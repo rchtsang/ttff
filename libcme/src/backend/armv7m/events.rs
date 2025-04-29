@@ -199,42 +199,42 @@ impl Backend {
                 // we need to do that manually for each of these.
                 // this might be worth a refactor at some point...
                 match evt {
-                    peripheral::Event::EnableInterrupt { id } => {
-                        let n = ((id + 16) / 32) as u8;
-                        let i = (id + 16) % 32;
+                    peripheral::Event::EnableInterrupt { int_num } => {
+                        let n = ((int_num + 16) / 32) as u8;
+                        let i = (int_num + 16) % 32;
                         let iser = nvicregs.get_iser(n).setena();
                         let icer = nvicregs.get_icer(n).clrena();
                         nvicregs.get_iser_mut(n)
                             .set_setena(iser | (1 << i));
                         nvicregs.get_icer_mut(n)
                             .set_clrena(icer | (1 << i));
-                        let typ = ExceptionType::from(id + 16);
+                        let typ = ExceptionType::from(int_num + 16);
                         self.scs.enable_exception(typ);
                         Ok(())
                     }
-                    peripheral::Event::DisableInterrupt { id } => {
-                        let n = ((id + 16) / 32) as u8;
-                        let i = (id + 16) % 32;
+                    peripheral::Event::DisableInterrupt { int_num } => {
+                        let n = ((int_num + 16) / 32) as u8;
+                        let i = (int_num + 16) % 32;
                         let iser = nvicregs.get_iser(n).setena();
                         let icer = nvicregs.get_icer(n).clrena();
                         nvicregs.get_iser_mut(n)
                             .set_setena(iser & !(1 << i));
                         nvicregs.get_icer_mut(n)
                             .set_clrena(icer & !(1 << i));
-                        let typ = ExceptionType::from(id + 16);
+                        let typ = ExceptionType::from(int_num + 16);
                         self.scs.disable_exception(typ);
                         Ok(())
                     }
-                    peripheral::Event::FireInterrupt { id } => {
-                        let n = ((id + 16) / 32) as u8;
-                        let i = (id + 16) % 32;
+                    peripheral::Event::FireInterrupt { int_num } => {
+                        let n = ((int_num + 16) / 32) as u8;
+                        let i = (int_num + 16) % 32;
                         let ispr = nvicregs.get_ispr(n).setpend();
                         let icpr = nvicregs.get_icpr(n).clrpend();
                         nvicregs.get_ispr_mut(n)
                             .set_setpend(ispr | (1 << i));
                         nvicregs.get_icpr_mut(n)
                             .set_clrpend(icpr | (1 << i));
-                        let typ = ExceptionType::from(id + 16);
+                        let typ = ExceptionType::from(int_num + 16);
                         self.scs.set_exception_pending(typ);
                         Ok(())
                     }

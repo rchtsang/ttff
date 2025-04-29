@@ -32,14 +32,14 @@ impl Error {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     // Generic(String),
-    /// enable external interrupt with given id
-    /// where the id should be the exception number - 16
-    EnableInterrupt { id: u32 },
-    /// disable external interrupt with given id
-    /// where the id should be the exception number - 16
-    DisableInterrupt { id: u32 },
+    /// enable external interrupt with given interrupt number
+    /// which is always its exception number - 16
+    EnableInterrupt { int_num: u32 },
+    /// disable external interrupt with given interrupt number
+    /// which is always its exception number - 16
+    DisableInterrupt { int_num: u32 },
     /// fire an interrupt
-    FireInterrupt { id: u32 },
+    FireInterrupt { int_num: u32 },
 }
 
 /// peripheral state trait

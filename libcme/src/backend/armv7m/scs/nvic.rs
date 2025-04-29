@@ -595,11 +595,25 @@ impl SysCtrlSpace {
     }
 
     pub fn set_exception_active(&mut self, typ: ExceptionType) {
-        self.nvic.set_active(typ)
+        self.nvic.set_active(typ);
+        let vectactive = self.nvic.active()
+            .first()
+            .map(|t| u32::from(t))
+            .unwrap_or(0);
+        self.get_icsr_mut().set_vectactive(vectactive);
+        let rettobase = self.nvic.active().len() < 2;
+        self.get_icsr_mut().set_rettobase(rettobase);
     }
 
     pub fn clr_exception_active(&mut self, typ: ExceptionType) {
-        self.nvic.clr_active(typ)
+        self.nvic.clr_active(typ);
+        let vectactive = self.nvic.active()
+            .first()
+            .map(|t| u32::from(t))
+            .unwrap_or(0);
+        self.get_icsr_mut().set_vectactive(vectactive);
+        let rettobase = self.nvic.active().len() < 2;
+        self.get_icsr_mut().set_rettobase(rettobase);
     }
 }
 
