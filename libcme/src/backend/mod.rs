@@ -81,13 +81,13 @@ pub trait Backend: fmt::Debug + DynClone {
     fn write(&mut self, vnd: &VarnodeData, val: &BitVec) -> Result<(), Error>;
 
     /// read the current pc address
-    fn read_pc(&mut self) -> Result<Address, Error>;
+    fn read_pc(&self) -> Result<Address, Error>;
 
     /// write an address to the pc
     fn write_pc(&mut self, address: &Address) -> Result<(), Error>;
 
     /// read the current stack pointer address
-    fn read_sp(&mut self) -> Result<Address, Error>;
+    fn read_sp(&self) -> Result<Address, Error>;
 
     /// write an address the the active stack pointer
     fn write_sp(&mut self, address: &Address) -> Result<(), Error>;
@@ -167,9 +167,9 @@ impl<'backend> Backend for Box<dyn Backend + 'backend> {
     fn fetch<'irb>(&self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb> { (**self).fetch(address, arena) }
     fn read(&mut self, vnd: &VarnodeData) -> Result<BitVec, Error> { (**self).read(vnd) }
     fn write(&mut self, vnd: &VarnodeData, val: &BitVec) -> Result<(), Error> { (**self).write(vnd, val) }
-    fn read_pc(&mut self) -> Result<Address, Error> { (**self).read_pc() }
+    fn read_pc(&self) -> Result<Address, Error> { (**self).read_pc() }
     fn write_pc(&mut self, address: &Address) -> Result<(), Error> { (**self).write_pc(address) }
-    fn read_sp(&mut self) -> Result<Address, Error> { (**self).read_sp() }
+    fn read_sp(&self) -> Result<Address, Error> { (**self).read_sp() }
     fn write_sp(&mut self, address: &Address) -> Result<(), Error> { (**self).write_sp(address) }
     fn load(&mut self, address: &Address, size: usize) -> Result<BitVec, Error> { (**self).load(address, size) }
     fn store(&mut self, address: &Address, val: &BitVec) -> Result<(), Error> { (**self).store(address, val) }

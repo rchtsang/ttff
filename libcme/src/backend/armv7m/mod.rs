@@ -30,6 +30,8 @@ use crate::backend::Backend as BackendTrait;
 mod userop;
 mod system;
 mod helpers;
+mod regs;
+pub use regs::*;
 mod mmap;
 pub use mmap::*;
 mod events;
@@ -52,6 +54,8 @@ const DEFAULT_PROC_SP: u32 = 0;
 pub enum Error {
     #[error("unpredictable behavior: {0}")]
     UnpredictableBehavior(&'static str),
+    #[error("system error: {0}")]
+    System(&'static str),
     #[error("invalid userop id: {0}")]
     InvalidUserOp(usize),
     #[error("invalid address: {0:#x}")]
@@ -252,7 +256,7 @@ impl BackendTrait for Backend {
         self.mmap.map_mmio(peripheral)
     }
 
-    fn read_pc(&mut self) -> Result<Address, super::Error> {
+    fn read_pc(&self) -> Result<Address, super::Error> {
         let val = self.regs.read_val_with(
             self.pc.offset() as usize,
             self.pc.size(),
@@ -274,7 +278,7 @@ impl BackendTrait for Backend {
         Ok(())
     }
 
-    fn read_sp(&mut self) -> Result<Address, super::Error> {
+    fn read_sp(&self) -> Result<Address, super::Error> {
         let val = self.regs.read_val_with(
             self.sp.offset() as usize,
             self.sp.size(),

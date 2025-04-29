@@ -841,12 +841,24 @@ fn _hint_yield(this: &mut Backend,
 
 /// implementation of ISB instruction.
 /// (see Memory barriers in A3.7.3)
+#[instrument(skip_all)]
 fn _instruction_synchronization_barrier(this: &mut Backend,
     index: usize,
     inputs: &[VarnodeData],
     output: Option<&VarnodeData>,
 ) -> Result<Option<Location>, backend::Error> {
-    unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
+    // unimplemented!("unsupported userop: {}", _lookup_userop(index).name)
+    assert_eq!(inputs.len(), 1, "{} expected 1 input", _lookup_userop(index).name);
+    let option = this.read(&inputs[0])
+        .expect("input should be a constant");
+    let option= option.cast(4).to_u8()
+        .ok_or_else(|| {
+            let msg = "failed to cast input to 4 bit u8";
+            error!(msg);
+            super::Error::System(msg)
+        })?;
+    this.instruction_synchronization_barrier(option)?;
+    Ok(None)
 }
 
 fn _hint_preload_data(this: &mut Backend,

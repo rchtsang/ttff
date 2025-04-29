@@ -128,4 +128,10 @@ impl SysCtrlSpace {
            _ => { panic!("invalid exception number: {excp_num}") }
         }
     }
+
+    pub fn update_regs(&mut self) -> Result<(), super::Error> {
+        // see B1.5.6 ExceptionTaken
+        // don't know what status registers need to be updated
+        Ok(())
+    }
 }
