@@ -31,7 +31,7 @@ impl SysCtrlSpace {
         // instead of looping over the full range of exception values.
         // if desired, we can switch to looping to save memory and
         // removing nvic.active list
-        for excp_type in self.nvic.active() {
+        for excp_type in self.exceptions.active() {
             let excp_num = u32::from(excp_type) as u8;
             let pri = self.nvic_regs()
                 .get_ipr(excp_num / 4)
@@ -139,43 +139,43 @@ impl SysCtrlSpace {
 
 impl SysCtrlSpace {
     pub fn set_exception_pending(&mut self, typ: ExceptionType) {
-        self.nvic.set_pending(typ);
-        if let Some(typ) = self.nvic.pending().first().cloned() {
+        self.exceptions.set_pending(typ);
+        if let Some(typ) = self.exceptions.pending().first().cloned() {
             self.get_icsr_mut().set_vectpending(u32::from(&typ));
         }
     }
 
     pub fn enable_exception(&mut self, typ: ExceptionType) {
-        self.nvic.enable(typ)
+        self.exceptions.enable(typ)
     }
 
     pub fn disable_exception(&mut self, typ: ExceptionType) {
-        self.nvic.disable(typ)
+        self.exceptions.disable(typ)
     }
 
     pub fn clr_exception_pending(&mut self, typ: ExceptionType) {
-        self.nvic.clr_pending(typ)
+        self.exceptions.clr_pending(typ)
     }
 
     pub fn set_exception_active(&mut self, typ: ExceptionType) {
-        self.nvic.set_active(typ);
-        let vectactive = self.nvic.active()
+        self.exceptions.set_active(typ);
+        let vectactive = self.exceptions.active()
             .first()
             .map(|t| u32::from(t))
             .unwrap_or(0);
         self.get_icsr_mut().set_vectactive(vectactive);
-        let rettobase = self.nvic.active().len() < 2;
+        let rettobase = self.exceptions.active().len() < 2;
         self.get_icsr_mut().set_rettobase(rettobase);
     }
 
     pub fn clr_exception_active(&mut self, typ: ExceptionType) {
-        self.nvic.clr_active(typ);
-        let vectactive = self.nvic.active()
+        self.exceptions.clr_active(typ);
+        let vectactive = self.exceptions.active()
             .first()
             .map(|t| u32::from(t))
             .unwrap_or(0);
         self.get_icsr_mut().set_vectactive(vectactive);
-        let rettobase = self.nvic.active().len() < 2;
+        let rettobase = self.exceptions.active().len() < 2;
         self.get_icsr_mut().set_rettobase(rettobase);
     }
 }

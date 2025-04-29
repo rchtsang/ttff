@@ -19,6 +19,8 @@ use super::*;
 
 mod regs;
 pub use regs::*;
+mod exception;
+use exception::ExceptionState;
 pub mod nvic;
 pub use nvic::*;
 pub mod systick;
@@ -57,7 +59,7 @@ impl Default for SysCtrlConfig {
 pub struct SysCtrlSpace {
     pub range: Range<Address>,
     backing: Box<[u32; 0x400]>,
-    pub nvic: NVICState,
+    pub exceptions: ExceptionState,
     pub mpu: MPUState,
 }
 
@@ -83,13 +85,13 @@ impl SysCtrlSpace {
     pub fn new_from(config: SysCtrlConfig) -> Self {
         let range = Address::from(0xe000e000u64)..Address::from(0xe000f000u64);
         let mut backing = Box::new([0u32; 0x400]);
-        let nvic = NVICState::default();
+        let exceptions = ExceptionState::default();
         let mpu = MPUState::default();
         for (scregtype, reset_val) in config.map {
             let offset = scregtype.offset();
             backing[offset] = reset_val;
         }
-        Self { range, backing, nvic, mpu }
+        Self { range, backing, exceptions, mpu }
     }
 
     /// direct view into the scs as transmuted bytes
@@ -704,7 +706,7 @@ impl Default for SysCtrlSpace {
         Self {
             range: Address::from(0xe000e000u64)..Address::from(0xe000f000u64),
             backing: Box::new([0u32; 0x400]),
-            nvic: NVICState::default(),
+            exceptions: ExceptionState::default(),
             mpu: MPUState::default(),
         }
     }
