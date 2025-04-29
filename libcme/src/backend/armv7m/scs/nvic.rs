@@ -575,8 +575,11 @@ impl NVICState {
 }
 
 impl SysCtrlSpace {
-    pub fn set_exception_active(&mut self, typ: ExceptionType) {
-        self.nvic.set_pending(typ)
+    pub fn set_exception_pending(&mut self, typ: ExceptionType) {
+        self.nvic.set_pending(typ);
+        if let Some(typ) = self.nvic.pending().first().cloned() {
+            self.get_icsr_mut().set_vectpending(u32::from(&typ));
+        }
     }
 
     pub fn enable_exception(&mut self, typ: ExceptionType) {
@@ -587,15 +590,15 @@ impl SysCtrlSpace {
         self.nvic.disable(typ)
     }
 
-    pub fn clr_exception_active(&mut self, typ: ExceptionType) {
+    pub fn clr_exception_pending(&mut self, typ: ExceptionType) {
         self.nvic.clr_pending(typ)
     }
 
-    pub fn set_exception_pending(&mut self, typ: ExceptionType) {
+    pub fn set_exception_active(&mut self, typ: ExceptionType) {
         self.nvic.set_active(typ)
     }
 
-    pub fn clr_exception_pending(&mut self, typ: ExceptionType) {
+    pub fn clr_exception_active(&mut self, typ: ExceptionType) {
         self.nvic.clr_active(typ)
     }
 }
