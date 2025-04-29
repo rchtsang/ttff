@@ -25,7 +25,11 @@ use crate::peripheral::{
     self,
     Peripheral,
 };
-use crate::backend::Backend as BackendTrait;
+use crate::backend::{
+    self,
+    ContextSwitch,
+    Backend as BackendTrait,
+};
 
 mod userop;
 mod system;
@@ -70,9 +74,9 @@ pub enum Error {
     AlignmentViolation(Address, usize, Alignment),
 }
 
-impl From<Error> for super::Error {
+impl From<Error> for backend::Error {
     fn from(err: Error) -> Self {
-        super::Error::Arch("armv7m", Arc::new(err.into()))
+        backend::Error::Arch("armv7m", Arc::new(err.into()))
     }
 }
 
@@ -164,7 +168,7 @@ impl Backend {
     pub fn new_with(
         builder: &LanguageBuilder,
         scs_config: Option<SysCtrlConfig>,
-    ) -> Result<Self, super::Error> {
+    ) -> Result<Self, backend::Error> {
         let lang = builder.build("ARM:LE:32:Cortex", "default")?;
         let t = lang.translator();
         let scs_config = scs_config.unwrap_or_default();
@@ -220,7 +224,7 @@ impl BackendTrait for Backend {
         self.mode.into()
     }
 
-    fn do_isr_preempt(&self) -> Option<EmuThread> {
+    fn do_isr_preempt(&self) -> Option<ContextSwitch> {
         // check the current execution priority,
         // then look at the first exception in the queue.
         // if it is higher, perform the context switch and 
@@ -231,14 +235,14 @@ impl BackendTrait for Backend {
         todo!()
     }
 
-    fn do_isr_return(&self) -> Option<EmuThread> {
+    fn do_isr_return(&self) -> Option<ContextSwitch> {
         todo!()
     }
 
     fn map_mem(&mut self,
         base: &Address,
         size: usize,
-    ) -> Result<(), super::Error> {
+    ) -> Result<(), backend::Error> {
         assert!((*base + size as u64) < self.scs.range.start || *base >= self.scs.range.end,
             "cannot map memory in system control space");
         self.mmap.map_mem(base, size)
@@ -246,7 +250,7 @@ impl BackendTrait for Backend {
 
     fn map_mmio(&mut self,
         peripheral: Peripheral,
-    ) -> Result<(), super::Error> {
+    ) -> Result<(), backend::Error> {
         let base = peripheral.base_address().offset();
         let size = peripheral.size() as u64;
         assert!(0x40000000 <= base && (base + size) < 0x50000000,
@@ -254,7 +258,7 @@ impl BackendTrait for Backend {
         self.mmap.map_mmio(peripheral)
     }
 
-    fn read_pc(&self) -> Result<Address, super::Error> {
+    fn read_pc(&self) -> Result<Address, backend::Error> {
         let val = self.regs.read_val_with(
             self.pc.offset() as usize,
             self.pc.size(),
@@ -262,10 +266,10 @@ impl BackendTrait for Backend {
         )?;
         val.to_u64()
             .map(Address::from)
-            .ok_or_else(| | super::Error::AddressInvalid(val))
+            .ok_or_else(| | backend::Error::AddressInvalid(val))
     }
 
-    fn write_pc(&mut self, address: &Address) -> Result<(), super::Error> {
+    fn write_pc(&mut self, address: &Address) -> Result<(), backend::Error> {
         let val = BitVec::from(address.offset())
             .unsigned_cast(self.pc.bits());
         self.regs.write_val_with(
@@ -276,7 +280,7 @@ impl BackendTrait for Backend {
         Ok(())
     }
 
-    fn read_sp(&self) -> Result<Address, super::Error> {
+    fn read_sp(&self) -> Result<Address, backend::Error> {
         let val = self.regs.read_val_with(
             self.sp.offset() as usize,
             self.sp.size(),
@@ -284,10 +288,10 @@ impl BackendTrait for Backend {
         )?;
         val.to_u64()
             .map(Address::from)
-            .ok_or_else(| | super::Error::AddressInvalid(val))
+            .ok_or_else(| | backend::Error::AddressInvalid(val))
     }
 
-    fn write_sp(&mut self, address: &Address) -> Result<(), super::Error> {
+    fn write_sp(&mut self, address: &Address) -> Result<(), backend::Error> {
         let val = BitVec::from(address.offset())
             .unsigned_cast(self.sp.bits());
         self.regs.write_val_with(
@@ -315,7 +319,7 @@ impl BackendTrait for Backend {
         Ok(Arc::new(Insn { disasm, pcode }))
     }
 
-    fn load(&mut self, address: &Address, size: usize) -> Result<BitVec, super::Error> {
+    fn load(&mut self, address: &Address, size: usize) -> Result<BitVec, backend::Error> {
         let big_endian = self.lang.translator().is_big_endian();
         let mut dst = vec![0u8; size];
         self.load_bytes(address, &mut dst)?;
@@ -327,7 +331,7 @@ impl BackendTrait for Backend {
         }
     }
 
-    fn store(&mut self, address: &Address, val: &BitVec) -> Result<(), super::Error> {
+    fn store(&mut self, address: &Address, val: &BitVec) -> Result<(), backend::Error> {
         let size = val.bytes();
         let mut src = vec![0u8; size];
         if self.lang.translator().is_big_endian() {
@@ -339,7 +343,7 @@ impl BackendTrait for Backend {
         self.store_bytes(address, &src)
     }
 
-    fn read(&mut self, vnd: &VarnodeData) -> Result<BitVec, super::Error> {
+    fn read(&mut self, vnd: &VarnodeData) -> Result<BitVec, backend::Error> {
         let spc = vnd.space();
         if spc.is_constant() {
             Ok(BitVec::from_u64(vnd.offset(), vnd.bits()))
@@ -354,7 +358,7 @@ impl BackendTrait for Backend {
         }
     }
 
-    fn write(&mut self, vnd: &VarnodeData, val: &BitVec) -> Result<(), super::Error> {
+    fn write(&mut self, vnd: &VarnodeData, val: &BitVec) -> Result<(), backend::Error> {
         let spc = vnd.space();
         if spc.is_register() {
             Ok(self.regs.write_val_with(vnd.offset() as usize, val, self.endian)?)
@@ -369,7 +373,7 @@ impl BackendTrait for Backend {
         }
     }
 
-    fn load_bytes(&mut self, address: &Address, dst: &mut [u8]) -> Result<(), super::Error> {
+    fn load_bytes(&mut self, address: &Address, dst: &mut [u8]) -> Result<(), backend::Error> {
         if self._is_scs_region(address, dst.len()) {
             let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;
             self.scs.read_bytes(offset, dst, &mut self.events)
@@ -378,7 +382,7 @@ impl BackendTrait for Backend {
         }
     }
 
-    fn store_bytes(&mut self, address: &Address, src: &[u8]) -> Result<(), super::Error> {
+    fn store_bytes(&mut self, address: &Address, src: &[u8]) -> Result<(), backend::Error> {
         if self._is_scs_region(address, src.len()) {
             let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;
             self.scs.write_bytes(offset, src, &mut self.events)
@@ -391,7 +395,7 @@ impl BackendTrait for Backend {
         &mut self,
         output: Option<&VarnodeData>,
         inputs: &[VarnodeData],
-    ) -> Result<Option<fugue_core::ir::Location>, super::Error> {
+    ) -> Result<Option<fugue_core::ir::Location>, backend::Error> {
         let (index, inputs, output) = get_userop_params(output, inputs);
         self._userop(index, inputs, output)
     }
@@ -403,7 +407,7 @@ impl Backend {
         && *address >= self.scs.range.start
     }
 
-    fn _mem_view_bytes(&self, address: &Address, size: Option<usize>) -> Result<&[u8], super::Error> {
+    fn _mem_view_bytes(&self, address: &Address, size: Option<usize>) -> Result<&[u8], backend::Error> {
         if self._is_scs_region(address, size.unwrap_or(0)) {
             todo!("view bytes in scs region")
         } else {
@@ -411,7 +415,7 @@ impl Backend {
         }
     }
 
-    fn _mem_view_bytes_mut(&mut self, address: &Address, size: Option<usize>) -> Result<&mut [u8], super::Error> {
+    fn _mem_view_bytes_mut(&mut self, address: &Address, size: Option<usize>) -> Result<&mut [u8], backend::Error> {
         if self._is_scs_region(address, size.unwrap_or(0)) {
             todo!("view bytes in scs region")
         } else {
