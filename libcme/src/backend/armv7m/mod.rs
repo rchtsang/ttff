@@ -30,8 +30,6 @@ use crate::backend::Backend as BackendTrait;
 mod userop;
 mod system;
 mod helpers;
-mod regs;
-pub use regs::*;
 mod mmap;
 pub use mmap::*;
 mod events;
