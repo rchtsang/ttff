@@ -497,6 +497,7 @@ impl NVICState {
     /// note that this does _not_ update the exception queue.
     pub fn update(&mut self, vt: &[u8]) -> &mut Self {
         assert!(vt.len() >= 16 * 4, "vector table must have arch-defined exceptions");
+        self.vtsize = vt.len();
         for (i, exception) in self.internal.iter_mut()
             .skip(1).enumerate()
         {

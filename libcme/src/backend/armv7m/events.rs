@@ -2,6 +2,7 @@
 //! 
 //! armv7m architectural events and event processing
 
+use crate::backend;
 use super::*;
 
 /// armv7m architecture event
@@ -74,15 +75,15 @@ impl From<peripheral::Event> for Event {
 }
 
 impl Backend {
-    fn _process_events(&mut self) -> Result<(), super::Error> {
+    fn _process_events(&mut self) -> Result<(), backend::Error> {
         while let Some(evt) = self.events.pop_front() {
-            self._handle_event(evt).map_err(Into::<super::Error>::into)?;
+            self._handle_event(evt)?;
         }
         Ok(())
     }
 
     #[allow(unused)]
-    fn _handle_event(&mut self, evt: Event) -> Result<(), Error> {
+    fn _handle_event(&mut self, evt: Event) -> Result<(), backend::Error> {
         match evt {
             Event::SetProcessorStatus(status) => {
                 self.status = status;
@@ -117,7 +118,12 @@ impl Backend {
                 Ok(())
             }
             Event::VectorTableOffsetWrite(offset) => {
-                todo!()
+                // assume that vtsize is initialized with correct value and never changes
+                let vtsize = self.scs.nvic.vtsize;
+                let vt = self.mmap.mem_view_bytes(&Address::from(offset), Some(vtsize))?;
+                // makes the borrow checker mad. refactor needed.
+                self.scs.nvic.update(vt);
+                Ok(())
             }
             Event::ExternSysResetRequest => {
                 todo!()
