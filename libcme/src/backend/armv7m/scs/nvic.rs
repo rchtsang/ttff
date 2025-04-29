@@ -574,49 +574,6 @@ impl NVICState {
     }
 }
 
-impl SysCtrlSpace {
-    pub fn set_exception_pending(&mut self, typ: ExceptionType) {
-        self.nvic.set_pending(typ);
-        if let Some(typ) = self.nvic.pending().first().cloned() {
-            self.get_icsr_mut().set_vectpending(u32::from(&typ));
-        }
-    }
-
-    pub fn enable_exception(&mut self, typ: ExceptionType) {
-        self.nvic.enable(typ)
-    }
-
-    pub fn disable_exception(&mut self, typ: ExceptionType) {
-        self.nvic.disable(typ)
-    }
-
-    pub fn clr_exception_pending(&mut self, typ: ExceptionType) {
-        self.nvic.clr_pending(typ)
-    }
-
-    pub fn set_exception_active(&mut self, typ: ExceptionType) {
-        self.nvic.set_active(typ);
-        let vectactive = self.nvic.active()
-            .first()
-            .map(|t| u32::from(t))
-            .unwrap_or(0);
-        self.get_icsr_mut().set_vectactive(vectactive);
-        let rettobase = self.nvic.active().len() < 2;
-        self.get_icsr_mut().set_rettobase(rettobase);
-    }
-
-    pub fn clr_exception_active(&mut self, typ: ExceptionType) {
-        self.nvic.clr_active(typ);
-        let vectactive = self.nvic.active()
-            .first()
-            .map(|t| u32::from(t))
-            .unwrap_or(0);
-        self.get_icsr_mut().set_vectactive(vectactive);
-        let rettobase = self.nvic.active().len() < 2;
-        self.get_icsr_mut().set_rettobase(rettobase);
-    }
-}
-
 /// Interrupt Set-Enable Registers.
 /// Enables or reads the enable state of a group of interrupts.
 /// Word-accessible only. 
