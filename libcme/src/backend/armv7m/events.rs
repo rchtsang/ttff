@@ -83,6 +83,7 @@ impl Backend {
     }
 
     #[allow(unused)]
+    #[instrument]
     fn _handle_event(&mut self, evt: Event) -> Result<(), backend::Error> {
         match evt {
             Event::SetProcessorStatus(status) => {
@@ -139,7 +140,10 @@ impl Backend {
                 todo!()
             }
             Event::SetPriorityGrouping(group) => {
-                todo!()
+                // right we rely on prigroup register itself for getting
+                // the current prigroup, so this event doesn't need to do
+                // anything
+                Ok(())
             }
             Event::SetTransitionWakupEvent(val) => {
                 todo!()
@@ -178,19 +182,70 @@ impl Backend {
                 todo!()
             }
             Event::SetSystemHandlerPriority{ id, priority } => {
-                todo!()
+                assert!(4 <= id && id <= 15, "invalid system handler id: {id}");
+                let typ = ExceptionType::from(id as u32);
+                self.scs.set_exception_priority(typ, priority as i16);
+                Ok(())
             }
             Event::FaultStatusClr(fault) => {
-                todo!()
+                todo!("need to implement fault handling for this to make sense")
+                // go through all the possible CFSR error conditions 
+                // some of them trap conditionally. rather annoying to implement.
             }
             Event::SEVInstructionExecuted => {
-                todo!()
+                // do nothing with this for now
+                // see SEV A7.7.129
+                Ok(())
             }
             Event::Debug(_evt) => {
                 todo!()
             }
-            Event::Peripheral(_evt) => {
-                todo!()
+            Event::Peripheral(evt) => {
+                let mut nvicregs = self.scs.nvic_regs_mut();
+                // since scs exception state calls don't update memory locations,
+                // we need to do that manually for each of these.
+                // this might be worth a refactor at some point...
+                match evt {
+                    peripheral::Event::EnableInterrupt { id } => {
+                        let n = ((id + 16) / 32) as u8;
+                        let i = (id + 16) % 32;
+                        let iser = nvicregs.get_iser(n).setena();
+                        let icer = nvicregs.get_icer(n).clrena();
+                        nvicregs.get_iser_mut(n)
+                            .set_setena(iser | (1 << i));
+                        nvicregs.get_icer_mut(n)
+                            .set_clrena(icer | (1 << i));
+                        let typ = ExceptionType::from(id + 16);
+                        self.scs.enable_exception(typ);
+                        Ok(())
+                    }
+                    peripheral::Event::DisableInterrupt { id } => {
+                        let n = ((id + 16) / 32) as u8;
+                        let i = (id + 16) % 32;
+                        let iser = nvicregs.get_iser(n).setena();
+                        let icer = nvicregs.get_icer(n).clrena();
+                        nvicregs.get_iser_mut(n)
+                            .set_setena(iser & !(1 << i));
+                        nvicregs.get_icer_mut(n)
+                            .set_clrena(icer & !(1 << i));
+                        let typ = ExceptionType::from(id + 16);
+                        self.scs.disable_exception(typ);
+                        Ok(())
+                    }
+                    peripheral::Event::FireInterrupt { id } => {
+                        let n = ((id + 16) / 32) as u8;
+                        let i = (id + 16) % 32;
+                        let ispr = nvicregs.get_ispr(n).setpend();
+                        let icpr = nvicregs.get_icpr(n).clrpend();
+                        nvicregs.get_ispr_mut(n)
+                            .set_setpend(ispr | (1 << i));
+                        nvicregs.get_icpr_mut(n)
+                            .set_clrpend(icpr | (1 << i));
+                        let typ = ExceptionType::from(id + 16);
+                        self.scs.set_exception_pending(typ);
+                        Ok(())
+                    }
+                }
             }
         }
     }

@@ -215,11 +215,18 @@ impl BackendTrait for Backend {
         self.mode.into()
     }
 
-    fn is_isr_preempt(&self) -> bool {
+    fn do_isr_preempt(&self) -> Option<EmuThread> {
+        // check the current execution priority,
+        // then look at the first exception in the queue.
+        // if it is higher, perform the context switch and 
+        // return the new thread context
+        // otherwise do nothing and return None.
+        // the queue should be in sorted order, such that the
+        // first element is always the highest priority
         todo!()
     }
 
-    fn is_isr_return(&self) -> bool {
+    fn do_isr_return(&self) -> Option<EmuThread> {
         todo!()
     }
 

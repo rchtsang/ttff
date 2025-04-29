@@ -242,7 +242,7 @@ impl<'a> NVICRegsMut<'a> {
 }
 
 pub trait NVIC {
-    fn view_bytes(&self, _word_offset: usize) -> &[u8; 4];
+    fn view_bytes(&self, word_offset: usize) -> &[u8; 4];
 
     // scs registers
 
