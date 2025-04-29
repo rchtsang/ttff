@@ -63,6 +63,14 @@ impl Peripheral {
         Self { range, state }
     }
 
+    pub fn base_address(&self) -> Address {
+        self.range.start.clone()
+    }
+
+    pub fn size(&self) -> u64 {
+        (self.range.end.offset() - self.range.start.offset()) as u64
+    }
+
     pub fn read_bytes(&mut self,
         address: &Address,
         dst: &mut [u8],

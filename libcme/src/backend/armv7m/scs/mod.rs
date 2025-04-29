@@ -7,6 +7,7 @@
  * - implement endian sensitivity
  * - replace struct/int/byte conversions with unsafe std::mem::transmute for performance
  */
+use std::ops::Range;
 use std::fmt;
 use bitfield_struct::bitfield;
 use ahash::AHashMap;
@@ -52,6 +53,7 @@ impl Default for SysCtrlConfig {
 /// ARM DDI 0403E.e B3.2
 #[derive(Clone)]
 pub struct SysCtrlSpace {
+    pub range: Range<Address>,
     backing: Box<[u32; 0x400]>,
     pub nvic: NVICState,
     pub mpu: MPUState,
@@ -77,6 +79,7 @@ impl fmt::Debug for SysCtrlSpace {
 
 impl SysCtrlSpace {
     pub fn new_from(config: SysCtrlConfig) -> Self {
+        let range = Address::from(0xe000e000u64)..Address::from(0xe000f000u64);
         let mut backing = Box::new([0u32; 0x400]);
         let nvic = NVICState::default();
         let mpu = MPUState::default();
@@ -84,7 +87,7 @@ impl SysCtrlSpace {
             let offset = scregtype.offset();
             backing[offset] = reset_val;
         }
-        Self { backing, nvic, mpu }
+        Self { range, backing, nvic, mpu }
     }
 
     /// direct view into the scs as transmuted bytes
@@ -645,6 +648,7 @@ impl SysCtrlSpace {
 impl Default for SysCtrlSpace {
     fn default() -> Self {
         Self {
+            range: Address::from(0xe000e000u64)..Address::from(0xe000f000u64),
             backing: Box::new([0u32; 0x400]),
             nvic: NVICState::default(),
             mpu: MPUState::default(),

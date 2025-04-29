@@ -7,12 +7,10 @@
 use std::{
     fmt,
     collections::VecDeque,
-    ops::Range,
     sync::Arc,
 };
 
 use thiserror::Error;
-use iset::IntervalMap;
 use flagset::{FlagSet, flags};
 
 use fugue_ir::{
@@ -31,6 +29,8 @@ use crate::backend::Backend as BackendTrait;
 
 mod userop;
 mod system;
+mod mmap;
+pub use mmap::*;
 mod events;
 pub use events::*;
 mod exception;
@@ -108,13 +108,6 @@ pub enum Status {
     Killed,
 }
 
-#[derive(Clone, Copy, Debug)]
-enum MapIx {
-    Mem(usize),
-    Mmio(usize),
-    Scs,
-}
-
 /// the cortex-m3 execution context
 /// 
 /// a context must contain all state information needed for execution, the evaluator should not require state
@@ -148,10 +141,8 @@ pub struct Backend {
 
     regs: FixedState,
     tmps: FixedState,
-    mmap: IntervalMap<Address, MapIx>,
     scs: SysCtrlSpace,
-    mem: Vec<FixedState>,
-    mmio: Vec<Peripheral>,
+    mmap: MemoryMap,
 
     events: VecDeque<Event>,
 }
@@ -172,8 +163,6 @@ impl Backend {
         let lang = builder.build("ARM:LE:32:Cortex", "default")?;
         let t = lang.translator();
         let scs_config = scs_config.unwrap_or_default();
-        let mut mmap = IntervalMap::default();
-        mmap.insert(Address::from(0xe000e000u64)..Address::from(0xe000f000u64), MapIx::Scs);
 
         Ok(Self {
             id: 0,
@@ -193,10 +182,8 @@ impl Backend {
             apsr: t.register_by_name("cpsr").unwrap(),
             regs: FixedState::new(t.register_space_size()),
             tmps: FixedState::new(t.unique_space_size()),
-            mmap,
+            mmap: MemoryMap::default(),
             scs: SysCtrlSpace::new_from(scs_config),
-            mem: vec![],
-            mmio: vec![],
             events: VecDeque::new(),
             lang,
         })
@@ -240,45 +227,19 @@ impl BackendTrait for Backend {
         base: &Address,
         size: usize,
     ) -> Result<(), super::Error> {
-        let base = base.clone();
-        // mapped memory must be word-aligned
-        assert_eq!(base.offset() & 0b11, 0, "base {base:#x?} is not word-aligned!");
-        assert_eq!(size & 0b11, 0, "size {size:#x} is not word-aligned!");
-
-        // check for collision with existing mapped regions
-        let range = base..(base + size as u64);
-        if let Some(colliding) = self.mmap.intervals(range.clone()).next() {
-            return Err(super::Error::MapConflict(range, colliding));
-        }
-
-        // create memory and add to map
-        let mem = FixedState::new(size);
-        let idx = MapIx::Mem(self.mem.len());
-        self.mem.push(mem);
-        self.mmap.insert(range, idx);
-
-        Ok(())
+        assert!((*base + size as u64) < self.scs.range.start || *base >= self.scs.range.end,
+            "cannot map memory in system control space");
+        self.mmap.map_mem(base, size)
     }
 
     fn map_mmio(&mut self,
         peripheral: Peripheral,
     ) -> Result<(), super::Error> {
-        // peripheral base must be word-aligned
-        assert_eq!(peripheral.range.start.offset() & 0b11, 0,
-            "peripheral is not word-aligned!");
-
-        // check for collision with existing mapped regions
-        let range = peripheral.range.clone();
-        if let Some(colliding) = self.mmap.intervals(range.clone()).next() {
-            return Err(super::Error::MapConflict(range, colliding));
-        }
-
-        // add peripheral to map
-        let idx = MapIx::Mmio(self.mmio.len());
-        self.mmio.push(peripheral);
-        self.mmap.insert(range, idx);
-
-        Ok(())
+        let base = peripheral.base_address().offset();
+        let size = peripheral.size() as u64;
+        assert!(0x40000000 <= base && (base + size) < 0x50000000,
+            "peripheral must be mapped into external MMIO space");
+        self.mmap.map_mmio(peripheral)
     }
 
     fn read_pc(&mut self) -> Result<Address, super::Error> {
@@ -396,66 +357,21 @@ impl BackendTrait for Backend {
         }
     }
 
-
     fn load_bytes(&mut self, address: &Address, dst: &mut [u8]) -> Result<(), super::Error> {
-        let (range, val) = self._get_mapped_region(address.clone())?;
-        match val {
-            MapIx::Mem(idx) => {
-                let state = self.mem.get(idx).unwrap();
-                let offset = (*address - range.start).offset() as usize;
-                state.read_bytes(offset, dst)
-                    .map_err(super::Error::from)
-            }
-            MapIx::Mmio(idx) => {
-                let peripheral = self.mmio.get_mut(idx).unwrap();
-                let mut peripheral_events = VecDeque::new();
-                let result = peripheral.read_bytes(address, dst, &mut peripheral_events);
-                for peripheral_event in peripheral_events {
-                    self.events.push_back(peripheral_event.into());
-                }
-                if let Err(peripheral::Error::InvalidPeripheralReg(address)) = result {
-                    let offset = address.offset();
-                    warn!("warning: ignoring unimplemented peripheral register @ {offset:#x}");
-                    Ok(())
-                } else {
-                    result.map_err(super::Error::from)
-                }
-            }
-            MapIx::Scs => {
-                let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;
-                self.scs.read_bytes(offset, dst, &mut self.events)
-            }
+        if self._is_scs_region(address, dst.len()) {
+            let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;
+            self.scs.read_bytes(offset, dst, &mut self.events)
+        } else {
+            self.mmap.load_bytes(address, dst, &mut self.events)
         }
     }
 
     fn store_bytes(&mut self, address: &Address, src: &[u8]) -> Result<(), super::Error> {
-        let (range, val) = self._get_mapped_region(address.clone())?;
-        match val {
-            MapIx::Mem(idx) => {
-                let state = self.mem.get_mut(idx).unwrap();
-                let offset = (*address - range.start).offset() as usize;
-                state.write_bytes(offset, src)
-                    .map_err(super::Error::from)
-            }
-            MapIx::Mmio(idx) => {
-                let peripheral = self.mmio.get_mut(idx).unwrap();
-                let mut peripheral_events = VecDeque::new();
-                let result = peripheral.write_bytes(address, src, &mut peripheral_events);
-                for peripheral_event in peripheral_events {
-                    self.events.push_back(peripheral_event.into());
-                }
-                if let Err(peripheral::Error::InvalidPeripheralReg(address)) = result {
-                    let offset = address.offset();
-                    warn!("warning: ignoring unimplemented peripheral register @ {offset:#x}");
-                    Ok(())
-                } else {
-                    result.map_err(super::Error::from)
-                }
-            }
-            MapIx::Scs => {
-                let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;
-                self.scs.write_bytes(offset, src, &mut self.events)
-            }
+        if self._is_scs_region(address, src.len()) {
+            let offset = ((address.offset() as u32) - 0xe000e000u32) as usize;
+            self.scs.write_bytes(offset, src, &mut self.events)
+        } else {
+            self.mmap.store_bytes(address, src, &mut self.events)
         }
     }
 
@@ -470,54 +386,24 @@ impl BackendTrait for Backend {
 }
 
 impl Backend {
-
-    fn _get_mapped_region(&self, address: impl Into<Address>) -> Result<(Range<Address>, MapIx), super::Error> {
-        let address: Address = address.into();
-        let mut overlaps = self.mmap.overlap(address.clone());
-        let (range, val) = overlaps.next()
-            .ok_or(super::Error::Unmapped(address.clone()))?;
-        if let Some((other_range, _)) = overlaps.next() {
-            return Err(super::Error::MapConflict(range, other_range));
-        }
-        Ok((range, val.clone()))
+    fn _is_scs_region(&self, address: &Address, size: usize) -> bool {
+        (*address + size as u64) < self.scs.range.end
+        && *address >= self.scs.range.start
     }
 
     fn _mem_view_bytes(&self, address: &Address, size: Option<usize>) -> Result<&[u8], super::Error> {
-        let (range, val) = self._get_mapped_region(address.clone())?;
-        let size = size.unwrap_or((range.end.offset() - range.start.offset()) as usize);
-        match val {
-            MapIx::Mem(idx) => {
-                let state = self.mem.get(idx).unwrap();
-                let offset = (*address - range.start).offset() as usize;
-                state.view_bytes(offset, size)
-                    .map_err(super::Error::from)
-            }
-            MapIx::Mmio(_idx) => {
-                panic!("mmio peripherals can't implement view_bytes due to their send/receive data model")
-            }
-            MapIx::Scs => {
-                // viewing bytes in SCS will not trigger any arch events
-                todo!()
-            }
+        if self._is_scs_region(address, size.unwrap_or(0)) {
+            todo!("view bytes in scs region")
+        } else {
+            self.mmap.mem_view_bytes(address, size)
         }
     }
 
     fn _mem_view_bytes_mut(&mut self, address: &Address, size: Option<usize>) -> Result<&mut [u8], super::Error> {
-        let (range, val) = self._get_mapped_region(address.clone())?;
-        let size = size.unwrap_or((range.end.offset() - range.start.offset()) as usize);
-        match val {
-            MapIx::Mem(idx) => {
-                let state = self.mem.get_mut(idx).unwrap();
-                let offset = (*address - range.start).offset() as usize;
-                state.view_bytes_mut(offset, size)
-                    .map_err(super::Error::from)
-            }
-            MapIx::Mmio(_idx) => {
-                panic!("mmio peripherals can't implement view_bytes_mut due to their send/receive data model")
-            }
-            MapIx::Scs => {
-                panic!("scs can't implement view_bytes_mut without potentially violating event triggers")
-            }
+        if self._is_scs_region(address, size.unwrap_or(0)) {
+            todo!("view bytes in scs region")
+        } else {
+            self.mmap.mem_view_bytes_mut(address, size)
         }
     }
 }
