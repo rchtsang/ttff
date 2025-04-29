@@ -1035,7 +1035,8 @@ fn _get_main_stack_pointer(this: &mut Backend,
         let val = this.read(&vnd)?;
         this.write(out, &val)?;
     } else {
-        let val = this.main_sp.unwrap_or(0);
+        assert!(this.main_sp.is_some(), "main_sp must always be initialized and updated.");
+        let val = this.main_sp.unwrap();
         let val = BitVec::from_u32(val, this.sp().bits());
         this.write(out, &val)?;
     }
@@ -1063,7 +1064,7 @@ fn _get_process_stack_pointer(this: &mut Backend,
         let val = BitVec::from_u64(val, this.sp().bits());
         this.write(out, &val)?;
     } else {
-        let val = this.main_sp.unwrap_or(0);
+        let val = this.proc_sp.unwrap_or(DEFAULT_PROC_SP);
         let val = BitVec::from_u32(val, this.sp().bits());
         this.write(out, &val)?;
     }

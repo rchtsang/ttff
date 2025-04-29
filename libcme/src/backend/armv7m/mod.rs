@@ -42,8 +42,10 @@ mod faults;
 pub use faults::*;
 
 
-// largest expected instruction 16 bytes in x86, 4 in ARM
+/// largest expected instruction 16 bytes in x86, 4 in ARM
 const MAX_INSN_SIZE: usize = 4;
+/// default proc_sp value is UNKNOWN. pick 0 for simplicity.
+const DEFAULT_PROC_SP: u32 = 0;
 
 
 #[derive(Debug, Error, Clone)]
