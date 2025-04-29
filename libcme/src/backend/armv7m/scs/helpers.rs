@@ -65,4 +65,67 @@ impl SysCtrlSpace {
             highestpri
         }
     }
+
+    pub fn get_exception_priority(
+        &self,
+        typ: ExceptionType,
+    ) -> Option<i16> {
+        let excp_num = u32::from(&typ);
+        match excp_num {
+             1 => { Some(-3) }
+             2 => { Some(-2) }
+             3 => { Some(-1) }
+             4 => { Some(self.get_shpr1().pri_4() as i16) }
+             5 => { Some(self.get_shpr1().pri_5() as i16) }
+             6 => { Some(self.get_shpr1().pri_6() as i16) }
+             7 => { Some(self.get_shpr1().pri_7() as i16) }
+             8 => { Some(self.get_shpr2().pri_8() as i16) }
+             9 => { Some(self.get_shpr2().pri_9() as i16) }
+            10 => { Some(self.get_shpr2().pri_10() as i16) }
+            11 => { Some(self.get_shpr2().pri_11() as i16) }
+            12 => { Some(self.get_shpr3().pri_12() as i16) }
+            13 => { Some(self.get_shpr3().pri_13() as i16) }
+            14 => { Some(self.get_shpr3().pri_14() as i16) }
+            15 => { Some(self.get_shpr3().pri_15() as i16) }
+            16..=511 => {
+                let int_num = excp_num - 16;
+                let n = (int_num / 32) as u8;
+                let i = (int_num % 32) as u8;
+                Some(self.nvic_regs().get_ipr(n).pri_n(i) as i16)
+            }
+            _ => { panic!("invalid exception number: {excp_num}") }
+        }
+    }
+
+    pub fn set_exception_priority(
+        &mut self,
+        typ: ExceptionType,
+        pri: u8,
+    ) {
+        let excp_num = u32::from(&typ);
+        match excp_num {
+            1 => { panic!("cannot change {typ:?} priority") }
+            2 => { panic!("cannot change {typ:?} priority") }
+            3 => { panic!("cannot change {typ:?} priority") }
+            4 => { self.get_shpr1_mut().set_pri_4(pri) }
+            5 => { self.get_shpr1_mut().set_pri_5(pri) }
+            6 => { self.get_shpr1_mut().set_pri_6(pri) }
+            7 => { self.get_shpr1_mut().set_pri_7(pri) }
+            8 => { self.get_shpr2_mut().set_pri_8(pri) }
+            9 => { self.get_shpr2_mut().set_pri_9(pri) }
+           10 => { self.get_shpr2_mut().set_pri_10(pri) }
+           11 => { self.get_shpr2_mut().set_pri_11(pri) }
+           12 => { self.get_shpr3_mut().set_pri_12(pri) }
+           13 => { self.get_shpr3_mut().set_pri_13(pri) }
+           14 => { self.get_shpr3_mut().set_pri_14(pri) }
+           15 => { self.get_shpr3_mut().set_pri_15(pri) }
+           16..=511 => {
+               let int_num = excp_num - 16;
+               let n = (int_num / 32) as u8;
+               let i = (int_num % 32) as u8;
+               self.nvic_regs_mut().get_ipr_mut(n).set_pri_n(i, pri)
+           }
+           _ => { panic!("invalid exception number: {excp_num}") }
+        }
+    }
 }

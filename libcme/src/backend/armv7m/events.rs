@@ -15,7 +15,7 @@ pub enum Event {
     // misc events
     SetProcessorStatus(Status),
 
-    // ICSR and SHCSR
+    // ICSR, SHCSR, SHPR
     ExceptionSetActive(ExceptionType, bool),
     ExceptionSetPending(ExceptionType, bool),
     ExceptionSetPriority(ExceptionType, u8),
@@ -48,7 +48,8 @@ pub enum Event {
     BranchPredictionEnabled(bool),          // (BP) enable/disable program flow prediction
 
     // SHPR sets system handler priorities, needed by exception/interrupt handling system
-    SetSystemHandlerPriority { id: u8, priority: u8}, // (PRI_x in SHPR1, SHPR2, or SHPR3) set system handler x's priority level
+    // use ExceptionSetPriority for this instead
+    // SetSystemHandlerPriority { id: u8, priority: u8}, // (PRI_x in SHPR1, SHPR2, or SHPR3) set system handler x's priority level
     
     // CFSR, MMFSR, BFSR, UFSR, HFSR
     FaultStatusClr(Fault),
@@ -107,7 +108,8 @@ impl Backend {
                 Ok(())
             }
             Event::ExceptionSetPriority(exception_type, priority) => {
-                self.scs.set_exception_priority(exception_type, priority as i16);
+                // exception priorities are set directly and used directly
+                // so this should be unnecessary
                 Ok(())
             }
             Event::ExceptionEnabled(exception_type, val) => {
@@ -119,11 +121,8 @@ impl Backend {
                 Ok(())
             }
             Event::VectorTableOffsetWrite(offset) => {
-                // assume that vtsize is initialized with correct value and never changes
-                let vtsize = self.scs.nvic.vtsize;
-                let vt = self.mmap.mem_view_bytes(&Address::from(offset), Some(vtsize))?;
-                // makes the borrow checker mad. refactor needed.
-                self.scs.nvic.update(vt);
+                // VTOR is used directly during preemption, so we should be able
+                // to ignore this event
                 Ok(())
             }
             Event::ExternSysResetRequest => {
@@ -180,12 +179,6 @@ impl Backend {
             }
             Event::BranchPredictionEnabled(val) => {
                 todo!()
-            }
-            Event::SetSystemHandlerPriority{ id, priority } => {
-                assert!(4 <= id && id <= 15, "invalid system handler id: {id}");
-                let typ = ExceptionType::from(id as u32);
-                self.scs.set_exception_priority(typ, priority as i16);
-                Ok(())
             }
             Event::FaultStatusClr(fault) => {
                 todo!("need to implement fault handling for this to make sense")
@@ -247,87 +240,6 @@ impl Backend {
                     }
                 }
             }
-        }
-    }
-}
-
-impl Backend {
-    /// returns true if the event is a WFE wakeup event based on current
-    /// processor state (see B1.5.18)
-    #[instrument]
-    pub fn is_wfe_wakeup_evt(&self, evt: &Event) -> bool {
-        match evt {
-            // execution of a SEV instruction on any processor in a multiprocessor system
-            Event::SEVInstructionExecuted => {
-                true
-            }
-            // any exception entering the pending state if SCR.SEVONPEND is set.
-            Event::ExceptionSetPending(_typ, true)
-            if self.scs.get_scr().sevonpend() => {
-                true
-            }
-            // an asynchronous exception at a priority that preempts any currently
-            // active exceptions
-            Event::ExceptionSetActive(typ, true)
-            | Event::ExceptionSetPending(typ, true) => {
-                let Some(exception) = self.scs.nvic.get_exception(typ) else {
-                    warn!("processor may be in inconsistent state: no exception registered for exception: {typ:?}");
-                    return false;
-                };
-                let priority = exception.priority;
-                
-                priority < self.scs.current_priority(&self.basepri, &self.primask, &self.faultmask)
-            }
-            // a debug event with debug enabled
-            Event::Debug(_) => {
-                let offset = DebugRegType::DHCSR.offset() / 4;
-                let backing: &[u32; 0x400] = self.scs.as_ref();
-                let dhcsr = DHCSR::from_bits(backing[offset]);
-                dhcsr.s_halt()
-            }
-            _ => { false }
-        }
-    }
-
-    /// returns true if the event is a WFI wakeup event based on current
-    /// processor state (see B1.5.19)
-    pub fn is_wfi_wakeup_evt(&self, evt: &Event) -> bool {
-        match evt {
-            // reset
-            Event::ExternSysResetRequest
-            | Event::LocalSysResetRequest => {
-                true
-            }
-            // asynchronous exception at a priority that would preempt any 
-            // currently active exception if PRIMASK were 0, (actual value of
-            // PRIMASK is ignored)
-            Event::ExceptionSetActive(typ, true)
-            | Event::ExceptionSetPending(typ, true) => {
-                let Some(exception) = self.scs.nvic.get_exception(typ) else {
-                    warn!("processor may be in inconsistent state: no exception registered for exception: {typ:?}");
-                    return false;
-                };
-                let priority = exception.priority;
-                
-                let vecactive = self.scs.get_icsr().vectactive();
-                let current_typ: ExceptionType = vecactive.into();
-                let Some(current_excp) = self.scs.nvic.get_exception(&current_typ) else {
-                    panic!("processor is in inconsistent state: no exception registered for exception: {current_typ:?}");
-                };
-                let unmasked_current_priority = current_excp.priority;
-
-                priority < unmasked_current_priority
-            }
-            // a debug event with debug enabled
-            Event::Debug(_) => {
-                let offset = DebugRegType::DHCSR.offset() / 4;
-                let backing: &[u32; 0x400] = self.scs.as_ref();
-                let dhcsr = DHCSR::from_bits(backing[offset]);
-                dhcsr.s_halt()
-            }
-            // other implementation-defined events
-
-            _ => { false }
         }
     }
 }

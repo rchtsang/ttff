@@ -454,10 +454,8 @@ impl SysCtrlSpace {
                         continue;
                     }
 
-                    let evt = Event::SetSystemHandlerPriority {
-                        id: id + i as u8,
-                        priority: *val
-                    };
+                    let typ = ExceptionType::from((id as usize + i) as u32);
+                    let evt = Event::ExceptionSetPriority(typ, *val);
                     events.push_back(evt);
                     slice[i] = *val;
                 }

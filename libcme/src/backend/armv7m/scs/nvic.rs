@@ -1,8 +1,6 @@
 //! nvic.rs
 //! 
 //! implementation of the nested vector interrupt controller for armv7m
-use std::i16;
-
 use bitfield_struct::bitfield;
 
 use crate::backend;
@@ -448,135 +446,65 @@ impl<'a> NVICMut for NVICRegsMut<'a> {
 
 #[allow(unused)]
 /// state for nested vector interrupt controller
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct NVICState {
-    pub(crate) vtsize: usize,
-
-    pub(crate) internal: [Exception; 16],
-    pub(crate) external: Vec<Exception>,
-    queue: Vec<ExceptionType>,
+    enabled: Vec<ExceptionType>,
+    pending: Vec<ExceptionType>,
     active: Vec<ExceptionType>,
 }
 
-impl Default for NVICState {
-    fn default() -> Self {
-        let vtsize = 16;
-        let internal = [
-            Exception::default(),
-            Exception::new_with(ExceptionType::Reset,         -3, None),
-            Exception::new_with(ExceptionType::NMI,           -2, None),
-            Exception::new_with(ExceptionType::HardFault,     -1, None),
-            Exception::new_with(ExceptionType::MemFault,       0, None),
-            Exception::new_with(ExceptionType::BusFault,       0, None),
-            Exception::new_with(ExceptionType::UsageFault,     0, None),
-            Exception::new_with(ExceptionType::Reserved(7),    0, None),
-            Exception::new_with(ExceptionType::Reserved(8),    0, None),
-            Exception::new_with(ExceptionType::Reserved(9),    0, None),
-            Exception::new_with(ExceptionType::Reserved(10),   0, None),
-            Exception::new_with(ExceptionType::SVCall,         0, None),
-            Exception::new_with(ExceptionType::DebugMonitor,   0, None),
-            Exception::new_with(ExceptionType::Reserved(13),   0, None),
-            Exception::new_with(ExceptionType::PendSV,         0, None),
-            Exception::new_with(ExceptionType::SysTick,        0, None),
-        ];
-        let external = vec![];
-        let queue = vec![];
-        let active = vec![];
-        Self { vtsize, internal, external, queue, active }
-    }
-}
-
 impl NVICState {
-    pub fn new_with(vt: &[u8]) -> Self {
-        let mut state = Self::default();
-        state.update(vt);
-        state
-    }
-
-    /// update vectors in the saved nvic state from a vector table.
-    /// note that this does _not_ update the exception queue.
-    pub fn update(&mut self, vt: &[u8]) -> &mut Self {
-        assert!(vt.len() >= 16 * 4, "vector table must have arch-defined exceptions");
-        self.vtsize = vt.len();
-        for (i, exception) in self.internal.iter_mut()
-            .skip(1).enumerate()
-        {
-            let address = unsafe {
-                let offset = i * 4;
-                *(&vt[offset..] as *const [u8] as *const [u8; 4] as *const u32)
-            };
-            exception.entry = Some(address.into())
-        }
-        self.external.clear();
-        for (i, entry) in vt.chunks(4)
-            .skip(16).enumerate()
-        {
-            let typ = ExceptionType::ExternalInterrupt(16 + i as u32);
-            let excp = Exception::new_with(typ, 0, Some(entry));
-            self.external.push(excp);
-        }
-        self
-    }
-
-    /// get current state of given exception type
-    pub fn get_exception(&self, typ: &ExceptionType) -> Option<&Exception> {
-        if matches!(typ, ExceptionType::Reserved(_)) {
-            return None;
-        }
-        let excp_num = u32::from(typ) as usize;
-        if excp_num < 16 {
-            Some(&self.internal[excp_num])
-        } else {
-            self.external.get(excp_num - 16)
-        }
-    }
-
-    /// get mutable reference to exception type
-    pub fn get_exception_mut(&mut self, typ: &ExceptionType) -> Option<&mut Exception> {
-        if matches!(typ, ExceptionType::Reserved(_)) {
-            return None;
-        }
-        let excp_num = u32::from(typ) as usize;
-        if excp_num < 16 {
-            Some(&mut self.internal[excp_num])
-        } else {
-            self.external.get_mut(excp_num)
-        }
-    }
 
     /// enable an exception
-    #[instrument]
+    #[instrument(skip_all)]
     pub fn enable(&mut self, typ: ExceptionType) {
-        if let Some(excp) = self.get_exception_mut(&typ) {
-            excp.enabled = true;
+        debug!("enable {typ:?}");
+        let mut idx = 0;
+        for t in self.enabled.iter() {
+            if *t < typ {
+                idx += 1;
+                continue;
+            } else if *t == typ {
+                // exception already enabled
+                return;
+            } else {
+                break;
+            }
         }
+        self.enabled.insert(idx, typ);
     }
 
     /// disable an exception
-    #[instrument]
+    #[instrument(skip_all)]
     pub fn disable(&mut self, typ: ExceptionType) {
-        if let Some(excp) = self.get_exception_mut(&typ) {
-            excp.enabled = false;
+        debug!("disable {typ:?}");
+        let idx = self.enabled.iter()
+            .position(|t| *t == typ);
+        if let Some(idx) = idx {
+            self.enabled.remove(idx);
         }
     }
 
     /// set an exception as pending
-    /// reorder exception queue as needed based on prioirity
-    /// exceptions can be set to pending even when disabled
     #[instrument(skip_all)]
     pub fn set_pending(
         &mut self,
         typ: ExceptionType,
-        prigroup: u8,
     ) {
-        debug!("{typ:?}");
-        if let Some(excp) = self.get_exception_mut(&typ) {
-            if !excp.state.contains(ExceptionState::Pending) {
-                excp.state |= ExceptionState::Pending;
-                self.queue.push(typ);
+        debug!("set pending {typ:?}");
+        let mut idx = 0;
+        for t in self.pending.iter() {
+            if *t < typ {
+                idx += 1;
+                continue;
+            } else if *t == typ {
+                // exception already pending
+                return;
+            } else {
+                break;
             }
         }
-        self.sort_pending(prigroup);
+        self.pending.insert(idx, typ);
     }
 
     /// clr a pending interrupt (does nothing if not pending)
@@ -586,16 +514,11 @@ impl NVICState {
         &mut self,
         typ: ExceptionType,
     ) {
-        if let Some(excp) = self.get_exception_mut(&typ) {
-            if excp.state.contains(ExceptionState::Pending) {
-                excp.state -= ExceptionState::Pending;
-                let idx = self.queue.iter()
-                    .enumerate()
-                    .find(|&(_idx, excp)| excp == &typ)
-                    .map(|(idx, _excp)| idx)
-                    .unwrap();
-                self.queue.remove(idx);
-            }
+        debug!("clr pending {typ:?}");
+        let idx = self.pending.iter()
+            .position(|t| *t == typ);
+        if let Some(idx) = idx {
+            self.pending.remove(idx);
         }
     }
 
@@ -606,12 +529,22 @@ impl NVICState {
         &mut self,
         typ: ExceptionType,
     ) {
-        if let Some(excp) = self.get_exception_mut(&typ) {
-            if !excp.state.contains(ExceptionState::Active) && excp.enabled {
-                excp.state |= ExceptionState::Active;
-                self.active.push(typ);
+        debug!("set active {typ:?}");
+        assert!(self.pending.contains(&typ),
+            "interrupt must be pending before becoming active");
+        self.clr_pending(typ);
+        let mut idx = 0;
+        for t in self.active.iter() {
+            if *t < typ {
+                idx += 1;
+                continue;
+            } else if *t == typ {
+                return;
+            } else {
+                break;
             }
         }
+        self.active.insert(idx, typ);
     }
 
     /// clear an exception
@@ -620,67 +553,30 @@ impl NVICState {
         &mut self,
         typ: ExceptionType,
     ) {
-        if let Some(excp) = self.get_exception_mut(&typ) {
-            if excp.state.contains(ExceptionState::Active) {
-                excp.state -= ExceptionState::Active;
-                let idx = self.active.iter()
-                    .enumerate()
-                    .find(|&(_idx, excp)| excp == &typ)
-                    .map(|(idx, _excp)| idx)
-                    .unwrap();
-                self.active.swap_remove(idx);
-            }
+        debug!("clr active {typ:?}");
+        let idx = self.active.iter()
+            .position(|t| *t == typ);
+        if let Some(idx) = idx {
+            self.active.remove(idx);
         }
     }
 
-    pub fn active(&self) -> impl Iterator<Item=&ExceptionType> {
-        self.active.iter()
+    pub fn active(&self) -> &[ExceptionType] {
+        &self.active
     }
 
-    pub fn set_priority(
-        &mut self,
-        typ: ExceptionType,
-        priority: i16,
-    ) {
-        if let Some(excp) = self.get_exception_mut(&typ) {
-            excp.priority = priority;
-        }
+    pub fn pending(&self) -> &[ExceptionType] {
+        &self.pending
     }
 
-    /// sort pending exceptions by current priority
-    /// based on nvic registers and prigroup value
-    /// (does not implement priority boosting)
-    fn sort_pending<'a>(&mut self, prigroup: u8) {
-        let mut queue = self.queue.clone();
-        queue.sort_by(|excp1, excp2| {
-            let pri1 = self.get_exception(excp1)
-                .map(|excp| excp.priority)
-                .unwrap_or(i16::MAX);
-            let pri2 = self.get_exception(excp2)
-                .map(|excp| excp.priority)
-                .unwrap_or(i16::MAX);
-
-            Priority::compare(pri1, pri2, prigroup)
-        });
-        self.queue = queue;
-    }
-
-    /// get the next pending exception to service
-    pub fn get_pending<'a>(&mut self, prigroup: u8) -> Option<&ExceptionType> {
-        self.sort_pending(prigroup);
-        self.queue.first()
-    }
-
-    /// check for exception of higher priority than currently being serviced
-    pub fn preempt_pending(&self) -> bool {
-        todo!()
+    pub fn enabled(&self) -> &[ExceptionType] {
+        &self.enabled
     }
 }
 
 impl SysCtrlSpace {
     pub fn set_exception_active(&mut self, typ: ExceptionType) {
-        let prigroup = self.get_aircr().prigroup();
-        self.nvic.set_pending(typ, prigroup)
+        self.nvic.set_pending(typ)
     }
 
     pub fn enable_exception(&mut self, typ: ExceptionType) {
@@ -701,10 +597,6 @@ impl SysCtrlSpace {
 
     pub fn clr_exception_pending(&mut self, typ: ExceptionType) {
         self.nvic.clr_active(typ)
-    }
-
-    pub fn set_exception_priority(&mut self, typ: ExceptionType, priority: i16) {
-        self.nvic.set_priority(typ, priority);
     }
 }
 

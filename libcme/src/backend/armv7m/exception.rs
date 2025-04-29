@@ -57,7 +57,7 @@ impl Default for Exception {
 }
 
 /// exception type
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ExceptionType {
     Reset,
     NMI,
@@ -150,3 +150,15 @@ impl Priority {
         // (v1).cmp(&v2)
     }
 }
+
+/// a vector table interface
+pub struct VectorTable;
+
+impl VectorTable {
+    pub fn get_entry<'a>(vt: &'a [u32], typ: ExceptionType) -> Option<u32> {
+        let excp_num = u32::from(&typ) as usize;
+        vt.get(excp_num)
+            .map(|val| *val)
+    }
+}
+
