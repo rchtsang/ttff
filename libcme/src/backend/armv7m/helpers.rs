@@ -17,6 +17,16 @@ impl Backend {
         Ok(Address::from(val))
     }
 
+    pub fn set_main_sp(&mut self, address: &Address) -> Result<(), super::Error> {
+        if self.is_sp_main() {
+            self.write_sp(address)
+                .map_err(|_| super::Error::System("failed to write sp"))
+        } else {
+            self.main_sp = Some(address.offset() as u32);
+            Ok(())
+        }
+    }
+
     pub fn get_proc_sp(&self) -> Result<Address, super::Error> {
         let val = if !self.is_sp_main() {
             self.read_sp()
@@ -28,16 +38,45 @@ impl Backend {
         Ok(Address::from(val))
     }
 
+    pub fn set_proc_sp(&mut self, address: &Address) -> Result<(), super::Error> {
+        if !self.is_sp_main() {
+            self.write_sp(address)
+                .map_err(|_| super::Error::System("failed to write sp"))
+        } else {
+            self.proc_sp = Some(address.offset() as u32);
+            Ok(())
+        }
+    }
+
     /// exception entry (see B1.5.6)
     #[instrument(skip_all)]
-    pub fn exception_entry(&mut self, excp_typ: ExceptionType) -> Result<(), super::Error> {
-        self.push_stack(excp_typ)?;
-        self.exception_taken(excp_typ)
+    pub fn exception_entry(&mut self, excp_typ: ExceptionType) -> Result<ContextSwitch, super::Error> {
+        let old_thread = self.current_thread();
+        let switch_address = self.read_pc()
+            .map_err(|_| {
+                let msg = "could not read pc during exception entry";
+                error!(msg);
+                super::Error::System(msg)
+            })?;
+        let (return_address, frame_address) = self.push_stack(excp_typ)?;
+        let target_address = self.exception_taken(excp_typ)?;
+        let new_thread = self.current_thread();
+        let return_address = Some(return_address);
+
+        Ok(ContextSwitch {
+            old_thread,
+            new_thread,
+            frame_address,
+            switch_address,
+            target_address,
+            return_address,
+        })
     }
 
     /// push stack variables on exception entry (see B1.5.6)
+    /// returns the return address and frame address
     #[instrument(skip_all)]
-    fn push_stack(&mut self, excp_typ: ExceptionType) -> Result<(), super::Error> {
+    fn push_stack(&mut self, excp_typ: ExceptionType) -> Result<(Address, Address), super::Error> {
         // if fp_enabled && self.control.fpca() {
         //     framesize = 0x68;
         //     forcealign = true;
@@ -88,6 +127,7 @@ impl Backend {
         }
         // push return address
         let return_address = self.return_address(excp_typ)?;
+        let result = return_address.clone();
         let return_address = u32::to_le_bytes(return_address.offset() as u32);
         self.mmap.store_bytes(&(frameptr + 0x18u64), &return_address, &mut self.events)
             .map_err(|_| {
@@ -133,7 +173,7 @@ impl Backend {
                 super::Error::System(msg)
             })?;
 
-        Ok(())
+        Ok((result, frameptr))
     }
 
     /// get return address based on exception type
@@ -218,7 +258,8 @@ impl Backend {
     }
 
     /// take an exception (B1.5.6)
-    pub(crate) fn exception_taken(&mut self, typ: ExceptionType) -> Result<(), super::Error> {
+    /// return the target address
+    pub(crate) fn exception_taken(&mut self, typ: ExceptionType) -> Result<Address, super::Error> {
         let t = self.lang.translator();
         let clear_regs = ["r0", "r1", "r2", "r3", "r12"].into_iter()
             .map(|reg_str| {
@@ -244,8 +285,9 @@ impl Backend {
         let target = u32::from_le_bytes(unsafe {
             *(&vt[offset..offset+4] as *const [u8] as *const [u8; 4])
         });
-        self._branch_to(&Address::from(target))?;
         let tbit = (target & 1) == 1;
+        let target_address = Address::from(target);
+        self._branch_to(&target_address)?;
         self.mode = Mode::Handler(typ);
         *self.xpsr.apsr_mut() = super::system::APSR::new();
         self.xpsr.ipsr_mut().set_exception_number(u32::from(&typ));
@@ -257,7 +299,8 @@ impl Backend {
         self.scs.update_regs()?;
         self._clear_exclusive_local()?;
         self.event.0 = true;
-        self.instruction_synchronization_barrier(0xF)
+        self.instruction_synchronization_barrier(0xF)?;
+        Ok(target_address)
     }
 
     /// a private helper to set the program counter
@@ -275,6 +318,269 @@ impl Backend {
     /// see B1.5.6 ExceptionTaken
     fn _clear_exclusive_local(&mut self) -> Result<(), super::Error> {
         Ok(())
+    }
+
+    /// perform exception return
+    /// returns context switch information
+    #[instrument(skip_all)]
+    pub fn exception_return(&mut self, exc_return: EXC_RETURN) -> Result<ContextSwitch, super::Error> {
+        assert_eq!(exc_return.exc_value(), 0xF, "invalid EXC_RETURN");
+        assert!(matches!(self.mode, Mode::Handler(_)),
+            "must be in handler mode to return from exception");
+        if exc_return.sbop() != 0x7FFFFF {
+            let msg = "unexpected SBOP reserved field value";
+            error!("{msg}: {:#x}", exc_return.into_bits());
+            return Err(super::Error::UnpredictableBehavior(msg));
+        }
+        // if fp_enabled {
+        //     assert_eq!(exc_return.nofpext(), false, "unpredictable behavior")
+        // }
+
+        let returning_excp = ExceptionType::from(self.xpsr.ipsr().exception_number());
+        // used for Handler -> Thread check when value == 1
+        let nested_activation = self.scs.exceptions.active().len();
+
+        // returning from inactive handler will trigger a usagefault
+        // that will preempt instead of returning
+        if !self.scs.exceptions.active().contains(&returning_excp) {
+            warn!("returning from inactive handler is a usagefault");
+            let ufsr = self.scs.get_cfsr().usagefault()
+                .with_invpc(true);
+            return self._return_usagefault(returning_excp, exc_return, ufsr)
+        }
+
+        let frameptr = match exc_return.modebits() {
+            0b0001 => {
+                // return to previous exception handler
+                self.control.set_spsel(false);
+                self.get_main_sp()?
+            }
+            0b1001 if nested_activation == 1 || self.scs.get_ccr().nonbasethrdena() => {
+                // return to thread with main stack
+                self.control.set_spsel(false);
+                self.get_main_sp()?
+            }
+            0b1101 if nested_activation == 1 || self.scs.get_ccr().nonbasethrdena() => {
+                // return to thread with process stack
+                self.control.set_spsel(true);
+                self.get_proc_sp()?
+            }
+            _ => {
+                // return to thread exception mismatch
+                // or illegal exc_return
+                let ufsr = self.scs.get_cfsr().usagefault()
+                    .with_invpc(true);
+                return self._return_usagefault(returning_excp, exc_return, ufsr)
+            }
+        };
+
+        self._deactivate_exception(returning_excp);
+        let old_thread = self.current_thread();
+        let switch_address = self.read_pc()
+            .map_err(|_| {
+                let msg = "failed to read pc during exception return";
+                error!(msg);
+                super::Error::System(msg)
+            })?;
+        let (frame_address, target_address) = self.pop_stack(&frameptr, exc_return)?;
+        self.mode = if exc_return.modebits() == 0b0001 {
+            // set mode for returning to handler
+            let excp_num = self.xpsr.ipsr().exception_number();
+            if excp_num == 0 {
+                // return ipsr is inconsistent
+                let ufsr = self.scs.get_cfsr().usagefault()
+                    .with_invpc(true);
+                // push stack again to negate popstack
+                self.push_stack(ExceptionType::UsageFault)?;
+                return self._return_usagefault(returning_excp, exc_return, ufsr);
+            }
+            let typ = ExceptionType::from(excp_num);
+            Mode::Handler(typ)
+        } else {
+            // set mode for returning to thread
+            let excp_num = self.xpsr.ipsr().exception_number();
+            if excp_num != 0 {
+                // return ipsr is inconsistent
+                let ufsr = self.scs.get_cfsr().usagefault()
+                    .with_invpc(true);
+                // push stack again to negate popstack
+                self.push_stack(ExceptionType::UsageFault)?;
+                return self._return_usagefault(returning_excp, exc_return, ufsr);
+            }
+            Mode::Thread
+        };
+        self._branch_to(&target_address)?;
+        let return_address = None;
+        let new_thread = self.current_thread();
+
+        self._clear_exclusive_local()?;
+        self.event.0 = true;
+        self.instruction_synchronization_barrier(0xF)?;
+
+        if self.mode == Mode::Thread 
+            && nested_activation == 0 
+            && self.scs.get_scr().sleeponexit()
+        {
+            return self.sleep_on_exit();
+        }
+
+        Ok(ContextSwitch {
+            old_thread,
+            new_thread,
+            frame_address,
+            switch_address,
+            target_address,
+            return_address,
+        })
+    }
+
+    #[instrument(skip_all)]
+    fn _deactivate_exception(
+        &mut self,
+        typ: ExceptionType,
+    ) {
+        self.scs.clr_exception_active(typ);
+        // PRIMASK and BASEPRI unchanged on exception exit
+        if self.xpsr.ipsr().exception_number() != 2 {
+            // clear faultmask on any return except nmi
+            self.faultmask.set_fm(false);
+        }
+    }
+
+    fn _return_usagefault(
+        &mut self,
+        returning_excp: ExceptionType,
+        exc_return: EXC_RETURN,
+        ufsr: UFSR,
+    ) -> Result<ContextSwitch, super::Error> {
+        // get current context information
+        let old_thread = self.current_thread();
+        let switch_address = self.read_pc()
+            .map_err(|_| {
+                let msg = concat!(
+                    "could not read pc while triggering usagefault ",
+                    "during exception return",
+                );
+                error!(msg);
+                super::Error::System(msg)
+            })?;
+
+        // get frame address, return address, and xpsr pushed when exception was entered
+        let pushed_frame_address = if exc_return.modebits() == 0xD {
+            // use process return stack
+            self.get_proc_sp()?
+        } else { self.get_main_sp()? };
+        let pushed_return_address = self.mmap
+            .mem_view_bytes(&(pushed_frame_address + 0x18u64), Some(4))
+            .map(|slice| unsafe {
+                u32::from_le_bytes(*(&slice[..4] as *const [u8] as *const[u8; 4]))
+            }).map_err(|_| {
+                let msg = concat!(
+                    "failed to read stack frame while triggering",
+                    "usagefault during exception return",
+                );
+                error!("{msg}: {pushed_frame_address:#x?}");
+                super::Error::System(msg)
+            })?;
+        let pushed_return_address = Address::from(pushed_return_address);
+
+        self._deactivate_exception(returning_excp);
+        self.scs.get_cfsr_mut().set_usagefault(ufsr);
+        let value = BitVec::from_u32(exc_return.into_bits(), 32);
+        let lr_vnd = self.lang.translator().register_by_name("lr").unwrap();
+        self.regs.write_val_with(lr_vnd.offset() as usize, &value, self.endian)
+            .map_err(|_| {
+                let msg = concat!(
+                    "failed to write lr while triggering usagefault ",
+                    "during exception return",
+                );
+                error!("{msg}: {value:#x}");
+                super::Error::System(msg)
+            })?;
+        
+        let target_address = self.exception_taken(ExceptionType::UsageFault)?;
+        let new_thread = self.current_thread();
+        let frame_address = pushed_frame_address;
+        let return_address = Some(pushed_return_address);
+        return Ok(ContextSwitch {
+            old_thread,
+            new_thread,
+            frame_address,
+            switch_address,
+            target_address,
+            return_address,
+        })
+    }
+
+    /// pop the stack, returning the new frame address and the target pc address
+    #[instrument(skip_all)]
+    fn pop_stack(&mut self, frameptr: &Address, exc_return: EXC_RETURN) -> Result<(Address, Address), super::Error> {
+        // if fp_enabled && !exc_return.nofpext() {
+        //     framesize = 0x68;
+        //     forcealign = true;
+        // }
+        let framesize = 0x20u32;
+        let forcealign = self.scs.get_ccr().stkalign() as u32;
+
+        let t = self.lang.translator();
+        let pop_regs = ["r0", "r1", "r2", "r3", "r12", "lr"].into_iter()
+            .map(|reg_str| { t.register_by_name(reg_str).unwrap() });
+        for (i, reg) in pop_regs.enumerate() {
+            let bytes = self.mmap.mem_view_bytes(&(*frameptr + i as u64 * 4), Some(4))
+                .map_err(|_| {
+                    let msg = "failed to read from stack frame";
+                    error!("{msg}: {frameptr:#x?}");
+                    super::Error::System(msg)
+                })?;
+            self.regs.write_bytes(reg.offset() as usize, bytes)
+                .map_err(|_| {
+                    let msg = "failed to write to register";
+                    error!("{msg}: {}", reg.display(t));
+                    super::Error::System(msg)
+                })?;
+        }
+        let (target_address, psr) = self.mmap
+            .mem_view_bytes(&(*frameptr + 0x18u64), Some(8))
+            .map_err(|_| {
+                let msg = "failed to read from stack frame";
+                error!("{msg}: {frameptr:#x?}");
+                super::Error::System(msg)
+            }).map(|slice| unsafe {(
+                u32::from_le_bytes(*(&slice[..4] as *const [u8] as *const [u8; 4])),
+                u32::from_le_bytes(*(&slice[4..] as *const [u8] as *const [u8; 4])),
+            )})?;
+
+        // if fp_enabled {
+        //     // see PopStack in  B1.5.8 for these implementation details
+        // }
+
+        let spmask = (((psr >> 9) & 1) & forcealign) << 2;
+
+        let frame_address = match exc_return.modebits() {
+            0b0001
+            | 0b1001 => {
+                // returning to handler
+                let main_sp = self.get_main_sp()?.offset() as u32;
+                let frame_address = Address::from((main_sp + framesize) | spmask);
+                self.set_main_sp(&frame_address)?;
+                frame_address
+            }
+            0b1101 => {
+                let proc_sp = self.get_proc_sp()?.offset() as u32;
+                let frame_address = Address::from((proc_sp + framesize) | spmask);
+                self.set_proc_sp(&frame_address)?;
+                frame_address
+            }
+            _ => { panic!("invalid EXC_RETURN: {:#x}", exc_return.modebits()) }
+        };
+
+        self.xpsr.0 = psr;
+        let target_address = Address::from(target_address);
+        Ok((frame_address, target_address))
+    }
+
+    fn sleep_on_exit(&mut self) -> Result<ContextSwitch, super::Error> {
+        unimplemented!("sleep on exit implementation defined")
     }
 
     /// produces instruction synchronization barrier

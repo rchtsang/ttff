@@ -11,6 +11,7 @@ use std::{
 };
 
 use thiserror::Error;
+use bitfield_struct::bitfield;
 use flagset::{FlagSet, flags};
 
 use fugue_ir::{
@@ -115,6 +116,21 @@ pub enum Status {
     WaitingForInterrupt,
     Halted,
     Killed,
+}
+
+/// EXC_RETURN (see B1.5.8)
+#[bitfield(u32)]
+#[derive(PartialEq, Eq)]
+#[allow(nonstandard_style)]
+pub struct EXC_RETURN {
+    #[bits(4)]
+    pub modebits: u8,
+    #[bits(1)]
+    pub nofpext: bool,
+    #[bits(23)]
+    pub sbop: u32,
+    #[bits(4)]
+    pub exc_value: u8,
 }
 
 /// the cortex-m3 execution context
@@ -224,7 +240,7 @@ impl BackendTrait for Backend {
         self.mode.into()
     }
 
-    fn do_isr_preempt(&self) -> Option<ContextSwitch> {
+    fn maybe_thread_switch(&mut self) -> Option<ContextSwitch> {
         // check the current execution priority,
         // then look at the first exception in the queue.
         // if it is higher, perform the context switch and 
@@ -232,10 +248,24 @@ impl BackendTrait for Backend {
         // otherwise do nothing and return None.
         // the queue should be in sorted order, such that the
         // first element is always the highest priority
-        todo!()
-    }
+        
+        // returning from context should be called when return is evaluated
 
-    fn do_isr_return(&self) -> Option<ContextSwitch> {
+        // check the pc for a value that indicates return behavior,
+        // otherwise try to get a new pending instruction
+        
+        // see B1.5.8
+        let pc = self.read_pc().unwrap().offset() as u32;
+        let exc_return = EXC_RETURN::from_bits(pc);
+        // in thread mode, the value will be treated as a return address
+        // and should cause a MemFault, INVSTATE UsageFault, or HardFault
+        // since 0xFxxxxxxx range has execute-never permissions.
+        if exc_return.exc_value() == 0xF && self.mode != Mode::Thread {
+            // this is EXC_RETURN.
+            assert!(exc_return.nofpext(), "floating point not supported");
+            return self.exception_return(exc_return).ok();
+        }
+
         todo!()
     }
 

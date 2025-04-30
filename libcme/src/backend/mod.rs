@@ -52,9 +52,10 @@ pub enum Error {
 pub struct ContextSwitch {
     pub old_thread: EmuThread,
     pub new_thread: EmuThread,
+    pub frame_address: Address,
     pub switch_address: Address,
     pub target_address: Address,
-    pub return_address: Address,
+    pub return_address: Option<Address>,
 }
 
 
@@ -69,13 +70,9 @@ pub trait Backend: fmt::Debug + DynClone {
     /// get context's current thread
     fn current_thread(&self) -> EmuThread;
 
-    /// checks if isr is pending. if one is, performs preempt 
-    /// and returns the new pc address and new thread context
-    fn do_isr_preempt(&self) -> Option<ContextSwitch>;
-
-    /// checks if isr is returning. if it is, performs return 
-    /// and returns the new pc address and new thread context
-    fn do_isr_return(&self) -> Option<ContextSwitch>;
+    /// switch threads if needed,
+    /// returns the context switch if it occured
+    fn maybe_thread_switch(&mut self) -> Option<ContextSwitch>;
 
     /// initialize a memory region in the context's memory map
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error>;
@@ -172,8 +169,7 @@ impl<'backend> Backend for Box<dyn Backend + 'backend> {
     fn lang(&self) -> &Language { (**self).lang() }
     fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String { (**self).fmt_pcodeop(pcodeop) }
     fn current_thread(&self) -> EmuThread { (**self).current_thread() }
-    fn do_isr_preempt(&self) -> Option<ContextSwitch> { (**self).do_isr_preempt() }
-    fn do_isr_return(&self) -> Option<ContextSwitch> { (**self).do_isr_return() }
+    fn maybe_thread_switch(&mut self) -> Option<ContextSwitch> { (**self).maybe_thread_switch() }
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error> { (**self).map_mem(base, size) }
     fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error> { (**self).map_mmio(peripheral) }
     fn fetch<'irb>(&self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb> { (**self).fetch(address, arena) }
