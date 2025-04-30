@@ -48,6 +48,61 @@ impl Backend {
         }
     }
 
+    /// current exception priority
+    /// from B1.5.4 page B1-529
+    #[allow(unused)]
+    pub fn current_priority(&self) -> i16 {
+        // priority of thread mode with no active exceptions
+        // this value is PriorityMax + 1 = 256
+        // (configurable priority maximum bit field is 8 bits)
+        let mut highestpri: i16 = 256;
+        // priority influence of basepri, primask, and faultmask
+        let mut boostedpri: i16 = 256;
+
+        let subgroupshift = self.scs.get_aircr().prigroup();
+        // used by priority grouping
+        let groupvalue  = 0b10 << subgroupshift;
+
+        // valid ipsr values should be in range of 2 to 511
+        // to save time, we keep a list of active exceptions
+        // instead of looping over the full range of exception values.
+        // if desired, we can switch to looping to save memory and
+        // removing nvic.active list
+        for excp_type in self.scs.exceptions.active() {
+            let excp_num = u32::from(excp_type) as u8;
+            let pri = self.scs.nvic_regs()
+                .get_ipr(excp_num / 4)
+                .pri_n(excp_num % 4);
+            if (pri as i16) < highestpri {
+                highestpri = pri as i16;
+
+                // include prigroup effect
+                highestpri -= highestpri % groupvalue;
+            }
+        }
+
+        if self.basepri.basepri() != 0 {
+            boostedpri = self.basepri.basepri() as i16;
+
+            // include prigroup effect
+            boostedpri -= boostedpri % groupvalue;
+        }
+
+        if self.primask.pm() {
+            boostedpri = 0;
+        }
+
+        if self.faultmask.fm() {
+            boostedpri = -1;
+        }
+
+        if boostedpri < highestpri {
+            boostedpri
+        } else {
+            highestpri
+        }
+    }
+
     /// exception entry (see B1.5.6)
     #[instrument(skip_all)]
     pub fn exception_entry(&mut self, excp_typ: ExceptionType) -> Result<ContextSwitch, super::Error> {
@@ -613,12 +668,9 @@ impl Backend {
             // active exceptions
             Event::ExceptionSetActive(typ, true)
             | Event::ExceptionSetPending(typ, true) => {
-                let Some(priority) = self.scs.get_exception_priority(*typ) else {
-                    warn!("processor may be in inconsistent state: no exception registered for exception: {typ:?}");
-                    return false;
-                };
+                let priority = self.scs.get_exception_priority(*typ);
                 
-                priority < self.scs.current_priority(&self.basepri, &self.primask, &self.faultmask)
+                priority < self.current_priority()
             }
             // a debug event with debug enabled
             Event::Debug(_) => {
@@ -645,16 +697,10 @@ impl Backend {
             // PRIMASK is ignored)
             Event::ExceptionSetActive(typ, true)
             | Event::ExceptionSetPending(typ, true) => {
-                let Some(priority) = self.scs.get_exception_priority(*typ) else {
-                    warn!("processor may be in inconsistent state: no exception registered for exception: {typ:?}");
-                    return false;
-                };
-                
+                let priority = self.scs.get_exception_priority(*typ);
                 let vecactive = self.scs.get_icsr().vectactive();
                 let current_typ: ExceptionType = vecactive.into();
-                let Some(unmasked_current_priority) = self.scs.get_exception_priority(current_typ) else {
-                    panic!("processor is in inconsistent state: no exception registered for current exception: {current_typ:?}");
-                };
+                let unmasked_current_priority = self.scs.get_exception_priority(current_typ);
 
                 priority < unmasked_current_priority
             }

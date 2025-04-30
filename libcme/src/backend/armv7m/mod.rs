@@ -240,6 +240,7 @@ impl BackendTrait for Backend {
         self.mode.into()
     }
 
+    #[instrument(skip_all)]
     fn maybe_thread_switch(&mut self) -> Option<ContextSwitch> {
         // check the current execution priority,
         // then look at the first exception in the queue.
@@ -263,10 +264,25 @@ impl BackendTrait for Backend {
         if exc_return.exc_value() == 0xF && self.mode != Mode::Thread {
             // this is EXC_RETURN.
             assert!(exc_return.nofpext(), "floating point not supported");
-            return self.exception_return(exc_return).ok();
+            return self.exception_return(exc_return)
+                .map_err(|err| {
+                    error!("exception return failed: {err:?}");
+                    panic!("{err:?}");
+                }).ok()
         }
 
-        todo!()
+        if let Some(typ) = self.scs.exceptions.pending().first() {
+            if self.scs.get_exception_priority(*typ) < self.current_priority() {
+                // a pending exception will preempt the current context
+                return self.exception_entry(*typ)
+                    .map_err(|err| {
+                        error!("exception entry failed: {err:?}");
+                        panic!("{err:?}");
+                    }).ok()
+            }
+        }
+
+        None
     }
 
     fn map_mem(&mut self,
