@@ -9,6 +9,7 @@ use super::*;
 /// a dummy plugin with a number of various counters
 #[derive(Debug, Default)]
 pub struct DummyEvalPlugin {
+    pub thread_switch_cnt: usize,
     pub pre_insn_cnt: usize,
     pub post_insn_cnt: usize,
     pub pre_pcode_cnt: usize,
@@ -19,6 +20,17 @@ pub struct DummyEvalPlugin {
 }
 
 impl EvalPlugin for DummyEvalPlugin {
+    #[instrument(skip_all)]
+    fn post_thread_switch_cb<'irb, 'backend>(
+        &mut self,
+        _thd_switch: &ThreadSwitch,
+        _context: &mut Context<'backend>,
+    ) -> Result<(), Error> {
+        self.thread_switch_cnt += 1;
+        info!("post_thread_switch_cb calls: {}", self.thread_switch_cnt);
+        Ok(())
+    }
+
     #[instrument(skip_all)]
     fn pre_insn_cb<'irb, 'backend>(
         &mut self,

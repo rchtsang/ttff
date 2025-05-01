@@ -17,6 +17,7 @@ use fugue_core::prelude::*;
 use fugue_core::ir::Location;
 use fugue_ir::disassembly::{PCodeData, VarnodeData};
 
+use crate::backend::ThreadSwitch;
 use crate::types::*;
 use crate::dft::Context;
 use crate::dft::tag::Tag;
@@ -32,6 +33,11 @@ pub struct Error(pub(crate) anyhow::Error);
 /// plugin trait for evaluator
 #[allow(unused)]
 pub trait EvalPlugin: fmt::Debug {
+    fn post_thread_switch_cb<'irb, 'backend>(
+        &mut self,
+        thd_switch: &ThreadSwitch,
+        context: &mut Context<'backend>,
+    ) -> Result<(), Error> { Ok(()) }
 
     fn pre_insn_cb<'irb, 'backend>(
         &mut self,
