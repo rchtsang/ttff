@@ -289,6 +289,7 @@ impl BackendTrait for Backend {
         None
     }
 
+    #[instrument(skip_all)]
     fn process_events(&mut self) -> Result<(), backend::Error> {
         while let Some(evt) = self.events.pop_front() {
             self.handle_event(evt)?;
