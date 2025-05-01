@@ -246,6 +246,9 @@ impl<'a> SysTickRegsMut<'a> {
     /// decrement the systick counter, reload if necessary.
     /// returns true if systick exception should be triggered
     pub fn tick(&mut self) -> bool {
+        // should not decrement when halted in debug state
+        // should not decrement when disabled
+        if !self.get_csr().enable() { return false; }
         let offset = SysTickRegType::CVR.offset() / 4;
         let maybe_current = self.backing[offset].checked_sub(1);
         if let Some(current) = maybe_current {
@@ -329,8 +332,8 @@ impl<'a> SysTickRegsMut<'a> {
 
                 if new_enable && (tickint ^ new_tickint) {
                     // enable/disable systick exceptions
-                    events.push_back(Event::ExceptionEnabled(ExceptionType::SysTick, new_tickint));
-                    csr.set_tickint(new_tickint);
+                    let exc = ExceptionType::SysTick;
+                    events.push_back(Event::ExceptionEnabled(exc, new_tickint));
                 }
             }
             SysTickRegType::RVR => {
@@ -340,8 +343,10 @@ impl<'a> SysTickRegsMut<'a> {
             }
             SysTickRegType::CVR => {
                 // any write to CVR sets it to 0
+                // clearing systcvr also clears countflag status bit (see B3.3.1)
                 let cvr = self.get_cvr_mut();
                 cvr.0 = 0;
+                self.get_csr_mut().set_countflag(false);
             }
             SysTickRegType::CALIB => {
                 // CALIB is read-only and implementation-defined

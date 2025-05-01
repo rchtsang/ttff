@@ -18,6 +18,8 @@ pub enum Error {
     State(anyhow::Error),
     #[error("invalid peripheral register access @ {0:#x?}")]
     InvalidPeripheralReg(Address),
+    #[error("time error: {0}")]
+    Time(anyhow::Error),
 }
 
 impl Error {
@@ -26,6 +28,13 @@ impl Error {
         E: std::error::Error + Send + Sync + 'static,
     {
         Self::State(anyhow::Error::new(e))
+    }
+
+    pub fn time<E>(e: E) -> Self
+    where
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        Self::Time(anyhow::Error::new(e))
     }
 }
 
@@ -51,6 +60,7 @@ pub trait PeripheralState: DynClone {
     fn size(&self) -> u64;
     fn read_bytes(&mut self, address: &Address, dst: &mut [u8], events: &mut VecDeque<Event>) -> Result<(), Error>;
     fn write_bytes(&mut self, address: &Address, src: &[u8], events: &mut VecDeque<Event>) -> Result<(), Error>;
+    fn tick(&mut self) -> Result<Option<Event>, Error> { Ok(None) }
 }
 clone_trait_object!(PeripheralState);
 
@@ -77,6 +87,10 @@ impl Peripheral {
 
     pub fn size(&self) -> u64 {
         self.state.size()
+    }
+
+    pub fn tick(&mut self) -> Result<Option<Event>, Error> {
+        self.state.tick()
     }
 
     pub fn read_bytes(&mut self,

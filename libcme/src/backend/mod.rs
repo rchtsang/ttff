@@ -77,6 +77,9 @@ pub trait Backend: fmt::Debug + DynClone {
     /// get context's current thread
     fn current_thread(&self) -> EmuThread;
 
+    /// increment the processor clock by one cycle
+    fn tick(&mut self) -> Result<(), Error>;
+
     /// switch threads if needed,
     /// returns the context switch if it occured
     fn maybe_thread_switch(&mut self) -> Option<ThreadSwitch>;
@@ -179,6 +182,7 @@ impl<'backend> Backend for Box<dyn Backend + 'backend> {
     fn lang(&self) -> &Language { (**self).lang() }
     fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String { (**self).fmt_pcodeop(pcodeop) }
     fn current_thread(&self) -> EmuThread { (**self).current_thread() }
+    fn tick(&mut self) -> Result<(), Error> { (**self).tick() }
     fn maybe_thread_switch(&mut self) -> Option<ThreadSwitch> { (**self).maybe_thread_switch() }
     fn process_events(&mut self) -> Result<(), Error> { (**self).process_events() }
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error> { (**self).map_mem(base, size) }

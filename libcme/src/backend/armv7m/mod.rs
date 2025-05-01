@@ -240,21 +240,22 @@ impl BackendTrait for Backend {
         self.mode.into()
     }
 
+    fn tick(&mut self) -> Result<(), backend::Error> {
+        // systick in SCS
+        self.scs.tick(&mut self.events)?;
+        // time-dependent peripherals
+        self.mmap.tick(&mut self.events)?;
+        Ok(())
+    }
+
+    /// called at the start of each evaluator step,
+    /// performs a thread switch if necessary, returning the
+    /// thread switch information if one occurred.
     #[instrument(skip_all)]
     fn maybe_thread_switch(&mut self) -> Option<ThreadSwitch> {
-        // check the current execution priority,
-        // then look at the first exception in the queue.
-        // if it is higher, perform the context switch and 
-        // return the new thread context
-        // otherwise do nothing and return None.
-        // the queue should be in sorted order, such that the
-        // first element is always the highest priority
-        
-        // returning from context should be called when return is evaluated
-
         // check the pc for a value that indicates return behavior,
         // otherwise try to get a new pending instruction
-        
+
         // see B1.5.8
         let pc = self.read_pc().unwrap().offset() as u32;
         let exc_return = EXC_RETURN::from_bits(pc);

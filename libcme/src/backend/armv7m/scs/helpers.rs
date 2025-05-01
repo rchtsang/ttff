@@ -4,6 +4,7 @@
 
 use super::*;
 
+// exception-related implementations
 impl SysCtrlSpace {
     /// returns the current group and subgroup priority without boosting
     pub fn get_exception_priority(
@@ -105,6 +106,8 @@ impl SysCtrlSpace {
         self.get_shcsr_mut().set_usgfaultena(false);
         self.get_shcsr_mut().set_busfaultena(false);
         self.get_shcsr_mut().set_memfaultena(false);
+        let mut systick_regs = self.systick_regs_mut();
+        systick_regs.get_csr_mut().set_tickint(true);
         // pending
         self.get_icsr_mut().set_vectpending(0);
         self.get_icsr_mut().set_pendstset(false);
@@ -151,6 +154,10 @@ impl SysCtrlSpace {
                 }
                 ExceptionType::MemFault => {
                     self.get_shcsr_mut().set_memfaultena(true);
+                }
+                ExceptionType::SysTick => {
+                    let mut systick_regs = self.systick_regs_mut();
+                    systick_regs.get_csr_mut().set_tickint(true);
                 }
                 ExceptionType::ExternalInterrupt(int_n) => {
                     let n = (int_n / 32) as u8;
@@ -309,10 +316,12 @@ impl SysCtrlSpace {
             | ExceptionType::NMI
             | ExceptionType::HardFault
             | ExceptionType::SVCall
-            | ExceptionType::PendSV
-            | ExceptionType::SysTick => {
+            | ExceptionType::PendSV => {
                 // these exceptions are always enabled. see B1.5.1
                 true
+            }
+            ExceptionType::SysTick => {
+                self.systick_regs().get_csr().tickint()
             }
             _ => { self.exceptions.enabled.contains(&typ) }
         }
@@ -351,5 +360,23 @@ impl SysCtrlSpace {
             .position(|t| *t == typ).unwrap();
         self.exceptions.active.remove(idx);
         self.update_exception_regs();
+    }
+}
+
+// time and systick-related implementations
+impl SysCtrlSpace {
+    /// increment time for any time-dependent SCS modules
+    /// (e.g. systick)
+    pub fn tick(&mut self, events: &mut VecDeque<Event>) -> Result<(), Error> {
+        let mut systick_regs = self.systick_regs_mut();
+        if systick_regs.tick() {
+            // the counter wrapped and a systick interrupt should be triggered,
+            // but the current instruction must be completed before 
+            // the interrupt is handled
+            let exc = ExceptionType::SysTick;
+            let evt = Event::ExceptionSetPending(exc, true);
+            events.push_back(evt);
+        }
+        Ok(())
     }
 }

@@ -200,6 +200,11 @@ impl<'backend> Context<'backend> {
 impl<'backend> Context<'backend> {
     // interaction implementations
 
+    /// tick processor clock
+    pub fn tick(&mut self) -> Result<(), Error> {
+        self.backend.tick().map_err(Error::from)
+    }
+
     /// check for and apply thread switches
     /// returns the thread switch if taken, as well as the tag 
     /// of the target address

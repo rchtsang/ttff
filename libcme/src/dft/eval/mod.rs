@@ -102,6 +102,8 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         context: &mut Context<'backend>,
         pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
+        // need to eventually decide how long a thread switch should take
+        // right now there is no latency, so it'll look instantaneous
         if let Some((thread_switch, target_tag)) = context.maybe_thread_switch()? {
             self.policy.check_assign(context.lang().translator().program_counter(), &target_tag)?;
             self.pc = thread_switch.target_address.into();
@@ -111,6 +113,9 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
             self.pc = pc.into();
             self.pc_tag = tag;
         }
+
+        // tick processor clock
+        context.tick()?;
 
         let address = self.pc.address();
 

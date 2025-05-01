@@ -83,6 +83,16 @@ impl MemoryMap {
         Ok(())
     }
 
+    /// tick peripherals
+    pub fn tick(&mut self, events: &mut VecDeque<Event>) -> Result<(), backend::Error> {
+        for peripheral in self.mmio.iter_mut() {
+            if let Some(evt) = peripheral.tick()? {
+                events.push_back(Event::from(evt));
+            }
+        }
+        Ok(())
+    }
+
     #[instrument(skip_all)]
     pub fn load_bytes(
         &mut self,
