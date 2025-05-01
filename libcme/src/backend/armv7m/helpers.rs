@@ -358,7 +358,6 @@ impl Backend {
         self.control.set_fpca(false);
         self.control.set_spsel(false);
         self.scs.set_exception_active(typ);
-        self.scs.update_regs()?;
         // vectactive, rettobase, vectpending, nmipendset, shcsr
         self._clear_exclusive_local()?;
         self.event.0 = true;
