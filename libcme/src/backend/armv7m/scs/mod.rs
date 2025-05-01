@@ -250,31 +250,26 @@ impl SysCtrlSpace {
                     let excp = ExceptionType::SysTick;
                     let evt = Event::ExceptionSetPending(excp, false);
                     events.push_back(evt);
-                    icsr.set_pendstset(false);
                 }
                 if new_pendstset & (new_pendstset ^ icsr.pendstset()) {
                     let excp = ExceptionType::SysTick;
                     let evt = Event::ExceptionSetPending(excp, true);
                     events.push_back(evt);
-                    icsr.set_pendstset(true);
                 }
                 if new_pendsvclr { // TODO: does this self clear?
                     let excp = ExceptionType::PendSV;
                     let evt = Event::ExceptionSetPending(excp, false);
                     events.push_back(evt);
-                    icsr.set_pendsvset(false);
                 }
                 if new_pendsvset & (new_pendsvset ^ icsr.pendsvset()) {
                     let excp = ExceptionType::PendSV;
                     let evt = Event::ExceptionSetPending(excp, true);
                     events.push_back(evt);
-                    icsr.set_pendsvset(true);
                 }
                 if new_nmipendset & (new_nmipendset ^ icsr.nmipendset()) {
                     let excp = ExceptionType::NMI;
                     let evt = Event::ExceptionSetActive(excp, true);
                     events.push_back(evt);
-                    icsr.set_nmipendset(true);
                 }
             }
             SCRegType::VTOR => {
