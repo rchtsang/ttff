@@ -2,6 +2,7 @@
 //! 
 //! utility functions for printing/rendering data
 
+use fugue_core::ir::PCode;
 use fugue_ir::{
     VarnodeData, Translator,
     disassembly::lift::PCodeData
@@ -51,3 +52,18 @@ pub fn fmt_pcodeop(pcodeop: &PCodeData, t: &Translator, hex_const: Option<bool>)
     result
 }
 
+/// a pcode formatter that displays all its component pcode operations
+/// pcode @ [[<address>; <length>]] -> <operations>
+pub fn fmt_pcode(pcode: &PCode, t: &Translator, hex_const: Option<bool>) -> String {
+    let mut result = format!("pcode @ [ {:#x}; {} ] -> [",
+        pcode.address.offset(),
+        pcode.length);
+    for (i, op) in pcode.operations().iter().enumerate() {
+        if i == 0 {
+            result.push_str("\n");
+        }
+        result.push_str(&format!("\t{}\n", fmt_pcodeop(op, t, hex_const)));
+    }
+    result.push_str("]");
+    result
+}

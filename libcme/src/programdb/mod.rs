@@ -109,7 +109,7 @@ impl<'irb> ProgramDB<'irb> {
             
             offset += pcode.len();
 
-            debug!("{:#x?}", pcode);
+            debug!("{}", backend.fmt_pcode(pcode));
 
             if let Some(last_op) = pcode.operations.last() {
                 match last_op.opcode {

@@ -10,7 +10,7 @@ use dyn_clone::{DynClone, clone_trait_object};
 
 use fugue_ir::{Address, VarnodeData};
 use fugue_ir::disassembly::{IRBuilderArena, PCodeData};
-use fugue_core::ir::Location;
+use fugue_core::ir::{Location, PCode};
 use fugue_core::language::{Language, LanguageBuilderError};
 use fugue_core::eval::fixed_state::FixedStateError;
 use fugue_bv::BitVec;
@@ -65,6 +65,10 @@ pub struct ThreadSwitch {
 pub trait Backend: fmt::Debug + DynClone {
 
     fn lang(&self) -> &Language;
+
+    fn fmt_pcode(&self, pcode: &PCode) -> String {
+        crate::utils::fmt_pcode(pcode, self.lang().translator(), Some(true))
+    }
 
     fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String {
         crate::utils::fmt_pcodeop(pcodeop, self.lang().translator(), Some(true))

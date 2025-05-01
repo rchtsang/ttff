@@ -102,9 +102,16 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         context: &mut Context<'backend>,
         pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
-        let (pc, tag) = context.read_pc()?;
-        self.pc = pc.into();
-        self.pc_tag = tag;
+        if let Some((thread_switch, target_tag)) = context.maybe_thread_switch()? {
+            self.policy.check_assign(context.lang().translator().program_counter(), &target_tag)?;
+            self.pc = thread_switch.target_address.into();
+            self.pc_tag = target_tag;
+        } else {
+            let (pc, tag) = context.read_pc()?;
+            self.pc = pc.into();
+            self.pc_tag = tag;
+        }
+
         let address = self.pc.address();
 
         // let insn = context.fetch(address, pdb.arena)?;
