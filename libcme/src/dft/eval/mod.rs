@@ -156,6 +156,9 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
             self.pc = Location::from(address + pcode.len());
         }
         context.write_pc(self.pc.address(), &self.pc_tag)?;
+
+        // handle events after pc is written
+        context.process_events()?;
         
         self.plugin.post_insn_cb(&self.pc, insn.as_ref(), context)?;
 

@@ -69,6 +69,7 @@ pub enum ExceptionType {
     SVCall,
     PendSV,
     SysTick,
+    /// contains the interrupt number, not the exception number
     ExternalInterrupt(u32),
     Reserved(u32),
 }
@@ -88,7 +89,7 @@ impl From<u32> for ExceptionType {
             14 => { ExceptionType::PendSV }
             15 => { ExceptionType::SysTick }
             (7..=10) | 13 => { ExceptionType::Reserved(value) }
-            n => { ExceptionType::ExternalInterrupt(n) }
+            excp_n => { ExceptionType::ExternalInterrupt(excp_n - 16) }
         }
     }
 }
@@ -107,7 +108,7 @@ impl From<&ExceptionType> for u32 {
             ExceptionType::PendSV => { 14 }
             ExceptionType::SysTick => { 15 }
             ExceptionType::ExternalInterrupt(n) => { *n }
-            ExceptionType::Reserved(n) => { *n }
+            ExceptionType::Reserved(n) => { *n + 16 }
         }
     }
 }

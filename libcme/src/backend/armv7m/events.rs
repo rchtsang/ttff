@@ -76,16 +76,9 @@ impl From<peripheral::Event> for Event {
 }
 
 impl Backend {
-    fn _process_events(&mut self) -> Result<(), backend::Error> {
-        while let Some(evt) = self.events.pop_front() {
-            self._handle_event(evt)?;
-        }
-        Ok(())
-    }
-
     #[allow(unused)]
     #[instrument]
-    fn _handle_event(&mut self, evt: Event) -> Result<(), backend::Error> {
+    pub(crate) fn handle_event(&mut self, evt: Event) -> Result<(), backend::Error> {
         match evt {
             Event::SetProcessorStatus(status) => {
                 self.status = status;
@@ -107,9 +100,8 @@ impl Backend {
                 }
                 Ok(())
             }
-            Event::ExceptionSetPriority(exception_type, priority) => {
-                // exception priorities are set directly and used directly
-                // so this should be unnecessary
+            Event::ExceptionSetPriority(typ, pri) => {
+                self.scs.set_exception_priority(typ, pri);
                 Ok(())
             }
             Event::ExceptionEnabled(exception_type, val) => {

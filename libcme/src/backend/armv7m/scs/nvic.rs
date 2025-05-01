@@ -122,7 +122,7 @@ impl<'a> NVICRegsMut<'a> {
             .map_err(|(address, size, expected)| {
                 Error::AlignmentViolation(address, size, expected)
             })?;
-        let word_offset = offset / 4;
+        // let word_offset = offset / 4;
         let reg_type = NVICRegType::lookup_offset(offset)
             .ok_or_else( | | {
                 let address = Address::from(BASE + offset as u32);
@@ -132,13 +132,12 @@ impl<'a> NVICRegsMut<'a> {
             .fold(0u32, |val, (i, &byte)| {
                 val | ((byte as u32) << i)
             });
+        // do not update register values here, let that be done
+        // globally by the event handler after all pcode executed
         match reg_type {
             NVICRegType::IPR(n) => {
                 let byte_offset = offset & 0b11;
-                let slice = self.view_bytes_mut(word_offset);
-                let slice = &mut slice[byte_offset..];
-                for (i, val) in src.iter().enumerate() {
-                    slice[i] = *val;
+                for val in src.iter() {
                     let excp = ExceptionType::from((4 * n + byte_offset as u8) as u32);
                     events.push_back(Event::ExceptionSetPriority(excp, *val))
                 }
@@ -158,11 +157,6 @@ impl<'a> NVICRegsMut<'a> {
                     let excp = ExceptionType::from(16 + ext_num);
                     events.push_back(Event::ExceptionEnabled(excp, true));
                 }
-                iser.0 |= masked_set_val;
-
-                // update icer by setting changed bits (keep enable status consistent)
-                let icer = self.get_icer_mut(n);
-                icer.0 |= masked_set_val;
             }
             NVICRegType::ICER(n) => {
                 check_alignment(BASE + offset as u32, src.len(), Alignment::Word)
@@ -179,12 +173,6 @@ impl<'a> NVICRegsMut<'a> {
                     let excp = ExceptionType::from(16 + ext_num);
                     events.push_back(Event::ExceptionEnabled(excp, false));
                 }
-                icer.0 &= !masked_set_val;
-
-                // update iser by clearing changed bits (keep enable status consistent)
-                let iser = self.get_iser_mut(n);
-                iser.0 &= !masked_set_val;
-
             }
             NVICRegType::ISPR(n) => {
                 check_alignment(BASE + offset as u32, src.len(), Alignment::Word)
@@ -194,18 +182,13 @@ impl<'a> NVICRegsMut<'a> {
                 // upper bits ignored for n == 15
                 let write_val = if n == 15 { write_val & 0xFFFF } else { write_val };
                 
-                let ispr  = self.get_ispr_mut(n);
+                let ispr  = self.get_ispr(n);
                 let masked_set_val  = (ispr.0 ^ write_val) & write_val;
                 for bit_n in BitIter::from(masked_set_val) {
                     let ext_num = (32 * n as u32) + bit_n as u32;
                     let excp = ExceptionType::from(16 + ext_num);
                     events.push_back(Event::ExceptionSetPending(excp, true));
                 }
-                ispr.0 |= masked_set_val;
-
-                // update icpr by setting changed bits
-                let icpr = self.get_icpr_mut(n);
-                icpr.0 |= masked_set_val;
             }
             NVICRegType::ICPR(n) => {
                 check_alignment(BASE + offset as u32, src.len(), Alignment::Word)
@@ -222,14 +205,8 @@ impl<'a> NVICRegsMut<'a> {
                     let excp = ExceptionType::from(16 + ext_num);
                     events.push_back(Event::ExceptionSetPending(excp, false));
                 }
-                icpr.0 &= !masked_set_val;
-
-                // update ispr by clearing changed bits
-                let ispr = self.get_ispr_mut(n);
-                ispr.0 &= !masked_set_val;
             }
-            NVICRegType::IABR(_n) => {
-                // iabr is read-only
+            NVICRegType::IABR(_n) => {                // iabr is read-only
                 let address: Address = (BASE + offset as u32).into();
                 let err = Error::WriteAccessViolation(address);
                 return Err(backend::Error::from(err).into());

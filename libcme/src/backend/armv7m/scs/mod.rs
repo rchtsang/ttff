@@ -62,6 +62,7 @@ pub struct SysCtrlSpace {
     pub exceptions: ExceptionState,
     pub mpu: MPUState,
 }
+// TODO: refactor backing into separate registers struct...
 
 impl AsRef<[u32; 0x400]> for SysCtrlSpace {
     fn as_ref(&self) -> &[u32; 0x400] {

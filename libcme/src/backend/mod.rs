@@ -81,6 +81,9 @@ pub trait Backend: fmt::Debug + DynClone {
     /// returns the context switch if it occured
     fn maybe_thread_switch(&mut self) -> Option<ThreadSwitch>;
 
+    /// processes any events in backend event queue
+    fn process_events(&mut self) -> Result<(), Error>;
+
     /// initialize a memory region in the context's memory map
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error>;
 
@@ -177,6 +180,7 @@ impl<'backend> Backend for Box<dyn Backend + 'backend> {
     fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String { (**self).fmt_pcodeop(pcodeop) }
     fn current_thread(&self) -> EmuThread { (**self).current_thread() }
     fn maybe_thread_switch(&mut self) -> Option<ThreadSwitch> { (**self).maybe_thread_switch() }
+    fn process_events(&mut self) -> Result<(), Error> { (**self).process_events() }
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error> { (**self).map_mem(base, size) }
     fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error> { (**self).map_mmio(peripheral) }
     fn fetch<'irb>(&self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb> { (**self).fetch(address, arena) }

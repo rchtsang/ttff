@@ -271,8 +271,12 @@ impl BackendTrait for Backend {
                 }).ok()
         }
 
-        if let Some(typ) = self.scs.exceptions.pending().first() {
-            if self.scs.get_exception_priority(*typ) < self.current_priority() {
+        // preempt current execution for the first pending exception
+        // that is enabled and has a lower priority group value
+        for typ in self.scs.exceptions.pending() {
+            if self.scs.get_exception_priority(*typ).0 < self.current_priority()
+                && self.scs.exceptions.enabled.contains(typ)
+            {
                 // a pending exception will preempt the current context
                 return self.exception_entry(*typ)
                     .map_err(|err| {
@@ -283,6 +287,13 @@ impl BackendTrait for Backend {
         }
 
         None
+    }
+
+    fn process_events(&mut self) -> Result<(), backend::Error> {
+        while let Some(evt) = self.events.pop_front() {
+            self.handle_event(evt)?;
+        }
+        Ok(())
     }
 
     fn map_mem(&mut self,

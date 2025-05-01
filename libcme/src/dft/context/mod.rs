@@ -211,6 +211,11 @@ impl<'backend> Context<'backend> {
         Ok(Some((ctx, tag)))
     }
 
+    /// process any pending backend events
+    pub fn process_events(&mut self) -> Result<(), Error> {
+        self.backend.process_events().map_err(Error::from)
+    }
+
     /// fetch the lifted instruction at the given address
     pub fn fetch<'irb>(&mut self, address: impl Into<Address>, arena: &'irb IRBuilderArena) -> LiftResult<'irb> {
         let address = address.into();

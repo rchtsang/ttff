@@ -69,11 +69,8 @@ impl Backend {
         // if desired, we can switch to looping to save memory and
         // removing nvic.active list
         for excp_type in self.scs.exceptions.active() {
-            let excp_num = u32::from(excp_type) as u8;
-            let pri = self.scs.nvic_regs()
-                .get_ipr(excp_num / 4)
-                .pri_n(excp_num % 4);
-            if (pri as i16) < highestpri {
+            let (pri, sub_pri) = self.scs.get_exception_priority(*excp_type);
+            if pri < highestpri {
                 highestpri = pri as i16;
 
                 // include prigroup effect
@@ -362,6 +359,7 @@ impl Backend {
         self.control.set_spsel(false);
         self.scs.set_exception_active(typ);
         self.scs.update_regs()?;
+        // vectactive, rettobase, vectpending, nmipendset, shcsr
         self._clear_exclusive_local()?;
         self.event.0 = true;
         self.instruction_synchronization_barrier(0xF)?;
@@ -689,7 +687,7 @@ impl Backend {
             | Event::ExceptionSetPending(typ, true) => {
                 let priority = self.scs.get_exception_priority(*typ);
                 
-                priority < self.current_priority()
+                priority.0 < self.current_priority()
             }
             // a debug event with debug enabled
             Event::Debug(_) => {
