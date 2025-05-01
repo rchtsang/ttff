@@ -2,8 +2,6 @@
 //! 
 //! separating system control space helper functions
 
-use crate::backend::armv7m::system::{BASEPRI, FAULTMASK, PRIMASK};
-
 use super::*;
 
 impl SysCtrlSpace {

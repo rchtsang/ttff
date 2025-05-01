@@ -26,7 +26,8 @@ use super::tag::{self, Tag};
 
 mod shadow;
 use shadow::ShadowState;
-
+mod plugin;
+use plugin::*;
 
 #[derive(Debug, Error, Clone)]
 pub enum Error {
@@ -125,7 +126,6 @@ pub enum CtxResponse<'irb> {
     CallOther { result: Result<Option<Location>, Error> },
 }
 
-
 /// context trait
 /// 
 /// an architecture emulation context implementation should implement this trait to keep the
@@ -135,6 +135,7 @@ pub struct Context<'backend> {
     /// the architecture-specific backend for this context
     backend: Box<dyn Backend + 'backend>,
     shadow: ShadowState,
+    arch_plugin: Box<dyn ArchPlugin + 'backend>,
 }
 
 
@@ -142,7 +143,9 @@ impl<'backend> Context<'backend> {
 
     pub fn new_with(backend: Box<dyn Backend + 'backend>) -> Self {
         let shadow = ShadowState::new_with(backend.lang().clone());
-        Self { backend, shadow }
+        let arch = backend.lang().translator().architecture();
+        let arch_plugin = plugin_from(arch);
+        Self { backend, shadow, arch_plugin }
     }
 
     pub fn lang(&self) -> &Language {
@@ -196,6 +199,17 @@ impl<'backend> Context<'backend> {
 
 impl<'backend> Context<'backend> {
     // interaction implementations
+
+    /// check for and apply thread switches
+    /// returns the thread switch if taken, as well as the tag 
+    /// of the target address
+    pub fn maybe_thread_switch(&mut self) -> Result<Option<(backend::ThreadSwitch, Tag)>, Error> {
+        let Some(ctx) = self.backend.maybe_thread_switch() else {
+            return Ok(None)
+        };
+        let tag = self.arch_plugin.maybe_thread_switch(&mut self.shadow, &ctx)?;
+        Ok(Some((ctx, tag)))
+    }
 
     /// fetch the lifted instruction at the given address
     pub fn fetch<'irb>(&mut self, address: impl Into<Address>, arena: &'irb IRBuilderArena) -> LiftResult<'irb> {

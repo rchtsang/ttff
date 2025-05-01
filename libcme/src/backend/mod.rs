@@ -49,13 +49,16 @@ pub enum Error {
 
 /// a context switch struct
 #[derive(Debug, Clone)]
-pub struct ContextSwitch {
+pub struct ThreadSwitch {
+    pub typ: u32,
     pub old_thread: EmuThread,
     pub new_thread: EmuThread,
-    pub frame_address: Address,
+    pub old_frame_address: Address,
+    pub new_frame_address: Address,
     pub switch_address: Address,
     pub target_address: Address,
     pub return_address: Option<Address>,
+    pub vtor: Option<Address>,
 }
 
 
@@ -72,7 +75,7 @@ pub trait Backend: fmt::Debug + DynClone {
 
     /// switch threads if needed,
     /// returns the context switch if it occured
-    fn maybe_thread_switch(&mut self) -> Option<ContextSwitch>;
+    fn maybe_thread_switch(&mut self) -> Option<ThreadSwitch>;
 
     /// initialize a memory region in the context's memory map
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error>;
@@ -169,7 +172,7 @@ impl<'backend> Backend for Box<dyn Backend + 'backend> {
     fn lang(&self) -> &Language { (**self).lang() }
     fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String { (**self).fmt_pcodeop(pcodeop) }
     fn current_thread(&self) -> EmuThread { (**self).current_thread() }
-    fn maybe_thread_switch(&mut self) -> Option<ContextSwitch> { (**self).maybe_thread_switch() }
+    fn maybe_thread_switch(&mut self) -> Option<ThreadSwitch> { (**self).maybe_thread_switch() }
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error> { (**self).map_mem(base, size) }
     fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error> { (**self).map_mmio(peripheral) }
     fn fetch<'irb>(&self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb> { (**self).fetch(address, arena) }

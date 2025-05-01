@@ -10,6 +10,8 @@ use iset::IntervalMap;
 use fugue_ir::{Address, VarnodeData};
 use fugue_core::language::Language;
 
+// use crate::backend;
+
 use super::tag::{
     self,
     Tag,
@@ -27,12 +29,16 @@ pub enum Error {
     Unmapped(u64),
     #[error("mapped regions conflict: {0:#x?} and {1:#x?}")]
     MapConflict(Range<u64>, Range<u64>),
+    #[error("invalid register: {0}")]
+    InvalidRegister(&'static str),
 }
+
+
 
 /// a shadow state for pcode context
 #[derive(Clone)]
 pub struct ShadowState {
-    lang: Language,
+    pub lang: Language,
     regs: FixedTagState,
     tmps: FixedTagState,
     mmap: IntervalMap<u64, FixedTagState>,

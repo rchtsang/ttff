@@ -18,7 +18,6 @@ pub enum EmuThread {
     ISR { num: u32 },
 }
 
-
 /// control flow types
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]

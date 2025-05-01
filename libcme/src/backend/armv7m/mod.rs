@@ -28,7 +28,7 @@ use crate::peripheral::{
 };
 use crate::backend::{
     self,
-    ContextSwitch,
+    ThreadSwitch,
     Backend as BackendTrait,
 };
 
@@ -241,7 +241,7 @@ impl BackendTrait for Backend {
     }
 
     #[instrument(skip_all)]
-    fn maybe_thread_switch(&mut self) -> Option<ContextSwitch> {
+    fn maybe_thread_switch(&mut self) -> Option<ThreadSwitch> {
         // check the current execution priority,
         // then look at the first exception in the queue.
         // if it is higher, perform the context switch and 

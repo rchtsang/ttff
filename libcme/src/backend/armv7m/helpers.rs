@@ -105,7 +105,7 @@ impl Backend {
 
     /// exception entry (see B1.5.6)
     #[instrument(skip_all)]
-    pub fn exception_entry(&mut self, excp_typ: ExceptionType) -> Result<ContextSwitch, super::Error> {
+    pub fn exception_entry(&mut self, excp_typ: ExceptionType) -> Result<ThreadSwitch, super::Error> {
         let old_thread = self.current_thread();
         let switch_address = self.read_pc()
             .map_err(|_| {
@@ -113,18 +113,28 @@ impl Backend {
                 error!(msg);
                 super::Error::System(msg)
             })?;
-        let (return_address, frame_address) = self.push_stack(excp_typ)?;
+        let old_frame_address = if self.control.spsel() && self.mode == Mode::Thread {
+            self.get_proc_sp()?
+        } else {
+            self.get_main_sp()?
+        };
+        let (return_address, new_frame_address) = self.push_stack(excp_typ)?;
+        let vtor = Some(Address::from(self.scs.get_vtor().tbloff() << 7));
         let target_address = self.exception_taken(excp_typ)?;
         let new_thread = self.current_thread();
         let return_address = Some(return_address);
+        let typ = u32::from(&excp_typ);
 
-        Ok(ContextSwitch {
+        Ok(ThreadSwitch {
+            typ,
             old_thread,
             new_thread,
-            frame_address,
+            old_frame_address,
+            new_frame_address,
             switch_address,
             target_address,
             return_address,
+            vtor,
         })
     }
 
@@ -139,7 +149,7 @@ impl Backend {
         let framesize = 0x20u32;
         let forcealign = self.scs.get_ccr().stkalign();
 
-        let spmask = !(forcealign as u32);
+        let spmask = !((forcealign as u32) << 2);
         
         let (frameptralign, frameptr) = if self.control.spsel() && self.mode == Mode::Thread {
             let proc_sp = self.get_proc_sp()?.offset() as u32;
@@ -378,7 +388,7 @@ impl Backend {
     /// perform exception return
     /// returns context switch information
     #[instrument(skip_all)]
-    pub fn exception_return(&mut self, exc_return: EXC_RETURN) -> Result<ContextSwitch, super::Error> {
+    pub fn exception_return(&mut self, exc_return: EXC_RETURN) -> Result<ThreadSwitch, super::Error> {
         assert_eq!(exc_return.exc_value(), 0xF, "invalid EXC_RETURN");
         assert!(matches!(self.mode, Mode::Handler(_)),
             "must be in handler mode to return from exception");
@@ -437,7 +447,8 @@ impl Backend {
                 error!(msg);
                 super::Error::System(msg)
             })?;
-        let (frame_address, target_address) = self.pop_stack(&frameptr, exc_return)?;
+        let old_frame_address = frameptr.clone();
+        let (new_frame_address, target_address) = self.pop_stack(&frameptr, exc_return)?;
         self.mode = if exc_return.modebits() == 0b0001 {
             // set mode for returning to handler
             let excp_num = self.xpsr.ipsr().exception_number();
@@ -479,10 +490,13 @@ impl Backend {
             return self.sleep_on_exit();
         }
 
-        Ok(ContextSwitch {
+        Ok(ThreadSwitch {
+            typ: 0,
+            vtor: None,
             old_thread,
             new_thread,
-            frame_address,
+            old_frame_address,
+            new_frame_address,
             switch_address,
             target_address,
             return_address,
@@ -507,7 +521,7 @@ impl Backend {
         returning_excp: ExceptionType,
         exc_return: EXC_RETURN,
         ufsr: UFSR,
-    ) -> Result<ContextSwitch, super::Error> {
+    ) -> Result<ThreadSwitch, super::Error> {
         // get current context information
         let old_thread = self.current_thread();
         let switch_address = self.read_pc()
@@ -553,17 +567,22 @@ impl Backend {
                 super::Error::System(msg)
             })?;
         
+        let vtor = Some(Address::from(self.scs.get_vtor().tbloff() << 7));
         let target_address = self.exception_taken(ExceptionType::UsageFault)?;
         let new_thread = self.current_thread();
-        let frame_address = pushed_frame_address;
+        let old_frame_address = pushed_frame_address;
+        let new_frame_address = pushed_frame_address;
         let return_address = Some(pushed_return_address);
-        return Ok(ContextSwitch {
+        return Ok(ThreadSwitch {
+            typ: u32::from(&ExceptionType::UsageFault),
             old_thread,
             new_thread,
-            frame_address,
+            old_frame_address,
+            new_frame_address,
             switch_address,
             target_address,
             return_address,
+            vtor,
         })
     }
 
@@ -634,7 +653,7 @@ impl Backend {
         Ok((frame_address, target_address))
     }
 
-    fn sleep_on_exit(&mut self) -> Result<ContextSwitch, super::Error> {
+    fn sleep_on_exit(&mut self) -> Result<ThreadSwitch, super::Error> {
         unimplemented!("sleep on exit implementation defined")
     }
 
