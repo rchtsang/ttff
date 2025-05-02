@@ -29,6 +29,7 @@ derive_more = { version = "1", features = ["full"] }
 bit-iter = "1.2.0"
 itertools = "0.13.0"
 petgraph = "0.8.1"
+crossbeam = { version = "0.8.4", features = ["crossbeam-channel"] }
 
 [dev-dependencies]
 test-log = "0.2.16"

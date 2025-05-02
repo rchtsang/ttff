@@ -2,6 +2,7 @@
 //! 
 //! peripheral definitions that can be mapped into contexts
 pub mod dummy;
+pub mod channel;
 
 use std::ops::Range;
 use std::collections::VecDeque;
