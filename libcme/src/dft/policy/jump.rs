@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use thiserror::Error;
 
+use fugue_bv::BitVec;
 use fugue_core::language::Language;
 use fugue_ir::{
     Address,
@@ -44,25 +45,33 @@ impl TaintPolicy for TaintedJumpPolicy {
     fn check_assign(
         &self,
         dst: &VarnodeData,
-        tag: &Tag,
+        val: &(BitVec, Tag),
     ) -> Result<(), super::Error> {
         let t = self.lang.translator();
-        if dst == t.program_counter() && tag.is_tainted() {
+        if dst == t.program_counter() && val.1.is_tainted() {
             Err(PolicyViolation::TaintedProgramCounter.into())
         } else {
             Ok(())
         }
     }
 
+    fn check_cond_branch(
+        &self,
+        _opcode: &Opcode,
+        _cond: &(bool, Tag),
+    ) -> Result<(), super::Error> {
+        Ok(())
+    }
+
     fn check_branch(
         &self,
         opcode: &Opcode,
-        tag: &Tag,
+        target: &(Address, Tag),
     ) -> Result<(), super::Error> {
         match opcode {
             Opcode::IBranch
             | Opcode::ICall
-            | Opcode::Return if tag.is_tainted() => {
+            | Opcode::Return if target.1.is_tainted() => {
                 Err(PolicyViolation::TaintedBranchTarget.into())
             }
             _ => { Ok(()) }
@@ -72,77 +81,77 @@ impl TaintPolicy for TaintedJumpPolicy {
     fn check_write_mem(
         &self,
         _address: &Address,
-        _tag: &Tag,
+        _val: (&BitVec, &Tag),
     ) -> Result<(), super::Error> {
         Ok(())
     }
 
-    fn propogate_subpiece(
+    fn propagate_subpiece(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        src_tag: &Tag,
+        src: &(BitVec, Tag),
     ) -> Result<Tag, super::Error> {
-        Ok(*src_tag)
+        Ok(src.1)
     }
     
-    fn propogate_int2(
+    fn propagate_int2(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        lhs_tag: &Tag,
-        rhs_tag: &Tag,
+        lhs: &(BitVec, Tag),
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, super::Error> {
-        Ok(*lhs_tag | *rhs_tag)
+        Ok(lhs.1 | rhs.1)
     }
     
-    fn propogate_int1(
+    fn propagate_int1(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        rhs_tag: &Tag,
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, super::Error> {
-        Ok(*rhs_tag)
+        Ok(rhs.1)
     }
     
-    fn propogate_bool2(
+    fn propagate_bool2(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        lhs_tag: &Tag,
-        rhs_tag: &Tag,
+        lhs: &(BitVec, Tag),
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, super::Error> {
-        Ok(*lhs_tag | *rhs_tag)
+        Ok(lhs.1 | rhs.1)
     }
     
-    fn propogate_bool1(
+    fn propagate_bool1(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        rhs_tag: &Tag,
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, super::Error> {
-        Ok(*rhs_tag)
+        Ok(rhs.1)
     }
 
     fn propagate_load(
         &self,
         _dst: &VarnodeData,
-        val_tag: &Tag,
-        loc_tag: &Tag,
+        val: &(BitVec, Tag),
+        loc: &(Address, Tag),
     ) -> Result<Tag, super::Error> {
         Ok(Tag::new()
-            .with_tainted_val(loc_tag.is_tainted() || val_tag.is_tainted()))
+            .with_tainted_val(loc.1.is_tainted() || val.1.is_tainted()))
     }
     
     fn propagate_store(
         &self,
         _dst: &VarnodeData,
-        val_tag: &Tag,
-        loc_tag: &Tag,
+        val: &(BitVec, Tag),
+        loc: &(Address, Tag),
     ) -> Result<Tag, super::Error> {
         Ok(Tag::new()
-            .with_tainted_val(val_tag.is_tainted())
-            .with_tainted_loc(loc_tag.is_tainted()))
+            .with_tainted_val(val.1.is_tainted())
+            .with_tainted_loc(loc.1.is_tainted()))
     }
 }
 

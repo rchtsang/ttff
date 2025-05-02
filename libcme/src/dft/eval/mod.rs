@@ -105,7 +105,10 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         // need to eventually decide how long a thread switch should take
         // right now there is no latency, so it'll look instantaneous
         if let Some((thread_switch, target_tag)) = context.maybe_thread_switch()? {
-            self.policy.check_assign(context.lang().translator().program_counter(), &target_tag)?;
+            // for different architectures, target may not be 32 bits, which could be an issue.
+            let target = BitVec::from_u32(thread_switch.target_address.offset() as u32, 32);
+            let val = (target, target_tag);
+            self.policy.check_assign(context.lang().translator().program_counter(), &val)?;
             self.pc = thread_switch.target_address.into();
             self.pc_tag = target_tag;
         } else {
@@ -192,13 +195,13 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
                 let src = &operation.inputs[1];
                 let lsz = dst.size();
 
-                let (loc, loc_tag) = self._read_addr(src, context)?;
-                let (val, val_tag) = self._read_mem(&loc, lsz, context)?;
+                let loc = self._read_addr(src, context)?;
+                let val = self._read_mem(&loc.0, lsz, context)?;
 
-                let tag = self.policy.propagate_load(dst, &val_tag, &loc_tag)?;
-                let mem_size = val.bytes();
-                let mut value = (val, tag);
-                self.plugin.mem_access_cb(&self.pc, &loc, mem_size, Permission::R, &mut value, context)?;
+                let tag = self.policy.propagate_load(dst, &val, &loc)?;
+                let mem_size = val.0.bytes();
+                let mut value = (val.0, tag);
+                self.plugin.mem_access_cb(&self.pc, &loc.0, mem_size, Permission::R, &mut value, context)?;
                 let (val, tag) = value;
                 self._assign(dst, val, tag, context)?;
             }
@@ -206,15 +209,15 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
                 let dst = &operation.inputs[1];
                 let src = &operation.inputs[2];
 
-                let (val, val_tag) = context.read(&src)?;
-                let (loc, loc_tag) = self._read_addr(dst, context)?;
+                let val = context.read(&src)?;
+                let loc = self._read_addr(dst, context)?;
 
-                let tag = self.policy.propagate_store(dst, &val_tag, &loc_tag)?;
-                let mem_size = val.bytes();
-                let mut value = (val, tag);
-                self.plugin.mem_access_cb(&self.pc, &loc, mem_size, Permission::W, &mut value, context)?;
+                let tag = self.policy.propagate_store(dst, &val, &loc)?;
+                let mem_size = val.0.bytes();
+                let mut value = (val.0, tag);
+                self.plugin.mem_access_cb(&self.pc, &loc.0, mem_size, Permission::W, &mut value, context)?;
                 let (val, tag) = value;
-                self._write_mem(&loc, &val, &tag, context)?;
+                self._write_mem(&loc.0, &val, &tag, context)?;
             }
             Opcode::IntAdd => {
                 self._apply_unsigned_int2(operation, |lhs, rhs| Ok(lhs + rhs), context)?;
@@ -349,17 +352,17 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
                 return Ok(FlowType::Branch.target(target));
             }
             Opcode::CBranch => {
-                let (bool_val, bool_tag) = self._read_bool(&operation.inputs[1], context)?;
-                self.policy.check_branch(&operation.opcode, &bool_tag)?;
-                if bool_val {
+                let bool_val = self._read_bool(&operation.inputs[1], context)?;
+                self.policy.check_cond_branch(&operation.opcode, &bool_val)?;
+                if bool_val.0 {
                     let target = _absolute_loc(loc.address(), operation.inputs[0], loc.position());
                     return Ok(FlowType::Branch.target(target));
                 }
             }
             Opcode::IBranch => {
-                let (address, tag) = self._read_addr(&operation.inputs[0], context)?;
-                self.policy.check_branch(&operation.opcode, &tag)?;
-                return Ok(FlowType::IBranch.target(address.into()));
+                let target = self._read_addr(&operation.inputs[0], context)?;
+                self.policy.check_branch(&operation.opcode, &target)?;
+                return Ok(FlowType::IBranch.target(target.0.into()));
             }
             Opcode::Call => {
                 let target = _absolute_loc(loc.address(), operation.inputs[0], loc.position());
@@ -367,14 +370,14 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
                 return Ok(FlowType::Call.target(target));
             }
             Opcode::ICall => {
-                let (address, tag) = self._read_addr(&operation.inputs[0], context)?;
-                self.policy.check_branch(&operation.opcode, &tag)?;
-                return Ok(FlowType::Call.target(address.into()));
+                let target = self._read_addr(&operation.inputs[0], context)?;
+                self.policy.check_branch(&operation.opcode, &target)?;
+                return Ok(FlowType::Call.target(target.0.into()));
             }
             Opcode::Return => {
-                let (address, tag) = self._read_addr(&operation.inputs[0], context)?;
-                self.policy.check_branch(&operation.opcode, &tag)?;
-                return Ok(FlowType::Return.target(address.into()));
+                let target = self._read_addr(&operation.inputs[0], context)?;
+                self.policy.check_branch(&operation.opcode, &target)?;
+                return Ok(FlowType::Return.target(target.0.into()));
             }
             Opcode::CallOther => {
                 let output = operation.output.as_ref();
@@ -443,7 +446,8 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
             .manager()
             .default_space();
         let mem = VarnodeData::new(spc.as_ref(), address.offset(), val.bytes());
-        self.policy.check_write_mem(address, tag)?;
+        let value = (val, tag);
+        self.policy.check_write_mem(address, value)?;
         Ok(context.write(&mem, val, tag)?)
     }
 
@@ -453,8 +457,9 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         tag: Tag,
         context: &mut Context<'backend>,
     ) -> Result<(), Error> {
-        self.policy.check_assign(vnd, &tag)?;
-        context.write(vnd, &val.cast(vnd.bits()), &tag)
+        let val = (val, tag);
+        self.policy.check_assign(vnd, &val)?;
+        context.write(vnd, &val.0.cast(vnd.bits()), &val.1)
             .map_err(Error::from)
     }
 
@@ -485,8 +490,9 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
             .cast(dst_size)
         };
 
-        self.policy.propogate_subpiece(&operation.opcode, dst, &tag)?;
-        self._assign(dst, trunc, tag, context)
+        let val = (trunc, tag);
+        self.policy.propagate_subpiece(&operation.opcode, dst, &val)?;
+        self._assign(dst, val.0, tag, context)
     }
 
     fn _apply_int2<F, G>(&self,
@@ -499,15 +505,16 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         F: Fn(BitVec, u32) -> BitVec,
         G: FnOnce(BitVec, BitVec) -> Result<BitVec, Error>
     {
-        let (lhs, lhs_tag) = context.read(&operation.inputs[0])?;
-        let (rhs, rhs_tag) = context.read(&operation.inputs[1])?;
+        let lhs = context.read(&operation.inputs[0])?;
+        let rhs = context.read(&operation.inputs[1])?;
         let dst = operation.output.as_ref().unwrap();
 
-        let size = lhs.bits().max(rhs.bits());
-        let val = op(cast(lhs, size), cast(rhs, size))?;
-
         let tag = self.policy
-            .propogate_int2(&operation.opcode, dst, &lhs_tag, &rhs_tag)?;
+            .propagate_int2(&operation.opcode, dst, &lhs, &rhs)?;
+
+        let size = lhs.0.bits().max(rhs.0.bits());
+        let val = op(cast(lhs.0, size), cast(rhs.0, size))?;
+
         self._assign(dst, val.cast(dst.bits()), tag, context)
     }
 
@@ -543,13 +550,14 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
         F: Fn(BitVec) -> BitVec,
         G: FnOnce(BitVec) -> Result<BitVec, Error>,
     {
-        let (rhs, rhs_tag) = context.read(&operation.inputs[0])?;
+        let rhs = context.read(&operation.inputs[0])?;
         let dst = operation.output.as_ref().unwrap();
 
-        let val = op(cast(rhs))?;
-
         let tag = self.policy
-            .propogate_int1(&operation.opcode, dst, &rhs_tag)?;
+            .propagate_int1(&operation.opcode, dst, &rhs)?;
+
+        let val = op(cast(rhs.0))?;
+
         self._assign(dst, val.cast(dst.bits()), tag, context)
     }
 
@@ -583,14 +591,14 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     where
         F: FnOnce(bool, bool) -> Result<bool, Error>,
     {
-        let (lhs, lhs_tag) = context.read(&operation.inputs[0])?;
-        let (rhs, rhs_tag) = context.read(&operation.inputs[1])?;
+        let lhs = context.read(&operation.inputs[0])?;
+        let rhs = context.read(&operation.inputs[1])?;
         let dst = operation.output.as_ref().unwrap();
 
-        let val = bool2bv(op(!lhs.is_zero(), !rhs.is_zero())?);
-
         let tag = self.policy
-            .propogate_bool2(&operation.opcode, dst, &lhs_tag, &rhs_tag)?;
+            .propagate_bool2(&operation.opcode, dst, &lhs, &rhs)?;
+
+        let val = bool2bv(op(!lhs.0.is_zero(), !rhs.0.is_zero())?);
 
         self._assign(dst, val.cast(dst.bits()), tag, context)
     }
@@ -603,13 +611,13 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     where 
         F: FnOnce(bool) -> Result<bool, Error>,
     {
-        let (rhs, rhs_tag) = context.read(&operation.inputs[0])?;
+        let rhs = context.read(&operation.inputs[0])?;
         let dst = operation.output.as_ref().unwrap();
-
-        let val = bool2bv(op(!rhs.is_zero())?);
-
+        
         let tag = self.policy
-            .propogate_bool1(&operation.opcode, dst, &rhs_tag)?;
+            .propagate_bool1(&operation.opcode, dst, &rhs)?;
+
+        let val = bool2bv(op(!rhs.0.is_zero())?);
         self._assign(dst, val.cast(dst.bits()), tag, context)
     }
 }

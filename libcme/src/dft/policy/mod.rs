@@ -2,6 +2,7 @@
 //! 
 //! defining taint policies
 use thiserror::Error;
+use fugue_bv::BitVec;
 use fugue_core::prelude::*;
 use fugue_ir::disassembly::{
     VarnodeData,
@@ -29,66 +30,75 @@ pub trait TaintPolicy: std::fmt::Debug {
     fn check_assign(
         &self,
         dst: &VarnodeData,
-        tag: &Tag,
+        val: &(BitVec, Tag),
     ) -> Result<(), Error>;
+
     /// check for policy violations on memory write
     fn check_write_mem(
         &self,
         address: &Address,
-        tag: &Tag,
+        val: (&BitVec, &Tag),
     ) -> Result<(), Error>;
-    /// check for policy violations on branches
+    
+    /// check for policy violations on conditional branches
+    fn check_cond_branch(
+        &self,
+        opcode: &Opcode,
+        cond: &(bool, Tag),
+    ) -> Result<(), Error>;
+
+    /// check for policy violations on target branches
     fn check_branch(
         &self,
         opcode: &Opcode,
-        tag: &Tag,
+        target: &(Address, Tag),
     ) -> Result<(), Error>;
 
     /// check for policy violations during subpiece operations.
     /// return error if violation detected, otherwise propagate taint
-    fn propogate_subpiece(
+    fn propagate_subpiece(
         &self,
         opcode: &Opcode,
         dst: &VarnodeData,
-        src_tag: &Tag,
+        src: &(BitVec, Tag),
     ) -> Result<Tag, Error>;
     
     /// check for policy violations during operations involving 2 integers.
     /// return error if violation detected, otherwise propagate taint
-    fn propogate_int2(
+    fn propagate_int2(
         &self,
         opcode: &Opcode,
         dst: &VarnodeData,
-        lhs_tag: &Tag,
-        rhs_tag: &Tag,
+        lhs: &(BitVec, Tag),
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, Error>;
     
     /// check for policy violations during operations involving 2 integer.
     /// return error if violation detected, otherwise propagate taint
-    fn propogate_int1(
+    fn propagate_int1(
         &self,
         opcode: &Opcode,
         dst: &VarnodeData,
-        rhs_tag: &Tag,
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, Error>;
     
     /// check for policy violations during operations involving 2 booleans.
     /// return error if violation detected, otherwise propagate taint
-    fn propogate_bool2(
+    fn propagate_bool2(
         &self,
         opcode: &Opcode,
         dst: &VarnodeData,
-        lhs_tag: &Tag,
-        rhs_tag: &Tag,
+        lhs: &(BitVec, Tag),
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, Error>;
     
     /// check for policy violations during operations involving 1 boolean.
     /// return error if violation detected, otherwise propagate taint
-    fn propogate_bool1(
+    fn propagate_bool1(
         &self,
         opcode: &Opcode,
         dst: &VarnodeData,
-        rhs_tag: &Tag,
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, Error>;
 
     /// check for policy violations during load operations
@@ -96,8 +106,8 @@ pub trait TaintPolicy: std::fmt::Debug {
     fn propagate_load(
         &self,
         dst: &VarnodeData,
-        val_tag: &Tag,
-        loc_tag: &Tag,
+        val: &(BitVec, Tag),
+        loc: &(Address, Tag),
     ) -> Result<Tag, Error>;
 
     /// check for policy violations during store operations
@@ -105,8 +115,8 @@ pub trait TaintPolicy: std::fmt::Debug {
     fn propagate_store(
         &self,
         dst: &VarnodeData,
-        val_tag: &Tag,
-        loc_tag: &Tag,
+        val: &(BitVec, Tag),
+        loc: &(Address, Tag),
     ) -> Result<Tag, Error>;
 }
 
@@ -137,64 +147,70 @@ impl TaintPolicy for NoPolicy {
     fn check_assign(
         &self,
         _dst: &VarnodeData,
-        _tag: &Tag,
+        _val: &(BitVec, Tag),
     ) -> Result<(), Error> { Ok(()) }
 
     fn check_write_mem(
         &self,
         _address: &Address,
-        _tag: &Tag,
+        _val: (&BitVec, &Tag),
     ) -> Result<(), Error> { Ok(()) }
 
+    fn check_cond_branch(
+        &self,
+        _opcode: &Opcode,
+        _cond: &(bool, Tag),
+    ) -> Result<(), Error> { Ok(()) }
+    
     fn check_branch(
         &self,
         _opcode: &Opcode,
-        _tag: &Tag,
+        _target: &(Address, Tag),
     ) -> Result<(), Error> { Ok(()) }
 
-    fn propogate_subpiece(
+    fn propagate_subpiece(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        _src_tag: &Tag,
+        _src: &(BitVec, Tag),
     ) -> Result<Tag, Error> {
         Ok(Tag::from(tag::ACCESSED))
     }
     
-    fn propogate_int2(
+    fn propagate_int2(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        _lhs_tag: &Tag,
-        _rhs_tag: &Tag,
+        _lhs: &(BitVec, Tag),
+        _rhs: &(BitVec, Tag),
     ) -> Result<Tag, Error> {
         Ok(Tag::from(tag::ACCESSED))
     }
     
-    fn propogate_int1(
+    fn propagate_int1(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        _rhs_tag: &Tag,
+        _rhs: &(BitVec, Tag)
     ) -> Result<Tag, Error> {
         Ok(Tag::from(tag::ACCESSED))
     }
     
-    fn propogate_bool2(
+    fn propagate_bool2(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        _lhs_tag: &Tag,
-        _rhs_tag: &Tag,
+        _lhs: &(BitVec, Tag),
+        _rhs: &(BitVec, Tag),
     ) -> Result<Tag, Error> {
         Ok(Tag::from(tag::ACCESSED))
     }
     
-    fn propogate_bool1(
+    fn propagate_bool1(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        _rhs_tag: &Tag,
+        _rhs: &(BitVec, Tag),
     ) -> Result<Tag, Error> {
         Ok(Tag::from(tag::ACCESSED))
     }
@@ -202,8 +218,8 @@ impl TaintPolicy for NoPolicy {
     fn propagate_load(
         &self,
         _dst: &VarnodeData,
-        _val_tag: &Tag,
-        _loc_tag: &Tag,
+        _val: &(BitVec, Tag),
+        _loc: &(Address, Tag),
     ) -> Result<Tag, Error> {
         Ok(Tag::from(tag::ACCESSED))
     }
@@ -211,8 +227,8 @@ impl TaintPolicy for NoPolicy {
     fn propagate_store(
         &self,
         _dst: &VarnodeData,
-        _val_tag: &Tag,
-        _loc_tag: &Tag,
+        _val: &(BitVec, Tag),
+        _loc: &(Address, Tag),
     ) -> Result<Tag, Error> {
         Ok(Tag::from(tag::ACCESSED))
     }
@@ -230,86 +246,93 @@ impl TaintPolicy for DefaultPolicy {
     fn check_assign(
         &self,
         _dst: &VarnodeData,
-        _tag: &Tag,
+        _val: &(BitVec, Tag),
     ) -> Result<(), Error> { Ok(()) }
 
     fn check_write_mem(
         &self,
         _address: &Address,
-        _tag: &Tag,
+        _val: (&BitVec, &Tag),
+    ) -> Result<(), Error> { Ok(()) }
+
+    /// check tag on conditional branches
+    fn check_cond_branch(
+        &self,
+        _opcode: &Opcode,
+        _cond: &(bool, Tag),
     ) -> Result<(), Error> { Ok(()) }
 
     fn check_branch(
         &self,
         _opcode: &Opcode,
-        _tag: &Tag,
+        _target: &(Address, Tag),
     ) -> Result<(), Error> { Ok(()) }
 
-    fn propogate_subpiece(
+    fn propagate_subpiece(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        src_tag: &Tag,
+        src: &(BitVec, Tag),
     ) -> Result<Tag, Error> {
-        Ok(*src_tag)
+        Ok(src.1)
     }
     
-    fn propogate_int2(
+    fn propagate_int2(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        lhs_tag: &Tag,
-        rhs_tag: &Tag,
+        lhs: &(BitVec, Tag),
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, Error> {
-        Ok(*lhs_tag | *rhs_tag)
+        Ok(lhs.1 | rhs.1)
     }
     
-    fn propogate_int1(
+    fn propagate_int1(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        rhs_tag: &Tag,
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, Error> {
-        Ok(*rhs_tag)
+        Ok(rhs.1)
     }
     
-    fn propogate_bool2(
+    fn propagate_bool2(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        lhs_tag: &Tag,
-        rhs_tag: &Tag,
+        lhs: &(BitVec, Tag),
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, Error> {
-        Ok(*lhs_tag | *rhs_tag)
+        Ok(lhs.1 | rhs.1)
     }
     
-    fn propogate_bool1(
+    fn propagate_bool1(
         &self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
-        rhs_tag: &Tag,
+        rhs: &(BitVec, Tag),
     ) -> Result<Tag, Error> {
-        Ok(*rhs_tag)
+        Ok(rhs.1)
     }
 
     fn propagate_load(
         &self,
         _dst: &VarnodeData,
-        val_tag: &Tag,
-        loc_tag: &Tag,
+        val: &(BitVec, Tag),
+        loc: &(Address, Tag),
     ) -> Result<Tag, Error> {
         Ok(Tag::new()
-            .with_tainted_val(loc_tag.is_tainted() || val_tag.is_tainted()))
+            .with_tainted_val(loc.1.is_tainted() || val.1.is_tainted()))
     }
     
     fn propagate_store(
         &self,
         _dst: &VarnodeData,
-        val_tag: &Tag,
-        loc_tag: &Tag,
+        val: &(BitVec, Tag),
+        loc: &(Address, Tag),
     ) -> Result<Tag, Error> {
         Ok(Tag::new()
-            .with_tainted_val(val_tag.is_tainted())
-            .with_tainted_loc(loc_tag.is_tainted()))
+            .with_tainted_val(val.1.is_tainted())
+            .with_tainted_loc(loc.1.is_tainted()))
     }
 }
