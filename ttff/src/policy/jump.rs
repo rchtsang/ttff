@@ -1,8 +1,14 @@
 //! jump.rs
 //! 
-//! tainted jump policy as described in 
-//! "All You Ever Wanted to Know..." by
-//! Schwartz, Avgerinos, and Brumley, 2010
+//! tainted jump policy based on description from "All You Ever Wanted to 
+//! Know..." by Schwartz, Avgerinos, and Brumley, 2010.
+//! 
+//! This policy is in fact a hybrid of the naive jump policy and naive 
+//! address policy from the paper.
+//! Here, violations are only triggered on a tainted jump, but we also
+//! propagate the taint status of pointers to loaded/stored values, rather
+//! than simply that of the value's source, in order to mitigate the
+//! under-tainting problem.
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -42,6 +48,7 @@ impl TaintedJumpPolicy {
 
 impl TaintPolicy for TaintedJumpPolicy {
 
+    /// any tainted assignment to the program counter is a jump policy violation
     fn check_assign(
         &self,
         dst: &VarnodeData,
@@ -63,6 +70,7 @@ impl TaintPolicy for TaintedJumpPolicy {
         Ok(())
     }
 
+    /// any attempt to branch to a target with a tainted source is a jump policy violation
     fn check_branch(
         &self,
         opcode: &Opcode,
@@ -86,6 +94,7 @@ impl TaintPolicy for TaintedJumpPolicy {
         Ok(())
     }
 
+    /// preserve the tag of the source
     fn propagate_subpiece(
         &self,
         _opcode: &Opcode,
@@ -95,6 +104,8 @@ impl TaintPolicy for TaintedJumpPolicy {
         Ok(src.1)
     }
     
+    /// the result tag of any binary operation is a bitwise or of its
+    /// parameters' tags
     fn propagate_int2(
         &self,
         _opcode: &Opcode,
@@ -105,6 +116,8 @@ impl TaintPolicy for TaintedJumpPolicy {
         Ok(lhs.1 | rhs.1)
     }
     
+    /// the result tag of any unary operation is the same as its
+    /// parameter's tag
     fn propagate_int1(
         &self,
         _opcode: &Opcode,
@@ -114,6 +127,8 @@ impl TaintPolicy for TaintedJumpPolicy {
         Ok(rhs.1)
     }
     
+    /// the result tag of any binary operation is a bitwise or of its
+    /// parameters' tags
     fn propagate_bool2(
         &self,
         _opcode: &Opcode,
@@ -124,6 +139,8 @@ impl TaintPolicy for TaintedJumpPolicy {
         Ok(lhs.1 | rhs.1)
     }
     
+    /// the result tag of any unary operation is the same as its
+    /// parameter's tag
     fn propagate_bool1(
         &self,
         _opcode: &Opcode,
@@ -133,6 +150,9 @@ impl TaintPolicy for TaintedJumpPolicy {
         Ok(rhs.1)
     }
 
+    /// a loaded value is considered tainted if either the value at that 
+    /// location was tainted, or if the pointer to the location was
+    /// tainted
     fn propagate_load(
         &self,
         _dst: &VarnodeData,
@@ -140,9 +160,12 @@ impl TaintPolicy for TaintedJumpPolicy {
         loc: &(Address, Tag),
     ) -> Result<Tag, policy::Error> {
         Ok(Tag::new()
-            .with_tainted_val(loc.1.is_tainted() || val.1.is_tainted()))
+            .with_tainted_val(val.1.is_tainted())
+            .with_tainted_loc(loc.1.is_tainted()))
     }
     
+    /// a stored value is considered tainted if it came from a tainted
+    /// source, or if the pointer used to store it was tainted.
     fn propagate_store(
         &self,
         _dst: &VarnodeData,
