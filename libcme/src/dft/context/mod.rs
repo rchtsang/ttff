@@ -130,7 +130,7 @@ pub enum CtxResponse<'irb> {
 /// 
 /// an architecture emulation context implementation should implement this trait to keep the
 /// actual evaluator architecture agnostic
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Context<'backend> {
     /// the architecture-specific backend for this context
     backend: Box<dyn Backend + 'backend>,
