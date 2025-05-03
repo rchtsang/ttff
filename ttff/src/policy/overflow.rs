@@ -120,7 +120,9 @@ impl TaintPolicy for TaintedOverflowPolicy {
                 // do mul in larger bitvec and check result
                 // underlying implementation of bitvec makes this probably something
                 // like long multiplication check when it's backed by a bigint
-                let result = lhs.0.clone().cast(num_bits * 2) * rhs.0.clone().cast(num_bits * 2);
+                let big_lhs = lhs.0.clone().cast(num_bits * 2);
+                let big_rhs = rhs.0.clone().cast(num_bits * 2);
+                let result = big_lhs * big_rhs;
                 !(result >> num_bits).is_zero()
             } => {
                 Err(policy::Error::from(PolicyViolation::TaintedOverflow))
