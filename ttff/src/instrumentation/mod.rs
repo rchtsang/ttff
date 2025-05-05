@@ -9,3 +9,5 @@ pub mod csbc;
 pub mod cmplog;
 
 pub use covmap::CovMap;
+pub use hc::HcPlugin;
+pub use csbc::CsbcPlugin;
