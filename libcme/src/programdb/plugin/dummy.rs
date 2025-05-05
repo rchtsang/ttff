@@ -27,9 +27,10 @@ impl AnalysisPlugin for DummyAnalysisPlugin {
     }
 
     #[instrument(skip_all)]
-    fn post_lift_block_cb<'z>(
+    fn post_lift_block_cb<'z, 'irb>(
         &mut self,
         _block: &mut Block<'z>,
+        _cache: Arc<RwLock<TranslationCache<'irb>>>,
     ) -> () {
         self.blocks_lifted += 1;
         info!("blocks lifted: {}", self.blocks_lifted);

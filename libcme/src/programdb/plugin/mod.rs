@@ -2,10 +2,12 @@
 //! 
 //! plugins for programdb
 use std::fmt;
+use std::sync::Arc;
 
 use anyhow;
 use derive_more;
 use thiserror::Error;
+use parking_lot::RwLock;
 
 use crate::types::*;
 
@@ -16,7 +18,9 @@ pub use dummy::DummyAnalysisPlugin;
 
 /// allow arbitrary plugin error types
 #[derive(Debug, derive_more::Display, Error)]
-pub struct Error(pub(crate) anyhow::Error);
+pub struct Error(pub anyhow::Error);
+
+
 
 
 /// analysis plugin trait for programdb
@@ -33,9 +37,10 @@ pub trait AnalysisPlugin: fmt::Debug {
 
     /// callback invoked after a new block is lifted, after it has been
     /// added to the cfg.
-    fn post_lift_block_cb<'z>(
+    fn post_lift_block_cb<'z, 'irb>(
         &mut self,
         block: &mut Block<'z>,
+        cache: Arc<RwLock<TranslationCache<'irb>>>,
     ) -> () {  }
 }
 
@@ -68,12 +73,13 @@ impl AnalysisPlugin for PDBPlugin {
         Ok(())
     }
 
-    fn post_lift_block_cb<'z>(
+    fn post_lift_block_cb<'z, 'irb>(
         &mut self,
         block: &mut Block<'z>,
+        cache: Arc<RwLock<TranslationCache<'irb>>>,
     ) {
         for plugin in self.plugins.iter_mut() {
-            plugin.post_lift_block_cb(block);
+            plugin.post_lift_block_cb(block, cache.clone());
         }
     }
 }

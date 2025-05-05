@@ -150,7 +150,10 @@ impl<'irb> ProgramDB<'irb> {
             panic!("unexpected error: {err:?}");
         }
 
-        self.plugin.post_lift_block_cb(self.cfg.get_block_mut(base.offset()).unwrap());
+        self.plugin.post_lift_block_cb(
+            self.cfg.get_block_mut(base.offset()).unwrap(),
+            self.cache.clone(),
+        );
         // maybe return something here at some point?
     }
 }

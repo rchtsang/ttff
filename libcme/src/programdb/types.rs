@@ -10,7 +10,7 @@ pub use bumpalo::{
 
 use crate::types::*;
 
-pub(crate) type TranslationCache<'irb> = IntMap<u64, LiftResult<'irb>>;
+pub type TranslationCache<'irb> = IntMap<u64, LiftResult<'irb>>;
 
 
 /// translation block

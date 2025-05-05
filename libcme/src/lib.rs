@@ -28,7 +28,11 @@ pub mod prelude {
         policy,
         tag,
     };
-    pub use super::programdb::{self, ProgramDB};
+    pub use super::programdb::{
+        self,
+        ProgramDB,
+        Block,
+    };
     pub use super::utils::*;
     pub use super::types::*;
 
