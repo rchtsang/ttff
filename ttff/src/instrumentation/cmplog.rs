@@ -1,0 +1,4 @@
+//! cmplog.rs
+//! 
+//! CmpLog implementation
+
