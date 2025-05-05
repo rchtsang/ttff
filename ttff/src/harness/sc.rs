@@ -23,10 +23,10 @@ pub type InputFn = fn(&mut DftExecutor, OwnedSlice<u8>) -> Result<(), super::Err
 /// the base_context should be initialized at the point where
 /// fuzzing should begin, so it must already be initialized for execution.
 /// 
-/// if cycle timeout is None, then there is no timeout.
+/// if cycle limit is None, then there is no limit.
 pub struct DftExecutor<'policy, 'backend, 'irb> {
-    /// an optional cycle count timeout
-    timeout: Option<usize>,
+    /// an optional cycle count limit
+    limit: Option<usize>,
     /// an optional halt condition callback
     halt_fn: Option<HaltFn>,
     /// a mandatory function for defining how the executor should feed the
@@ -43,10 +43,10 @@ impl<'policy, 'backend, 'irb> DftExecutor<'policy, 'backend, 'irb> {
         base_context: dft::Context<'backend>,
         pdb: programdb::ProgramDB<'irb>,
         input_fn: InputFn,
-        timeout: Option<usize>,
+        limit: Option<usize>,
         halt_fn: Option<HaltFn>,
     ) -> Self {
-        Self { evaluator, base_context, pdb, timeout, halt_fn, input_fn }
+        Self { evaluator, base_context, pdb, limit, halt_fn, input_fn }
     }
 }
 
@@ -77,7 +77,7 @@ where
             })?;
 
         let mut cycles: usize = 0;
-        while self.timeout.is_none() || cycles < self.timeout.unwrap() {
+        while self.limit.is_none() || cycles < self.limit.unwrap() {
             let result = self.evaluator.step(&mut context, &mut self.pdb);
             match result {
                 Err(dft::eval::Error::Policy(err)) => {
