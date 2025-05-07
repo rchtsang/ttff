@@ -18,7 +18,10 @@ use fugue_bv::BitVec;
 use crate::types::*;
 use crate::peripheral::{self, Peripheral};
 
+pub mod mmap;
 pub mod armv7m;
+
+pub use mmap::MemoryMap;
 
 /// backend errors
 #[derive(Debug, Error, Clone)]
@@ -27,8 +30,6 @@ pub enum Error {
     Lift(Arc<fugue_ir::error::Error>),
     #[error(transparent)]
     State(Arc<FixedStateError>),
-    #[error("language builder error: {0}")]
-    LangBuilder(Arc<LanguageBuilderError>),
     #[error("peripheral error: {0}")]
     Peripheral(Arc<peripheral::Error>),
     #[error("invalid address: {0:#x?}")]
@@ -45,6 +46,8 @@ pub enum Error {
     // OOBWrite { offset: usize, size: usize },
     #[error("{0} error: {1:?}")]
     Arch(&'static str, Arc<anyhow::Error>),
+    #[error(transparent)]
+    LangBuilder(Arc<LanguageBuilderError>),
 }
 
 /// a context switch struct
@@ -89,6 +92,9 @@ pub trait Backend: fmt::Debug + DynClone {
 
     /// initialize a memory region in the context's memory map
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error>;
+
+    /// return an iterator of mapped memory regions
+    fn mmap(&self) -> &MemoryMap;
 
     /// initialize a peripheral in the context's memory map
     fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error>;
@@ -187,6 +193,7 @@ impl<'backend> Backend for Box<dyn Backend + 'backend> {
     fn process_events(&mut self) -> Result<(), Error> { (**self).process_events() }
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error> { (**self).map_mem(base, size) }
     fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error> { (**self).map_mmio(peripheral) }
+    fn mmap(&self) -> &MemoryMap { (**self).mmap() }
     fn fetch<'irb>(&self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb> { (**self).fetch(address, arena) }
     fn read(&mut self, vnd: &VarnodeData) -> Result<BitVec, Error> { (**self).read(vnd) }
     fn write(&mut self, vnd: &VarnodeData, val: &BitVec) -> Result<(), Error> { (**self).write(vnd, val) }

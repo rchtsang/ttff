@@ -1,6 +1,7 @@
 //! types.rs
 //! 
 use std::sync::Arc;
+use std::ops::Range;
 
 use thiserror::Error;
 use flagset::flags;
@@ -103,6 +104,13 @@ pub enum Alignment {
     Word = 0b100,
     Even = 0b110,
     Any  = 0b111,
+}
+
+/// a mapped memory range
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum MappedRange {
+    Mem(Range<Address>),
+    Mmio(Range<Address>),
 }
 
 impl From<fugue_ir::error::Error> for LiftError {

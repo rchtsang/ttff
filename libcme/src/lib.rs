@@ -32,6 +32,8 @@ pub mod prelude {
         self,
         ProgramDB,
         Block,
+        Platform,
+        Region,
     };
     pub use super::utils::*;
     pub use super::types::*;

@@ -19,12 +19,17 @@ mod cfg;
 pub use cfg::*;
 mod types;
 pub use types::*;
+pub mod platform;
+pub use platform::{Region, Platform};
+pub mod program;
 
 /// programdb errors
 #[derive(Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     CFG(#[from] cfg::Error),
+    #[error(transparent)]
+    Platform(#[from] platform::Error),
     #[error("plugin error: {0}")]
     Plugin(anyhow::Error),
 }
@@ -37,6 +42,7 @@ pub enum Error {
 /// independently of whether execution has taint tracking enabled or not.
 pub struct ProgramDB<'irb> {
     pub(crate) lang: Language,
+    pub(crate) platform: Platform,
     pub(crate) cache: Arc<RwLock<TranslationCache<'irb>>>,
     pub(crate) arena: &'irb IRBuilderArena,
     pub(crate) cfg: CFGraph<'irb>,
@@ -47,14 +53,20 @@ pub struct ProgramDB<'irb> {
 impl<'irb> ProgramDB<'irb> {
 
     pub fn new_with(
-        lang: Language,
+        builder: &LanguageBuilder,
+        platform: Platform,
         arena: &'irb IRBuilderArena,
     ) -> Self {
+        let maybe_lang = platform.lang(builder);
+        let lang = match maybe_lang {
+            Ok(lang) => { lang }
+            Err(err) => { panic!("{err}") }
+        };
         let cache = Arc::new(RwLock::new(TranslationCache::default()));
         let cfg = CFGraph::new_with(arena.inner());
         let plugin = PDBPlugin::default();
 
-        Self { lang, cache, arena, cfg, plugin }
+        Self { lang, platform, cache, arena, cfg, plugin }
     }
 
     pub fn add_plugin(&mut self, plugin: Box<dyn AnalysisPlugin>) {
@@ -79,6 +91,18 @@ impl<'irb> ProgramDB<'irb> {
         self.plugin.pre_edge_cb(parent, child, flowtype)?;
         self.cfg.add_edge(parent, child, flowtype)
             .map_err(Error::from)
+    }
+
+    pub fn platform(&self) -> &Platform {
+        &self.platform
+    }
+
+    pub fn lang(&self) -> &Language {
+        &self.lang
+    }
+
+    pub fn backend(&self, builder: &LanguageBuilder) -> Result<impl Backend, Error> {
+        self.platform.backend(builder).map_err(Error::from)
     }
 }
 

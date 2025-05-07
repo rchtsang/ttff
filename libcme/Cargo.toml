@@ -30,6 +30,7 @@ bit-iter = "1.2.0"
 itertools = "0.13.0"
 petgraph = "0.8.1"
 crossbeam = { version = "0.8.4", features = ["crossbeam-channel"] }
+yaml-rust2 = "0.10.1"
 
 [dev-dependencies]
 test-log = "0.2.16"

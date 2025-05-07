@@ -32,11 +32,11 @@ use crate::backend::{
     Backend as BackendTrait,
 };
 
+use super::mmap::*;
+
 mod userop;
 mod system;
 mod helpers;
-mod mmap;
-pub use mmap::*;
 mod events;
 pub use events::*;
 mod exception;
@@ -315,6 +315,10 @@ impl BackendTrait for Backend {
         assert!(0x40000000 <= base && (base + size) < 0x50000000,
             "peripheral must be mapped into external MMIO space");
         self.mmap.map_mmio(peripheral)
+    }
+
+    fn mmap(&self) -> &MemoryMap {
+        &self.mmap
     }
 
     fn read_pc(&self) -> Result<Address, backend::Error> {

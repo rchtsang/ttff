@@ -1,6 +1,8 @@
 //! conversion.rs
 //! 
 //! byte to int conversion functions
+use std::num::ParseIntError;
+
 use fugue_core::ir::Location;
 use fugue_ir::{Address, VarnodeData};
 use fugue_bv::BitVec;
@@ -16,6 +18,16 @@ pub fn bytes_as_u32_be(src: &[u8]) -> u32 {
 pub unsafe fn cast_as_u32_ref(src: &[u8]) -> &u32 {
     assert_eq!(src.len(), 4, "slice must be 4 bytes to cast as u32");
     &*(src as *const [u8] as *const [u8; 4] as *const u32)
+}
+
+pub fn str_to_uint(str: &str) -> Result<u64, ParseIntError> {
+    let _is_negative = str.strip_prefix("-").is_some();
+    match &str[..2] {
+        "0x" => { u64::from_str_radix(&str[2..], 16) }
+        "0o" => { u64::from_str_radix(&str[2..], 8) }
+        "0b" => { u64::from_str_radix(&str[2..], 2) }
+        _ => { u64::from_str_radix(str, 10) }
+    }
 }
 
 /// helper to convert BitVec to Address

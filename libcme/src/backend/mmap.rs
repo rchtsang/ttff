@@ -8,14 +8,13 @@ use iset::IntervalMap;
 use fugue_core::prelude::*;
 use fugue_core::eval::fixed_state::FixedState;
 
+use crate::types::*;
 use crate::utils::*;
 use crate::backend;
 use crate::peripheral::{
     self,
     Peripheral,
 };
-
-use super::Event;
 
 
 #[derive(Clone, Copy, Debug)]
@@ -84,22 +83,41 @@ impl MemoryMap {
     }
 
     /// tick peripherals
-    pub fn tick(&mut self, events: &mut VecDeque<Event>) -> Result<(), backend::Error> {
+    pub fn tick<E>(
+        &mut self,
+        events: &mut VecDeque<E>,
+    ) -> Result<(), backend::Error>
+    where
+        E: From<peripheral::Event>,
+    {
         for peripheral in self.mmio.iter_mut() {
             if let Some(evt) = peripheral.tick()? {
-                events.push_back(Event::from(evt));
+                events.push_back(E::from(evt));
             }
         }
         Ok(())
     }
 
+    pub fn mapped(&self) -> impl Iterator<Item=MappedRange> + use<'_> {
+        self.mmap.iter(..)
+            .map(|(range, ix)| {
+                match ix {
+                    MapIx::Mem(_) => { MappedRange::Mem(range.clone()) }
+                    MapIx::Mmio(_) => { MappedRange::Mmio(range.clone()) }
+                }
+            })
+    }
+
     #[instrument(skip_all)]
-    pub fn load_bytes(
+    pub fn load_bytes<E>(
         &mut self,
         address: &Address,
         dst: &mut [u8],
-        events: &mut VecDeque<Event>,
-    ) -> Result<(), backend::Error> {
+        events: &mut VecDeque<E>,
+    ) -> Result<(), backend::Error>
+    where
+        E: From<peripheral::Event>,
+    {
         let (range, val) = self._get_mapped_region(address.clone())?;
         match val {
             MapIx::Mem(idx) => {
@@ -127,12 +145,15 @@ impl MemoryMap {
     }
 
     #[instrument(skip_all)]
-    pub fn store_bytes(
+    pub fn store_bytes<E>(
         &mut self,
         address: &Address,
         src: &[u8],
-        events: &mut VecDeque<Event>,
-    ) -> Result<(), backend::Error> {
+        events: &mut VecDeque<E>,
+    ) -> Result<(), backend::Error>
+    where
+        E: From<peripheral::Event>,
+    {
         let (range, val) = self._get_mapped_region(address.clone())?;
         match val {
             MapIx::Mem(idx) => {

@@ -11,7 +11,8 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     use fugue_core::prelude::*;
     use fugue_core::ir::Location;
     use fugue_ir::disassembly::IRBuilderArena;
-    use crate::programdb::{self, ProgramDB};
+    use crate::types::Permission;
+    use crate::programdb::{self, ProgramDB, Region, Platform};
     use crate::backend::armv7m;
     use crate::dft::{
         self,
@@ -26,13 +27,31 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
 
     let program = programs::STACK_SMASH_TEST;
 
-    info!("creating language builder...");
+    info!("initializing programdb...");
+    let platform = Platform {
+        name: "dummy".into(),
+        cpu_name: "CM3".into(),
+        cpu_revision: "".into(),
+        cpu_endian: Endian::Little,
+        mpu_present: false,
+        fpu_present: false,
+        nvic_prio_bits: 8,
+        vendor_systick_config: false,
+        mem: vec![Region {
+            name: "memory".into(),
+            address: 0x0u64.into(),
+            size: 0x1000,
+            perms: Permission::R | Permission::W,
+            description: "".into(),
+        }],
+        mmio: vec![],
+    };
     let builder = LanguageBuilder::new("data/processors")?;
     let irb = IRBuilderArena::with_capacity(0x1000);
+    let mut pdb = ProgramDB::new_with(&builder, platform, &irb);
 
     info!("building backend...");
     let backend = armv7m::Backend::new_with(&builder, None)?;
-    let mut pdb = ProgramDB::new_with(backend.lang().clone(), &irb);
     let lang = Arc::new(backend.lang().clone());
     let policy = TaintedJumpPolicy::new_with(lang);
 

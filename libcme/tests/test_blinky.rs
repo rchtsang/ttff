@@ -9,7 +9,6 @@ fn test_blinky() -> Result<(), anyhow::Error> {
     use libcme::prelude::*;
     use tracing::subscriber::set_global_default;
     // use libcme::peripheral::{ self, * };
-    use libcme::backend::armv7m;
 
     let global_sub = compact_dbg_file_logger("test_blinky.log");
     set_global_default(global_sub)
@@ -21,21 +20,25 @@ fn test_blinky() -> Result<(), anyhow::Error> {
     info!("creating language builder...");
     let builder = LanguageBuilder::new("data/processors")?;
     let irb = IRBuilderArena::with_capacity(0x1000);
+    
+    info!("building programdb...");
+    let platform = Platform::from_path("tests/samples/nrf52840dk/nrf52840.yml")?;
+    let mut pdb = ProgramDB::new_with(&builder, platform, &irb);
 
     info!("building backend...");
-    let backend = armv7m::Backend::new_with(&builder, None)?;
-    let mut pdb = ProgramDB::new_with(backend.lang().clone(), &irb);
+    let backend = pdb.backend(&builder)?;
     let lang = Arc::new(backend.lang().clone());
     let policy = policy::TaintedJumpPolicy::new_with(lang);
 
     info!("building dft context...");
-    let mut context = dft::Context::new_with(Box::new(backend));
+    let mut context = dft::Context::from_backend(backend)?;
 
-    info!("mapping memory...");
-    // map flash
-    context.map_mem(0x0u64, 0x100000usize)?;
-    // map data ram
-    context.map_mem(0x20000000u64, 0x40000usize)?;
+    // // note that memory is specified in yml config
+    // info!("mapping memory...");
+    // // map flash
+    // context.map_mem(0x0u64, 0x100000usize)?;
+    // // map data ram
+    // context.map_mem(0x20000000u64, 0x40000usize)?;
 
     info!("loading program...");
     context.store_bytes(0x0u64, program, &dft::Tag::from(tag::UNACCESSED))?;

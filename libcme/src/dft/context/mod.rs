@@ -148,6 +148,22 @@ impl<'backend> Context<'backend> {
         Self { backend, shadow, arch_plugin }
     }
 
+    pub fn from_backend(backend: impl Backend + 'backend) -> Result<Self, Error> {
+        let mut context = Self::new_with(Box::new(backend));
+        let ranges: Vec<MappedRange> = context.backend.mmap().mapped().collect();
+        for mapped_range in ranges {
+            match mapped_range {
+                MappedRange::Mem(range) => {
+                    let base = range.start;
+                    let size = (range.end.offset() - base.offset()) as usize;
+                    context.shadow.map_mem(base, size, None)?;
+                }
+                _ => {  }
+            }
+        }
+        Ok(context)
+    }
+
     pub fn lang(&self) -> &Language {
         self.backend.lang()
     }
