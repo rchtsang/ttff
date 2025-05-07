@@ -1,0 +1,28 @@
+# {{ svd['name'] }} platform description
+#
+# auto-generated from SVD
+
+# device information
+name: {{ svd['name'] }}
+
+cpu:
+  {% for k, v in svd['cpu'].items() -%}
+  {% if not k.startswith('#') -%}
+  {{ k }}: {{ v }}
+  {%- endif -%}
+  {% endfor %}
+
+mem:
+  # flash and ram regions not generally included in svd peripherals
+  # and must be manually specified
+
+mmio:
+  {% for group_name, peripheral in svd['#peripheral_groups'].items() -%}
+  {% for instance_name, derived in sorted(peripheral['#derives'].items()) %}
+  {{ derived['name'].lower() }}:
+    description: {{ " ".join(str(derived['description']).split()) }}
+    address: {{ hex(int(derived['baseAddress'], 0)) }}
+    size: {{ hex(int(peripheral['addressBlock']['size'], 0)) }}
+    perms: 0b011
+  {% endfor %}
+  {%- endfor -%}

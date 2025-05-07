@@ -9,8 +9,7 @@ from jinja2 import Environment, FileSystemLoader
 from .models import AccessType
 from .utils import *
 
-PARENT_DIR = Path(__file__).resolve().parent
-TEMPLATES_DIR = PARENT_DIR / "templates"
+TEMPLATES = Path(__file__).resolve().parent / "templates"
 
 RegType = namedtuple('RegType', [
     'name',
@@ -189,7 +188,29 @@ helpers = {
     "str": str,
     "range": range,
     "hex": hex,
+    "sorted": sorted,
 }
+
+def render_template(dst: Path, device: dict, template: str, **kwargs):
+    env = Environment(
+        loader=FileSystemLoader(str(TEMPLATES),
+            encoding='utf-8',
+            followlinks=False),
+        **kwargs,
+    )
+    env.globals.update({
+        "int": int,
+        "str": str,
+        "range": range,
+        "hex": hex,
+        "sorted": sorted,
+    })
+    template = env.get_template(template)
+
+    with open(dst, 'w') as f:
+        f.write(template.render(svd=device))
+
+    return
 
 
 def generate_device_mod(
@@ -204,7 +225,7 @@ def generate_device_mod(
         variable_end_string='}*/',
         comment_start_string='/*#',
         comment_end_string='#*/',
-        loader=FileSystemLoader(str(TEMPLATES_DIR),
+        loader=FileSystemLoader(str(TEMPLATES),
             encoding='utf-8',
             followlinks=False)
     )
