@@ -9,7 +9,7 @@ cpu:
   {% for k, v in svd['cpu'].items() -%}
   {% if not k.startswith('#') -%}
   {{ k }}: {{ v }}
-  {%- endif -%}
+  {% endif -%}
   {% endfor %}
 
 mem:

@@ -1,0 +1,479 @@
+# nrf52840 platform description
+#
+# auto-generated from SVD
+
+# device information
+name: nrf52840
+
+cpu:
+  name: CM4
+  revision: r0p1
+  endian: little
+  mpuPresent: 1
+  fpuPresent: 1
+  nvicPrioBits: 3
+  vendorSystickConfig: 0
+  
+
+mem:
+  # flash and ram regions not generally included in svd peripherals
+  # and must be manually specified
+  
+  flash:
+    description:
+    address: 0x0
+    size: 0x100000
+    perms: 0b101
+
+  dataram:
+    description:
+    address: 0x20000000
+    size: 0x40000
+    perms: 0b011
+
+mmio:
+  
+  ficr:
+    description: Factory information configuration registers
+    address: 0x10000000
+    size: 0x1000
+    perms: 0b011
+  
+  uicr:
+    description: User information configuration registers
+    address: 0x10001000
+    size: 0x1000
+    perms: 0b011
+  
+  approtect:
+    description: Access Port Protection
+    address: 0x40000000
+    size: 0x1000
+    perms: 0b011
+  
+  clock:
+    description: Clock control
+    address: 0x40000000
+    size: 0x1000
+    perms: 0b011
+  
+  power:
+    description: Power control
+    address: 0x40000000
+    size: 0x1000
+    perms: 0b011
+  
+  p0:
+    description: GPIO Port 1
+    address: 0x50000000
+    size: 0x1000
+    perms: 0b011
+  
+  p1:
+    description: GPIO Port 2
+    address: 0x50000300
+    size: 0x1000
+    perms: 0b011
+  
+  radio:
+    description: 2.4 GHz radio
+    address: 0x40001000
+    size: 0x1000
+    perms: 0b011
+  
+  uart0:
+    description: Universal Asynchronous Receiver/Transmitter
+    address: 0x40002000
+    size: 0x1000
+    perms: 0b011
+  
+  uarte0:
+    description: UART with EasyDMA 0
+    address: 0x40002000
+    size: 0x1000
+    perms: 0b011
+  
+  uarte1:
+    description: UART with EasyDMA 1
+    address: 0x40028000
+    size: 0x1000
+    perms: 0b011
+  
+  spi0:
+    description: Serial Peripheral Interface 0
+    address: 0x40003000
+    size: 0x1000
+    perms: 0b011
+  
+  spi1:
+    description: Serial Peripheral Interface 1
+    address: 0x40004000
+    size: 0x1000
+    perms: 0b011
+  
+  spi2:
+    description: Serial Peripheral Interface 2
+    address: 0x40023000
+    size: 0x1000
+    perms: 0b011
+  
+  spim0:
+    description: Serial Peripheral Interface Master with EasyDMA 0
+    address: 0x40003000
+    size: 0x1000
+    perms: 0b011
+  
+  spim1:
+    description: Serial Peripheral Interface Master with EasyDMA 1
+    address: 0x40004000
+    size: 0x1000
+    perms: 0b011
+  
+  spim2:
+    description: Serial Peripheral Interface Master with EasyDMA 2
+    address: 0x40023000
+    size: 0x1000
+    perms: 0b011
+  
+  spim3:
+    description: Serial Peripheral Interface Master with EasyDMA 3
+    address: 0x4002f000
+    size: 0x1000
+    perms: 0b011
+  
+  spis0:
+    description: SPI Slave 0
+    address: 0x40003000
+    size: 0x1000
+    perms: 0b011
+  
+  spis1:
+    description: SPI Slave 1
+    address: 0x40004000
+    size: 0x1000
+    perms: 0b011
+  
+  spis2:
+    description: SPI Slave 2
+    address: 0x40023000
+    size: 0x1000
+    perms: 0b011
+  
+  twi0:
+    description: I2C compatible Two-Wire Interface 0
+    address: 0x40003000
+    size: 0x1000
+    perms: 0b011
+  
+  twi1:
+    description: I2C compatible Two-Wire Interface 1
+    address: 0x40004000
+    size: 0x1000
+    perms: 0b011
+  
+  twim0:
+    description: I2C compatible Two-Wire Master Interface with EasyDMA 0
+    address: 0x40003000
+    size: 0x1000
+    perms: 0b011
+  
+  twim1:
+    description: I2C compatible Two-Wire Master Interface with EasyDMA 1
+    address: 0x40004000
+    size: 0x1000
+    perms: 0b011
+  
+  twis0:
+    description: I2C compatible Two-Wire Slave Interface with EasyDMA 0
+    address: 0x40003000
+    size: 0x1000
+    perms: 0b011
+  
+  twis1:
+    description: I2C compatible Two-Wire Slave Interface with EasyDMA 1
+    address: 0x40004000
+    size: 0x1000
+    perms: 0b011
+  
+  nfct:
+    description: NFC-A compatible radio
+    address: 0x40005000
+    size: 0x1000
+    perms: 0b011
+  
+  gpiote:
+    description: GPIO Tasks and Events
+    address: 0x40006000
+    size: 0x1000
+    perms: 0b011
+  
+  saadc:
+    description: Successive approximation register (SAR) analog-to-digital converter
+    address: 0x40007000
+    size: 0x1000
+    perms: 0b011
+  
+  timer0:
+    description: Timer/Counter 0
+    address: 0x40008000
+    size: 0x1000
+    perms: 0b011
+  
+  timer1:
+    description: Timer/Counter 1
+    address: 0x40009000
+    size: 0x1000
+    perms: 0b011
+  
+  timer2:
+    description: Timer/Counter 2
+    address: 0x4000a000
+    size: 0x1000
+    perms: 0b011
+  
+  timer3:
+    description: Timer/Counter 3
+    address: 0x4001a000
+    size: 0x1000
+    perms: 0b011
+  
+  timer4:
+    description: Timer/Counter 4
+    address: 0x4001b000
+    size: 0x1000
+    perms: 0b011
+  
+  rtc0:
+    description: Real time counter 0
+    address: 0x4000b000
+    size: 0x1000
+    perms: 0b011
+  
+  rtc1:
+    description: Real time counter 1
+    address: 0x40011000
+    size: 0x1000
+    perms: 0b011
+  
+  rtc2:
+    description: Real time counter 2
+    address: 0x40024000
+    size: 0x1000
+    perms: 0b011
+  
+  temp:
+    description: Temperature Sensor
+    address: 0x4000c000
+    size: 0x1000
+    perms: 0b011
+  
+  rng:
+    description: Random Number Generator
+    address: 0x4000d000
+    size: 0x1000
+    perms: 0b011
+  
+  ecb:
+    description: AES ECB Mode Encryption
+    address: 0x4000e000
+    size: 0x1000
+    perms: 0b011
+  
+  aar:
+    description: Accelerated Address Resolver
+    address: 0x4000f000
+    size: 0x1000
+    perms: 0b011
+  
+  ccm:
+    description: AES CCM mode encryption
+    address: 0x4000f000
+    size: 0x1000
+    perms: 0b011
+  
+  wdt:
+    description: Watchdog Timer
+    address: 0x40010000
+    size: 0x1000
+    perms: 0b011
+  
+  qdec:
+    description: Quadrature Decoder
+    address: 0x40012000
+    size: 0x1000
+    perms: 0b011
+  
+  comp:
+    description: Comparator
+    address: 0x40013000
+    size: 0x1000
+    perms: 0b011
+  
+  lpcomp:
+    description: Low-power comparator
+    address: 0x40013000
+    size: 0x1000
+    perms: 0b011
+  
+  egu0:
+    description: Event generator unit 0
+    address: 0x40014000
+    size: 0x1000
+    perms: 0b011
+  
+  egu1:
+    description: Event generator unit 1
+    address: 0x40015000
+    size: 0x1000
+    perms: 0b011
+  
+  egu2:
+    description: Event generator unit 2
+    address: 0x40016000
+    size: 0x1000
+    perms: 0b011
+  
+  egu3:
+    description: Event generator unit 3
+    address: 0x40017000
+    size: 0x1000
+    perms: 0b011
+  
+  egu4:
+    description: Event generator unit 4
+    address: 0x40018000
+    size: 0x1000
+    perms: 0b011
+  
+  egu5:
+    description: Event generator unit 5
+    address: 0x40019000
+    size: 0x1000
+    perms: 0b011
+  
+  swi0:
+    description: Software interrupt 0
+    address: 0x40014000
+    size: 0x1000
+    perms: 0b011
+  
+  swi1:
+    description: Software interrupt 1
+    address: 0x40015000
+    size: 0x1000
+    perms: 0b011
+  
+  swi2:
+    description: Software interrupt 2
+    address: 0x40016000
+    size: 0x1000
+    perms: 0b011
+  
+  swi3:
+    description: Software interrupt 3
+    address: 0x40017000
+    size: 0x1000
+    perms: 0b011
+  
+  swi4:
+    description: Software interrupt 4
+    address: 0x40018000
+    size: 0x1000
+    perms: 0b011
+  
+  swi5:
+    description: Software interrupt 5
+    address: 0x40019000
+    size: 0x1000
+    perms: 0b011
+  
+  pwm0:
+    description: Pulse width modulation unit 0
+    address: 0x4001c000
+    size: 0x1000
+    perms: 0b011
+  
+  pwm1:
+    description: Pulse width modulation unit 1
+    address: 0x40021000
+    size: 0x1000
+    perms: 0b011
+  
+  pwm2:
+    description: Pulse width modulation unit 2
+    address: 0x40022000
+    size: 0x1000
+    perms: 0b011
+  
+  pwm3:
+    description: Pulse width modulation unit 3
+    address: 0x4002d000
+    size: 0x1000
+    perms: 0b011
+  
+  pdm:
+    description: Pulse Density Modulation (Digital Microphone) Interface
+    address: 0x4001d000
+    size: 0x1000
+    perms: 0b011
+  
+  acl:
+    description: Access control lists
+    address: 0x4001e000
+    size: 0x1000
+    perms: 0b011
+  
+  nvmc:
+    description: Non Volatile Memory Controller
+    address: 0x4001e000
+    size: 0x1000
+    perms: 0b011
+  
+  ppi:
+    description: Programmable Peripheral Interconnect
+    address: 0x4001f000
+    size: 0x1000
+    perms: 0b011
+  
+  mwu:
+    description: Memory Watch Unit
+    address: 0x40020000
+    size: 0x1000
+    perms: 0b011
+  
+  i2s:
+    description: Inter-IC Sound
+    address: 0x40025000
+    size: 0x1000
+    perms: 0b011
+  
+  fpu:
+    description: FPU
+    address: 0x40026000
+    size: 0x1000
+    perms: 0b011
+  
+  usbd:
+    description: Universal serial bus device
+    address: 0x40027000
+    size: 0x1000
+    perms: 0b011
+  
+  qspi:
+    description: External flash interface
+    address: 0x40029000
+    size: 0x1000
+    perms: 0b011
+  
+  cc_host_rgf:
+    description: CRYPTOCELL HOST_RGF interface
+    address: 0x5002a000
+    size: 0x2000
+    perms: 0b011
+  
+  cryptocell:
+    description: ARM TrustZone CryptoCell register interface
+    address: 0x5002a000
+    size: 0x2000
+    perms: 0b011
+  
