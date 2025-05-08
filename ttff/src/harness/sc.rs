@@ -86,8 +86,10 @@ where
                         *state.executions());
                     return Ok(ExitKind::Crash);
                 }
-                Err(_err) => {
+                Err(err) => {
                     // other evaluation/emulation error
+                    error!("execution {:>4}: other error: {err:?}",
+                        *state.executions());
                     return Ok(ExitKind::Crash);
                 }
                 _ => {
