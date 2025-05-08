@@ -12,7 +12,13 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     use fugue_core::ir::Location;
     use fugue_ir::disassembly::IRBuilderArena;
     use crate::types::Permission;
-    use crate::programdb::{self, ProgramDB, Region, Platform};
+    use crate::programdb::{
+        self,
+        ProgramDB,
+        Region,
+        Platform,
+        Program,
+    };
     use crate::backend::armv7m;
     use crate::dft::{
         self,
@@ -21,11 +27,17 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
         policy::jump::*,
     };
 
+    let irb = IRBuilderArena::with_capacity(0x1000);
+
     let global_sub = compact_dbg_file_logger("test_smash_stack.log");
     set_global_default(global_sub)
         .expect("failed to set tracing default logger");
 
-    let program = programs::STACK_SMASH_TEST;
+    let program = Program::new_from_bytes(
+        irb.inner(),
+        0x0u64,
+        programs::STACK_SMASH_TEST,
+    )?;
 
     info!("initializing programdb...");
     let platform = Platform {
@@ -47,8 +59,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
         mmio: vec![],
     };
     let builder = LanguageBuilder::new("data/processors")?;
-    let irb = IRBuilderArena::with_capacity(0x1000);
-    let mut pdb = ProgramDB::new_with(&builder, platform, &irb);
+    let mut pdb = ProgramDB::new_with(&builder, program, platform, &irb);
 
     info!("building backend...");
     let backend = armv7m::Backend::new_with(&builder, None)?;
@@ -62,7 +73,13 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     context.map_mem(0x0u64, 0x1000)?;
 
     info!("loading program...");
-    context.store_bytes(0x0u64, program, &Tag::from(tag::UNACCESSED))?;
+    for section in pdb.program().loadable_sections() {
+        context.store_bytes(
+            section.address(),
+            section.data(),
+            &Tag::from(tag::UNACCESSED),
+        )?;
+    }
 
     info!("initializing taint...");
     let tainted_data_address = 0x40u64;

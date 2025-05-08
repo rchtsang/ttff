@@ -22,6 +22,7 @@ pub use types::*;
 pub mod platform;
 pub use platform::{Region, Platform};
 pub mod program;
+pub use program::Program;
 
 /// programdb errors
 #[derive(Error, Debug)]
@@ -43,6 +44,7 @@ pub enum Error {
 pub struct ProgramDB<'irb> {
     pub(crate) lang: Language,
     pub(crate) platform: Platform,
+    pub(crate) program: Program<'irb>,
     pub(crate) cache: Arc<RwLock<TranslationCache<'irb>>>,
     pub(crate) arena: &'irb IRBuilderArena,
     pub(crate) cfg: CFGraph<'irb>,
@@ -54,6 +56,7 @@ impl<'irb> ProgramDB<'irb> {
 
     pub fn new_with(
         builder: &LanguageBuilder,
+        program: Program<'irb>,
         platform: Platform,
         arena: &'irb IRBuilderArena,
     ) -> Self {
@@ -62,11 +65,12 @@ impl<'irb> ProgramDB<'irb> {
             Ok(lang) => { lang }
             Err(err) => { panic!("{err}") }
         };
+
         let cache = Arc::new(RwLock::new(TranslationCache::default()));
         let cfg = CFGraph::new_with(arena.inner());
         let plugin = PDBPlugin::default();
 
-        Self { lang, platform, cache, arena, cfg, plugin }
+        Self { lang, platform, program, cache, arena, cfg, plugin }
     }
 
     pub fn add_plugin(&mut self, plugin: Box<dyn AnalysisPlugin>) {
@@ -95,6 +99,10 @@ impl<'irb> ProgramDB<'irb> {
 
     pub fn platform(&self) -> &Platform {
         &self.platform
+    }
+
+    pub fn program(&self) -> &Program<'irb> {
+        &self.program
     }
 
     pub fn lang(&self) -> &Language {

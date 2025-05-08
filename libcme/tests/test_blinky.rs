@@ -14,16 +14,22 @@ fn test_blinky() -> Result<(), anyhow::Error> {
     set_global_default(global_sub)
         .expect("failed to set tracing default logger");
 
-    info!("loading program binary...");
-    let program = &fs::read("tests/samples/nrf52840dk/blinky/blinky.bin")?;
+    let irb = IRBuilderArena::with_capacity(0x1000);
 
+    info!("loading program binary...");
+    let bytes = fs::read("tests/samples/nrf52840dk/blinky/blinky.bin")?;
+    let program = Program::new_from_bytes(
+        irb.inner(),
+        0x0u64,
+        bytes.as_slice(),
+    )?;
+    
     info!("creating language builder...");
     let builder = LanguageBuilder::new("data/processors")?;
-    let irb = IRBuilderArena::with_capacity(0x1000);
     
     info!("building programdb...");
     let platform = Platform::from_path("tests/samples/nrf52840dk/nrf52840.yml")?;
-    let mut pdb = ProgramDB::new_with(&builder, platform, &irb);
+    let mut pdb = ProgramDB::new_with(&builder, program, platform, &irb);
 
     info!("building backend...");
     let backend = pdb.backend(&builder)?;
@@ -41,12 +47,22 @@ fn test_blinky() -> Result<(), anyhow::Error> {
     // context.map_mem(0x20000000u64, 0x40000usize)?;
 
     info!("loading program...");
-    context.store_bytes(0x0u64, program, &dft::Tag::from(tag::UNACCESSED))?;
+    for section in pdb.program().loadable_sections() {
+        context.store_bytes(
+            section.address(),
+            section.data(),
+            &dft::Tag::from(tag::UNACCESSED),
+        )?;
+    }
 
     info!("initializing program...");
     // read sp and load entrypoint
-    let stack_size = bytes_as_u32_le(&program[..4]);
-    let entry = bytes_as_u32_le(&program[4..8]);
+    let mut stack_bytes = [0u8; 4];
+    context.load_bytes(0u64, &mut stack_bytes)?;
+    let stack_size = u32::from_le_bytes(stack_bytes);
+    let mut entry_bytes = [0u8; 4];
+    context.load_bytes(4u64, &mut entry_bytes)?;
+    let entry = u32::from_le_bytes(entry_bytes);
 
     context.write_sp(stack_size, &dft::Tag::from(tag::ACCESSED))?;
     context.write_pc(entry, &dft::Tag::from(tag::ACCESSED))?;
