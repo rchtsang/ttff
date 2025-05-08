@@ -2,17 +2,22 @@
 //! 
 //! loading firmware binaries and storing metadata
 
+use ahash::AHashMap;
+use thiserror::Error;
+use bumpalo::{
+    self,
+    Bump,
+    collections::{
+        String as BumpString,
+        Vec as BumpVec,
+    },
+};
 use elf::{
     self,
     ElfBytes,
     endian::AnyEndian,
-};
-use thiserror::Error;
-use bumpalo::{
-    self, collections::{
-        String as BumpString,
-        Vec as BumpVec,
-    }, Bump
+    symbol::Symbol as ElfSymbol,
+    string_table::StringTable,
 };
 
 use fugue_core::prelude::*;
@@ -78,10 +83,38 @@ impl<'bump> Section<'bump> {
     }
 }
 
+/// an elf symbol
+#[derive(Debug)]
+pub struct Symbol<'bump> {
+    pub name: &'bump str,
+    pub st_shndx: u16,
+    pub st_value: u64,
+    pub st_size: u64,
+}
+
+impl<'bump> Symbol<'bump> {
+    pub fn new_in<'data>(
+        bump: &'bump Bump,
+        sym: ElfSymbol,
+        strtab: StringTable<'data>,
+    ) -> Self {
+        let name = strtab.get(sym.st_name as usize)
+            .expect("could not find name in symtab");
+        let name = BumpString::from_str_in(name, bump)
+            .into_bump_str();
+        let st_shndx = sym.st_shndx;
+        let st_value = sym.st_value;
+        let st_size = sym.st_size;
+
+        Self { name, st_shndx, st_value, st_size }
+    }
+}
+
 /// a wrapper for the program binary
 #[derive(Default, Debug)]
 pub struct Program<'bump> {
     sections: Vec<Section<'bump>>,
+    symtab: AHashMap<&'bump str, Symbol<'bump>>,
 }
 
 impl<'bump> Program<'bump> {
@@ -112,7 +145,16 @@ impl<'bump> Program<'bump> {
                     data,
                 }
             }).collect();
-        Ok(Self { sections })
+
+        let (symtab, strtab) = elf.symbol_table()?
+            .ok_or(Error::Elf("expected a symbol table"))?;
+        let symtab: AHashMap<_, _> = symtab.iter()
+            .map(|sym| {
+                let symbol = Symbol::new_in(bump, sym, strtab);
+                (symbol.name, symbol)
+            }).collect();
+
+        Ok(Self { sections, symtab })
     }
 
     pub fn new_from_bytes<'data>(
@@ -130,11 +172,16 @@ impl<'bump> Program<'bump> {
                 data: BumpVec::from_iter_in(bytes.iter().cloned(), bump),
             }
         ];
-        Ok(Self { sections })
+        let symtab = AHashMap::default();
+        Ok(Self { sections, symtab })
     }
 
     pub fn sections(&self) -> &[Section<'bump>] {
         &self.sections
+    }
+
+    pub fn symtab(&self) -> &AHashMap<&'bump str, Symbol<'bump>> {  
+        &self.symtab
     }
 
     /// get an iterator over the loadable sections of the binary,

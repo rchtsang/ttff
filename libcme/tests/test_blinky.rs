@@ -6,6 +6,7 @@ use test_log::test;
 #[test]
 fn test_blinky() -> Result<(), anyhow::Error> {
     use std::sync::Arc;
+    use elf::ElfBytes;
     use libcme::prelude::*;
     use tracing::subscriber::set_global_default;
     // use libcme::peripheral::{ self, * };
@@ -17,11 +18,11 @@ fn test_blinky() -> Result<(), anyhow::Error> {
     let irb = IRBuilderArena::with_capacity(0x1000);
 
     info!("loading program binary...");
-    let bytes = fs::read("tests/samples/nrf52840dk/blinky/blinky.bin")?;
-    let program = Program::new_from_bytes(
+    let bytes = fs::read("tests/samples/nrf52840dk/blinky/blinky.elf")?;
+    let elf_bytes = ElfBytes::minimal_parse(bytes.as_slice())?;
+    let program = Program::new_from_elf(
         irb.inner(),
-        0x0u64,
-        bytes.as_slice(),
+        elf_bytes,
     )?;
     
     info!("creating language builder...");
