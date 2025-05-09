@@ -310,10 +310,6 @@ impl BackendTrait for Backend {
     fn map_mmio(&mut self,
         peripheral: Peripheral,
     ) -> Result<(), backend::Error> {
-        let base = peripheral.base_address().offset();
-        let size = peripheral.size() as u64;
-        assert!(0x40000000 <= base && (base + size) < 0x50000000,
-            "peripheral must be mapped into external MMIO space");
         self.mmap.map_mmio(peripheral)
     }
 

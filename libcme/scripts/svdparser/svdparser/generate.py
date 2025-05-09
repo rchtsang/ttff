@@ -45,6 +45,75 @@ FieldType = namedtuple('FieldType', [
     'field',
 ])
 
+def render_template(dst: Path, device: dict, template: str, **kwargs):
+    env = Environment(
+        loader=FileSystemLoader(str(TEMPLATES),
+            encoding='utf-8',
+            followlinks=False),
+        **kwargs,
+    )
+    env.globals.update({
+        "int": int,
+        "str": str,
+        "range": range,
+        "hex": hex,
+        "sorted": sorted,
+    })
+    template = env.get_template(template)
+
+    with open(dst, 'w') as f:
+        f.write(template.render(svd=device))
+
+    return
+
+def _intervals(peripheral, derived):
+        intervals = []
+        def overlaps(t1, t2):
+            return t2[0] <= t1[1] and t1[0] <= t2[1]
+
+        for reg in peripheral['registers']:
+            offset = int(reg['addressOffset'], 0)
+            if 'dim' in reg:
+                size = int(reg['dim'], 0) * int(reg['dimIncrement'], 0)
+                reg_interval = [
+                    offset,
+                    offset + size]
+            else:
+                reg_interval = [offset, offset + 4]
+
+            for interval in intervals:
+                if overlaps(interval, reg_interval):
+                    interval[0] = min(interval[0], reg_interval[0])
+                    interval[1] = max(interval[1], reg_interval[1])
+                    break
+            else:
+                intervals.append(reg_interval)
+        
+        intervals.sort()
+
+        return intervals
+
+def generate_platform(dst: Path, device: dict, template: str, **kwargs):
+    env = Environment(
+        loader=FileSystemLoader(str(TEMPLATES),
+            encoding='utf-8',
+            followlinks=False),
+        **kwargs,
+    )
+    env.globals.update({
+        "int": int,
+        "str": str,
+        "range": range,
+        "hex": hex,
+        "sorted": sorted,
+    })
+    template = env.get_template(template)
+
+    with open(dst, 'w') as f:
+        f.write(template.render(svd=device))
+
+    return
+
 
 def _byte_size(peripheral_group: dict):
     return int(peripheral_group['addressBlock']['size'], 0)
@@ -175,7 +244,7 @@ def _fields(reg: dict | RegType):
 
     return fields
 
-helpers = {
+peripheral_helpers = {
     "_byte_size": _byte_size,
     "_backing_size": _backing_size,
     "_reg_type": _reg_type,
@@ -190,28 +259,6 @@ helpers = {
     "hex": hex,
     "sorted": sorted,
 }
-
-def render_template(dst: Path, device: dict, template: str, **kwargs):
-    env = Environment(
-        loader=FileSystemLoader(str(TEMPLATES),
-            encoding='utf-8',
-            followlinks=False),
-        **kwargs,
-    )
-    env.globals.update({
-        "int": int,
-        "str": str,
-        "range": range,
-        "hex": hex,
-        "sorted": sorted,
-    })
-    template = env.get_template(template)
-
-    with open(dst, 'w') as f:
-        f.write(template.render(svd=device))
-
-    return
-
 
 def generate_device_mod(
     dst: Path,
@@ -229,7 +276,7 @@ def generate_device_mod(
             encoding='utf-8',
             followlinks=False)
     )
-    env.globals.update(helpers)
+    env.globals.update(peripheral_helpers)
 
     device_template = env.get_template("device.rs")
 

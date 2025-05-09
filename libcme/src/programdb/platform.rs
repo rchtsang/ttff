@@ -4,6 +4,7 @@
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
+use std::ops::Range;
 
 use thiserror::Error;
 use yaml_rust2::{Yaml, YamlLoader, ScanError};
@@ -42,10 +43,22 @@ pub enum Error {
 
 /// a memory region
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Region {
+pub struct MemRegion {
     pub name: String,
     pub address: Address,
     pub size: usize,
+    pub perms: FlagSet<Permission>,
+    pub description: String,
+}
+
+/// a peripheral region
+/// different because a peripheral's address ranges may not be contiguous
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MmioRegion {
+    pub name: String,
+    pub base: Address,
+    pub blocksize: usize,
+    pub ranges: Vec<Range<Address>>,
     pub perms: FlagSet<Permission>,
     pub description: String,
 }
@@ -61,8 +74,8 @@ pub struct Platform {
     pub(crate) fpu_present: bool,
     pub(crate) nvic_prio_bits: u8,
     pub(crate) vendor_systick_config: bool,
-    pub(crate) mem: Vec<Region>,
-    pub(crate) mmio: Vec<Region>,
+    pub(crate) mem: Vec<MemRegion>,
+    pub(crate) mmio: Vec<MmioRegion>,
 }
 
 impl Platform {
@@ -124,7 +137,7 @@ impl Platform {
         for (name, data) in mem_regions {
             let name = name.as_str()
                 .ok_or(Error::InvalidField("mem region name"))?;
-            let region = Region::new_with(name, data)?;
+            let region = MemRegion::new_with(name, data)?;
             mem.push(region);
         }
         mem.sort();
@@ -135,7 +148,7 @@ impl Platform {
         for (name, data) in mmio_regions {
             let name = name.as_str()
                 .ok_or(Error::InvalidField("mmio region name"))?;
-            let region = Region::new_with(name, data)?;
+            let region = MmioRegion::new_with(name, data)?;
             mmio.push(region);
         }
         mmio.sort();
@@ -170,7 +183,7 @@ impl Platform {
             "CM3" | "CM4" if self.cpu_endian.is_little() => {
                 let scs_config = self._generate_scs_config();
                 let mut backend = armv7m::Backend::new_with(builder, scs_config)?;
-                for Region {
+                for MemRegion {
                     name: _,
                     address,
                     size,
@@ -217,11 +230,11 @@ impl Platform {
         self.vendor_systick_config
     }
 
-    pub fn mem(&self) -> &[Region] {
+    pub fn mem(&self) -> &[MemRegion] {
         &self.mem[..]
     }
 
-    pub fn mmio(&self) -> &[Region] {
+    pub fn mmio(&self) -> &[MmioRegion] {
         &self.mmio[..]
     }
 }
@@ -233,21 +246,31 @@ impl Platform {
     }
 }
 
-
-
-impl PartialOrd for Region {
+impl PartialOrd for MemRegion {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         (self.address, self.size).partial_cmp(&(other.address, other.size))
     }
 }
 
-impl Ord for Region {
+impl PartialOrd for MmioRegion {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        (self.base, self.blocksize).partial_cmp(&(other.base, other.blocksize))
+    }
+}
+
+impl Ord for MemRegion {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).unwrap()
     }
 }
 
-impl Region {
+impl Ord for MmioRegion {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+impl MemRegion {
     #[instrument(skip_all)]
     pub fn new_with(name: &str, yaml: &Yaml) -> Result<Self, Error> {
         // debug!("{name}: {yaml:?}");
@@ -271,6 +294,61 @@ impl Region {
         let perms = FlagSet::new(perms as u8)
             .map_err(|_| Error::InvalidField("region perms"))?;
         Ok(Self { name, address, size, perms, description })
+    }
+}
+
+impl MmioRegion {
+    #[instrument(skip_all)]
+    pub fn new_with(name: &str, yaml: &Yaml) -> Result<Self, Error> {
+        let name = name.into();
+        let description = yaml["description"].as_str()
+            .unwrap_or("").into();
+        let base = yaml["base"].as_i64()
+            .map(|val| Address::from(val as u64))
+            .ok_or(Error::InvalidField("mmio base address"))?;
+        let blocksize = yaml["blocksize"].as_i64()
+            .ok_or(Error::InvalidField("mmio block size"))? as usize;
+        let perms = match &yaml["perms"] {
+            Yaml::Integer(val) => { *val as u8 }
+            Yaml::String(val) => {
+                str_to_uint(val).map_err(|_| {
+                    Error::InvalidField("region perms")
+                })? as u8
+            }
+            _ => { return Err(Error::InvalidField("region perms")) }
+        };
+        let perms = FlagSet::new(perms as u8)
+            .map_err(|_| Error::InvalidField("region perms"))?;
+
+        let mut ranges: Vec<Range<Address>> = vec![];
+        let registers = yaml["registers"].as_hash()
+            .ok_or(Error::InvalidField("registers"))?;
+        for (_reg_name, reg_yaml) in registers {
+            let address = reg_yaml["address"].as_i64()
+                .ok_or(Error::InvalidField("register address"))? as u64;
+            let size = reg_yaml["size"].as_i64()
+                .ok_or(Error::InvalidField("register size"))? as u64;
+            let size = match reg_yaml["dim"] {
+                Yaml::BadValue => { size }
+                Yaml::Integer(val) => { size * val as u64 }
+                _ => { return Err(Error::InvalidField("register dim")) }
+            };
+            let this_range = address.into()..(address + size).into();
+            let mut added = false;
+            for range in ranges.iter_mut() {
+                if (*range).start <= this_range.end && this_range.start <= (*range).end {
+                    range.start = std::cmp::min(range.start, this_range.start);
+                    range.end = std::cmp::max(range.end, this_range.end);
+                    added = true;
+                    break;
+                }
+            }
+            if !added {
+                ranges.push(this_range);
+            }
+        }
+
+        Ok(Self{ name, base, blocksize, ranges, perms, description })
     }
 }
 

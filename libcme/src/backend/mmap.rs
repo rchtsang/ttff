@@ -63,21 +63,22 @@ impl MemoryMap {
         &mut self,
         peripheral: Peripheral,
     ) -> Result<(), backend::Error> {
-        assert_eq!(peripheral.size() & 0b11, 0,
-            "size {:#x} is not word-aligned!", peripheral.size());
         assert_eq!(peripheral.base_address().offset() & 0b11, 0,
             "peripheral is not word-aligned!");
 
         // check for collision with existing mapped regions
-        let range = peripheral.range.clone();
-        if let Some(colliding) = self.mmap.intervals(range.clone()).next() {
-            return Err(backend::Error::MapConflict(range, colliding));
+        for range in peripheral.ranges().iter() {
+            if let Some(colliding) = self.mmap.intervals(range.clone()).next() {
+                return Err(backend::Error::MapConflict(range.clone(), colliding));
+            }
         }
 
         // add peripheral to map
         let idx = MapIx::Mmio(self.mmio.len());
+        for range in peripheral.ranges().iter() {
+            self.mmap.insert(range.clone(), idx);
+        }
         self.mmio.push(peripheral);
-        self.mmap.insert(range, idx);
 
         Ok(())
     }

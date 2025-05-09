@@ -2,6 +2,7 @@
 //! 
 //! a peripheral implementation that sends and receives
 //! via crossbeam channel
+use std::ops::Range;
 use std::collections::VecDeque;
 use anyhow;
 use thiserror::Error;
@@ -57,6 +58,7 @@ impl From<ChannelStateError> for peripheral::Error {
 pub struct ChannelPeripheral {
     base: Address,
     size: usize,
+    ranges: Vec<Range<Address>>,
     access_log: Sender<Access>,
     read_src: Receiver<u8>,
     write_dst: Sender<u8>,
@@ -64,55 +66,63 @@ pub struct ChannelPeripheral {
 
 #[derive(Clone)]
 pub struct GeneratedChannelPeripheral {
-    pub access_log: Receiver<Access>,
-    pub read_src: Sender<u8>,
-    pub write_dst: Receiver<u8>,
-    pub peripheral: Peripheral,
+    pub access_log: (Sender<Access>, Receiver<Access>),
+    pub read_src: (Sender<u8>, Receiver<u8>),
+    pub write_dst: (Sender<u8>, Receiver<u8>),
+    pub peripheral: ChannelPeripheral,
 }
 
 impl ChannelPeripheral {
-    pub fn new_with(
+    pub fn new_with<'a>(
         base: impl Into<Address>,
         size: usize,
+        ranges: impl Iterator<Item=&'a Range<Address>>,
         access_log: Sender<Access>,
         read_src: Receiver<u8>,
         write_dst: Sender<u8>,
     ) -> Self {
         let base = base.into();
-        Self { base, size, access_log, read_src, write_dst }
+        let ranges = ranges.cloned().collect();
+        Self { base, size, ranges, access_log, read_src, write_dst }
     }
 
     /// creates a new channel peripheral and returns the other side of the 
     /// access log, read_src, and write_dst channels
-    pub fn new(
+    pub fn new<'a>(
         base: impl Into<Address>,
         size: usize,
+        ranges: impl Iterator<Item=&'a Range<Address>>,
     ) -> GeneratedChannelPeripheral {
-        let (access_log_send, access_log_recv) = unbounded();
-        let (read_src_send, read_src_recv) = unbounded();
-        let (write_dst_send, write_dst_recv) = unbounded();
-        let channel_peripheral = ChannelPeripheral::new_with(
+        let access_log = unbounded();
+        let read_src = unbounded();
+        let write_dst = unbounded();
+        let peripheral = ChannelPeripheral::new_with(
             base,
             size,
-            access_log_send,
-            read_src_recv,
-            write_dst_send,
+            ranges,
+            access_log.0.clone(),
+            read_src.1.clone(),
+            write_dst.0.clone(),
         );
-        let peripheral = Peripheral::new_with(Box::new(channel_peripheral));
         GeneratedChannelPeripheral {
-            access_log: access_log_recv,
-            read_src: read_src_send,
-            write_dst: write_dst_recv,
+            access_log,
+            read_src,
+            write_dst,
             peripheral,
         }
     }
 
     /// create a new channel peripheral that shares the underlying channels of
     /// an existing channel peripheral
-    pub fn clone_with(&self, base: impl Into<Address>, size: usize) -> Self {
-        let mut peripheral = self.clone();
+    pub fn clone_with<'a>(&self,
+        base: impl Into<Address>,
+        size: usize,
+        ranges: impl Iterator<Item=&'a Range<Address>>,
+    ) -> Self {
+        let mut peripheral: ChannelPeripheral = self.clone();
         peripheral.base = base.into();
         peripheral.size = size.into();
+        peripheral.ranges = ranges.cloned().collect();
         peripheral
     }
 }
@@ -128,7 +138,11 @@ impl PeripheralState for ChannelPeripheral {
         self.base.clone()
     }
 
-    fn size(&self) -> u64 {
+    fn ranges(&self) -> &[Range<Address>] {
+        self.ranges.as_slice()
+    }
+
+    fn blocksize(&self) -> u64 {
         self.size as u64
     }
 
@@ -205,18 +219,21 @@ mod test {
         let mut backend = armv7m::Backend::new_with(&builder, None)?;
 
         info!("mapping channel peripheral...");
+        let base = Address::from(0x40001000u32);
+        let size = 0x1000 as usize;
+        let ranges = vec![base..(base + size as u64)];
         let GeneratedChannelPeripheral {
-            access_log: access_log_recv,
-            read_src: read_src_send,
-            write_dst: write_dst_recv,
+            access_log,
+            read_src,
+            write_dst,
             peripheral
-        } = ChannelPeripheral::new(Address::from(0x40001000u32), 0x1000);
-        backend.map_mmio(peripheral)?;
+        } = ChannelPeripheral::new(base, size, ranges.iter());
+        backend.map_mmio(peripheral.into())?;
 
         // initializing data for peripheral byte reads
         let bytes: [u8; 4] = [0x01, 0x02, 0x03, 0x04];
         for byte in bytes.iter().cloned() {
-            read_src_send.try_send(byte)?;
+            read_src.0.try_send(byte)?;
         }
 
         info!("testing load bytes");
@@ -226,7 +243,7 @@ mod test {
             &read_addr,
             &mut dst,
         )?;
-        let access = access_log_recv.try_recv()?;
+        let access = access_log.1.try_recv()?;
         assert_eq!(access, (read_addr, 4, false).into(),
             "unexpected access log value: {:#x?}", access);
         assert_eq!(dst, bytes,
@@ -239,10 +256,10 @@ mod test {
             &write_addr,
             &src,
         )?;
-        let access = access_log_recv.try_recv()?;
+        let access = access_log.1.try_recv()?;
         let mut bytes: [u8; 4] = [0, 0, 0, 0];
         for byte in bytes.iter_mut() {
-            *byte = write_dst_recv.try_recv()?;
+            *byte = write_dst.1.try_recv()?;
         }
         assert_eq!(access, (write_addr, 4, true).into(),
             "unexpected access log value: {:#x?}", access);
