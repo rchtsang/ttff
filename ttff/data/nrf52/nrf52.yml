@@ -1,0 +1,3365 @@
+# nrf52 platform description
+#
+# auto-generated from SVD
+
+# device information
+name: nrf52
+
+cpu:
+  name: CM4
+  revision: r0p1
+  endian: little
+  mpuPresent: 1
+  fpuPresent: 1
+  nvicPrioBits: 3
+  vendorSystickConfig: 0
+  
+
+mem:
+  # flash and ram regions not generally included in svd peripherals
+  # and must be manually specified
+  flash: 
+    description:
+    address: 0x0
+    size: 0x80000
+    perms: 0b101
+
+  coderam:
+    description:
+    address: 0x800000
+    size: 0x10000
+    perms: 0b101
+
+  dataram:
+    description:
+    address: 0x20000000
+    size: 0x10000
+    perms: 0b011
+
+mmio:
+  
+  ficr:
+    description: Factory Information Configuration Registers
+    perms: 0b011
+    base: 0x10000000
+    blocksize: 0x1000
+    registers:
+      codepagesize:
+        address: 0x10000010
+        size: 0x4
+      codesize:
+        address: 0x10000014
+        size: 0x4
+      deviceid:
+        address: 0x10000060
+        dim: 0x2
+        size: 0x4
+      er:
+        address: 0x10000080
+        dim: 0x4
+        size: 0x4
+      ir:
+        address: 0x10000090
+        dim: 0x4
+        size: 0x4
+      deviceaddrtype:
+        address: 0x100000a0
+        size: 0x4
+      deviceaddr:
+        address: 0x100000a4
+        dim: 0x2
+        size: 0x4
+      info:
+        address: 0x10000100
+        size: 0x4
+      temp:
+        address: 0x10000404
+        size: 0x4
+      nfc:
+        address: 0x10000450
+        size: 0x4
+      
+  uicr:
+    description: User Information Configuration Registers
+    perms: 0b011
+    base: 0x10001000
+    blocksize: 0x1000
+    registers:
+      nrffw:
+        address: 0x10001014
+        dim: 0xf
+        size: 0x4
+      nrfhw:
+        address: 0x10001050
+        dim: 0xc
+        size: 0x4
+      customer:
+        address: 0x10001080
+        dim: 0x20
+        size: 0x4
+      pselreset:
+        address: 0x10001200
+        dim: 0x2
+        size: 0x4
+      approtect:
+        address: 0x10001208
+        size: 0x4
+      nfcpins:
+        address: 0x1000120c
+        size: 0x4
+      
+  approtect:
+    description: Access Port Protection
+    perms: 0b011
+    base: 0x40000000
+    blocksize: 0x1000
+    registers:
+      forceprotect:
+        address: 0x40000550
+        size: 0x4
+      disable:
+        address: 0x40000558
+        size: 0x4
+      
+  bprot:
+    description: Block Protect
+    perms: 0b011
+    base: 0x40000000
+    blocksize: 0x1000
+    registers:
+      config0:
+        address: 0x40000600
+        size: 0x4
+      config1:
+        address: 0x40000604
+        size: 0x4
+      disableindebug:
+        address: 0x40000608
+        size: 0x4
+      config2:
+        address: 0x40000610
+        size: 0x4
+      config3:
+        address: 0x40000614
+        size: 0x4
+      
+  clock:
+    description: Clock control
+    perms: 0b011
+    base: 0x40000000
+    blocksize: 0x1000
+    registers:
+      tasks_hfclkstart:
+        address: 0x40000000
+        size: 0x4
+      tasks_hfclkstop:
+        address: 0x40000004
+        size: 0x4
+      tasks_lfclkstart:
+        address: 0x40000008
+        size: 0x4
+      tasks_lfclkstop:
+        address: 0x4000000c
+        size: 0x4
+      tasks_cal:
+        address: 0x40000010
+        size: 0x4
+      tasks_ctstart:
+        address: 0x40000014
+        size: 0x4
+      tasks_ctstop:
+        address: 0x40000018
+        size: 0x4
+      events_hfclkstarted:
+        address: 0x40000100
+        size: 0x4
+      events_lfclkstarted:
+        address: 0x40000104
+        size: 0x4
+      events_done:
+        address: 0x4000010c
+        size: 0x4
+      events_ctto:
+        address: 0x40000110
+        size: 0x4
+      intenset:
+        address: 0x40000304
+        size: 0x4
+      intenclr:
+        address: 0x40000308
+        size: 0x4
+      hfclkrun:
+        address: 0x40000408
+        size: 0x4
+      hfclkstat:
+        address: 0x4000040c
+        size: 0x4
+      lfclkrun:
+        address: 0x40000414
+        size: 0x4
+      lfclkstat:
+        address: 0x40000418
+        size: 0x4
+      lfclksrccopy:
+        address: 0x4000041c
+        size: 0x4
+      lfclksrc:
+        address: 0x40000518
+        size: 0x4
+      ctiv:
+        address: 0x40000538
+        size: 0x4
+      traceconfig:
+        address: 0x4000055c
+        size: 0x4
+      
+  power:
+    description: Power control
+    perms: 0b011
+    base: 0x40000000
+    blocksize: 0x1000
+    registers:
+      tasks_constlat:
+        address: 0x40000078
+        size: 0x4
+      tasks_lowpwr:
+        address: 0x4000007c
+        size: 0x4
+      events_pofwarn:
+        address: 0x40000108
+        size: 0x4
+      events_sleepenter:
+        address: 0x40000114
+        size: 0x4
+      events_sleepexit:
+        address: 0x40000118
+        size: 0x4
+      intenset:
+        address: 0x40000304
+        size: 0x4
+      intenclr:
+        address: 0x40000308
+        size: 0x4
+      resetreas:
+        address: 0x40000400
+        size: 0x4
+      ramstatus:
+        address: 0x40000428
+        size: 0x4
+      systemoff:
+        address: 0x40000500
+        size: 0x4
+      pofcon:
+        address: 0x40000510
+        size: 0x4
+      gpregret:
+        address: 0x4000051c
+        size: 0x4
+      gpregret2:
+        address: 0x40000520
+        size: 0x4
+      ramon:
+        address: 0x40000524
+        size: 0x4
+      ramonb:
+        address: 0x40000554
+        size: 0x4
+      dcdcen:
+        address: 0x40000578
+        size: 0x4
+      ram:
+        address: 0x40000900
+        dim: 0x8
+        size: 0x10
+      
+  p0:
+    description: GPIO Port 1
+    perms: 0b011
+    base: 0x50000000
+    blocksize: 0x1000
+    registers:
+      out:
+        address: 0x50000504
+        size: 0x4
+      outset:
+        address: 0x50000508
+        size: 0x4
+      outclr:
+        address: 0x5000050c
+        size: 0x4
+      in:
+        address: 0x50000510
+        size: 0x4
+      dir:
+        address: 0x50000514
+        size: 0x4
+      dirset:
+        address: 0x50000518
+        size: 0x4
+      dirclr:
+        address: 0x5000051c
+        size: 0x4
+      latch:
+        address: 0x50000520
+        size: 0x4
+      detectmode:
+        address: 0x50000524
+        size: 0x4
+      pin_cnf:
+        address: 0x50000700
+        dim: 0x20
+        size: 0x4
+      
+  radio:
+    description: 2.4 GHz Radio
+    perms: 0b011
+    base: 0x40001000
+    blocksize: 0x1000
+    registers:
+      tasks_txen:
+        address: 0x40001000
+        size: 0x4
+      tasks_rxen:
+        address: 0x40001004
+        size: 0x4
+      tasks_start:
+        address: 0x40001008
+        size: 0x4
+      tasks_stop:
+        address: 0x4000100c
+        size: 0x4
+      tasks_disable:
+        address: 0x40001010
+        size: 0x4
+      tasks_rssistart:
+        address: 0x40001014
+        size: 0x4
+      tasks_rssistop:
+        address: 0x40001018
+        size: 0x4
+      tasks_bcstart:
+        address: 0x4000101c
+        size: 0x4
+      tasks_bcstop:
+        address: 0x40001020
+        size: 0x4
+      events_ready:
+        address: 0x40001100
+        size: 0x4
+      events_address:
+        address: 0x40001104
+        size: 0x4
+      events_payload:
+        address: 0x40001108
+        size: 0x4
+      events_end:
+        address: 0x4000110c
+        size: 0x4
+      events_disabled:
+        address: 0x40001110
+        size: 0x4
+      events_devmatch:
+        address: 0x40001114
+        size: 0x4
+      events_devmiss:
+        address: 0x40001118
+        size: 0x4
+      events_rssiend:
+        address: 0x4000111c
+        size: 0x4
+      events_bcmatch:
+        address: 0x40001128
+        size: 0x4
+      events_crcok:
+        address: 0x40001130
+        size: 0x4
+      events_crcerror:
+        address: 0x40001134
+        size: 0x4
+      shorts:
+        address: 0x40001200
+        size: 0x4
+      intenset:
+        address: 0x40001304
+        size: 0x4
+      intenclr:
+        address: 0x40001308
+        size: 0x4
+      crcstatus:
+        address: 0x40001400
+        size: 0x4
+      rxmatch:
+        address: 0x40001408
+        size: 0x4
+      rxcrc:
+        address: 0x4000140c
+        size: 0x4
+      dai:
+        address: 0x40001410
+        size: 0x4
+      packetptr:
+        address: 0x40001504
+        size: 0x4
+      frequency:
+        address: 0x40001508
+        size: 0x4
+      txpower:
+        address: 0x4000150c
+        size: 0x4
+      mode:
+        address: 0x40001510
+        size: 0x4
+      pcnf0:
+        address: 0x40001514
+        size: 0x4
+      pcnf1:
+        address: 0x40001518
+        size: 0x4
+      base0:
+        address: 0x4000151c
+        size: 0x4
+      base1:
+        address: 0x40001520
+        size: 0x4
+      prefix0:
+        address: 0x40001524
+        size: 0x4
+      prefix1:
+        address: 0x40001528
+        size: 0x4
+      txaddress:
+        address: 0x4000152c
+        size: 0x4
+      rxaddresses:
+        address: 0x40001530
+        size: 0x4
+      crccnf:
+        address: 0x40001534
+        size: 0x4
+      crcpoly:
+        address: 0x40001538
+        size: 0x4
+      crcinit:
+        address: 0x4000153c
+        size: 0x4
+      tifs:
+        address: 0x40001544
+        size: 0x4
+      rssisample:
+        address: 0x40001548
+        size: 0x4
+      state:
+        address: 0x40001550
+        size: 0x4
+      datawhiteiv:
+        address: 0x40001554
+        size: 0x4
+      bcc:
+        address: 0x40001560
+        size: 0x4
+      dab:
+        address: 0x40001600
+        dim: 0x8
+        size: 0x4
+      dap:
+        address: 0x40001620
+        dim: 0x8
+        size: 0x4
+      dacnf:
+        address: 0x40001640
+        size: 0x4
+      modecnf0:
+        address: 0x40001650
+        size: 0x4
+      power:
+        address: 0x40001ffc
+        size: 0x4
+      
+  uart0:
+    description: Universal Asynchronous Receiver/Transmitter
+    perms: 0b011
+    base: 0x40002000
+    blocksize: 0x1000
+    registers:
+      tasks_startrx:
+        address: 0x40002000
+        size: 0x4
+      tasks_stoprx:
+        address: 0x40002004
+        size: 0x4
+      tasks_starttx:
+        address: 0x40002008
+        size: 0x4
+      tasks_stoptx:
+        address: 0x4000200c
+        size: 0x4
+      tasks_suspend:
+        address: 0x4000201c
+        size: 0x4
+      events_cts:
+        address: 0x40002100
+        size: 0x4
+      events_ncts:
+        address: 0x40002104
+        size: 0x4
+      events_rxdrdy:
+        address: 0x40002108
+        size: 0x4
+      events_txdrdy:
+        address: 0x4000211c
+        size: 0x4
+      events_error:
+        address: 0x40002124
+        size: 0x4
+      events_rxto:
+        address: 0x40002144
+        size: 0x4
+      shorts:
+        address: 0x40002200
+        size: 0x4
+      intenset:
+        address: 0x40002304
+        size: 0x4
+      intenclr:
+        address: 0x40002308
+        size: 0x4
+      errorsrc:
+        address: 0x40002480
+        size: 0x4
+      enable:
+        address: 0x40002500
+        size: 0x4
+      pselrts:
+        address: 0x40002508
+        size: 0x4
+      pseltxd:
+        address: 0x4000250c
+        size: 0x4
+      pselcts:
+        address: 0x40002510
+        size: 0x4
+      pselrxd:
+        address: 0x40002514
+        size: 0x4
+      rxd:
+        address: 0x40002518
+        size: 0x4
+      txd:
+        address: 0x4000251c
+        size: 0x4
+      baudrate:
+        address: 0x40002524
+        size: 0x4
+      config:
+        address: 0x4000256c
+        size: 0x4
+      
+  uarte0:
+    description: UART with EasyDMA
+    perms: 0b011
+    base: 0x40002000
+    blocksize: 0x1000
+    registers:
+      tasks_startrx:
+        address: 0x40002000
+        size: 0x4
+      tasks_stoprx:
+        address: 0x40002004
+        size: 0x4
+      tasks_starttx:
+        address: 0x40002008
+        size: 0x4
+      tasks_stoptx:
+        address: 0x4000200c
+        size: 0x4
+      tasks_flushrx:
+        address: 0x4000202c
+        size: 0x4
+      events_cts:
+        address: 0x40002100
+        size: 0x4
+      events_ncts:
+        address: 0x40002104
+        size: 0x4
+      events_rxdrdy:
+        address: 0x40002108
+        size: 0x4
+      events_endrx:
+        address: 0x40002110
+        size: 0x4
+      events_txdrdy:
+        address: 0x4000211c
+        size: 0x4
+      events_endtx:
+        address: 0x40002120
+        size: 0x4
+      events_error:
+        address: 0x40002124
+        size: 0x4
+      events_rxto:
+        address: 0x40002144
+        size: 0x4
+      events_rxstarted:
+        address: 0x4000214c
+        size: 0x4
+      events_txstarted:
+        address: 0x40002150
+        size: 0x4
+      events_txstopped:
+        address: 0x40002158
+        size: 0x4
+      shorts:
+        address: 0x40002200
+        size: 0x4
+      inten:
+        address: 0x40002300
+        size: 0x4
+      intenset:
+        address: 0x40002304
+        size: 0x4
+      intenclr:
+        address: 0x40002308
+        size: 0x4
+      errorsrc:
+        address: 0x40002480
+        size: 0x4
+      enable:
+        address: 0x40002500
+        size: 0x4
+      baudrate:
+        address: 0x40002524
+        size: 0x4
+      config:
+        address: 0x4000256c
+        size: 0x4
+      psel:
+        address: 0x40002508
+        size: 0x4
+      rxd:
+        address: 0x40002534
+        size: 0x4
+      txd:
+        address: 0x40002544
+        size: 0x4
+      
+  spi0:
+    description: Serial Peripheral Interface 0
+    perms: 0b011
+    base: 0x40003000
+    blocksize: 0x1000
+    registers:
+      events_ready:
+        address: 0x40003108
+        size: 0x4
+      intenset:
+        address: 0x40003304
+        size: 0x4
+      intenclr:
+        address: 0x40003308
+        size: 0x4
+      enable:
+        address: 0x40003500
+        size: 0x4
+      rxd:
+        address: 0x40003518
+        size: 0x4
+      txd:
+        address: 0x4000351c
+        size: 0x4
+      frequency:
+        address: 0x40003524
+        size: 0x4
+      config:
+        address: 0x40003554
+        size: 0x4
+      psel:
+        address: 0x40003508
+        size: 0x4
+      
+  spi1:
+    description: Serial Peripheral Interface 1
+    perms: 0b011
+    base: 0x40004000
+    blocksize: 0x1000
+    registers:
+      events_ready:
+        address: 0x40004108
+        size: 0x4
+      intenset:
+        address: 0x40004304
+        size: 0x4
+      intenclr:
+        address: 0x40004308
+        size: 0x4
+      enable:
+        address: 0x40004500
+        size: 0x4
+      rxd:
+        address: 0x40004518
+        size: 0x4
+      txd:
+        address: 0x4000451c
+        size: 0x4
+      frequency:
+        address: 0x40004524
+        size: 0x4
+      config:
+        address: 0x40004554
+        size: 0x4
+      psel:
+        address: 0x40004508
+        size: 0x4
+      
+  spi2:
+    description: Serial Peripheral Interface 2
+    perms: 0b011
+    base: 0x40023000
+    blocksize: 0x1000
+    registers:
+      events_ready:
+        address: 0x40023108
+        size: 0x4
+      intenset:
+        address: 0x40023304
+        size: 0x4
+      intenclr:
+        address: 0x40023308
+        size: 0x4
+      enable:
+        address: 0x40023500
+        size: 0x4
+      rxd:
+        address: 0x40023518
+        size: 0x4
+      txd:
+        address: 0x4002351c
+        size: 0x4
+      frequency:
+        address: 0x40023524
+        size: 0x4
+      config:
+        address: 0x40023554
+        size: 0x4
+      psel:
+        address: 0x40023508
+        size: 0x4
+      
+  spim0:
+    description: Serial Peripheral Interface Master with EasyDMA 0
+    perms: 0b011
+    base: 0x40003000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40003010
+        size: 0x4
+      tasks_stop:
+        address: 0x40003014
+        size: 0x4
+      tasks_suspend:
+        address: 0x4000301c
+        size: 0x4
+      tasks_resume:
+        address: 0x40003020
+        size: 0x4
+      events_stopped:
+        address: 0x40003104
+        size: 0x4
+      events_endrx:
+        address: 0x40003110
+        size: 0x4
+      events_end:
+        address: 0x40003118
+        size: 0x4
+      events_endtx:
+        address: 0x40003120
+        size: 0x4
+      events_started:
+        address: 0x4000314c
+        size: 0x4
+      shorts:
+        address: 0x40003200
+        size: 0x4
+      intenset:
+        address: 0x40003304
+        size: 0x4
+      intenclr:
+        address: 0x40003308
+        size: 0x4
+      enable:
+        address: 0x40003500
+        size: 0x4
+      frequency:
+        address: 0x40003524
+        size: 0x4
+      config:
+        address: 0x40003554
+        size: 0x4
+      orc:
+        address: 0x400035c0
+        size: 0x4
+      psel:
+        address: 0x40003508
+        size: 0x4
+      rxd:
+        address: 0x40003534
+        size: 0x4
+      txd:
+        address: 0x40003544
+        size: 0x4
+      
+  spim1:
+    description: Serial Peripheral Interface Master with EasyDMA 1
+    perms: 0b011
+    base: 0x40004000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40004010
+        size: 0x4
+      tasks_stop:
+        address: 0x40004014
+        size: 0x4
+      tasks_suspend:
+        address: 0x4000401c
+        size: 0x4
+      tasks_resume:
+        address: 0x40004020
+        size: 0x4
+      events_stopped:
+        address: 0x40004104
+        size: 0x4
+      events_endrx:
+        address: 0x40004110
+        size: 0x4
+      events_end:
+        address: 0x40004118
+        size: 0x4
+      events_endtx:
+        address: 0x40004120
+        size: 0x4
+      events_started:
+        address: 0x4000414c
+        size: 0x4
+      shorts:
+        address: 0x40004200
+        size: 0x4
+      intenset:
+        address: 0x40004304
+        size: 0x4
+      intenclr:
+        address: 0x40004308
+        size: 0x4
+      enable:
+        address: 0x40004500
+        size: 0x4
+      frequency:
+        address: 0x40004524
+        size: 0x4
+      config:
+        address: 0x40004554
+        size: 0x4
+      orc:
+        address: 0x400045c0
+        size: 0x4
+      psel:
+        address: 0x40004508
+        size: 0x4
+      rxd:
+        address: 0x40004534
+        size: 0x4
+      txd:
+        address: 0x40004544
+        size: 0x4
+      
+  spim2:
+    description: Serial Peripheral Interface Master with EasyDMA 2
+    perms: 0b011
+    base: 0x40023000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40023010
+        size: 0x4
+      tasks_stop:
+        address: 0x40023014
+        size: 0x4
+      tasks_suspend:
+        address: 0x4002301c
+        size: 0x4
+      tasks_resume:
+        address: 0x40023020
+        size: 0x4
+      events_stopped:
+        address: 0x40023104
+        size: 0x4
+      events_endrx:
+        address: 0x40023110
+        size: 0x4
+      events_end:
+        address: 0x40023118
+        size: 0x4
+      events_endtx:
+        address: 0x40023120
+        size: 0x4
+      events_started:
+        address: 0x4002314c
+        size: 0x4
+      shorts:
+        address: 0x40023200
+        size: 0x4
+      intenset:
+        address: 0x40023304
+        size: 0x4
+      intenclr:
+        address: 0x40023308
+        size: 0x4
+      enable:
+        address: 0x40023500
+        size: 0x4
+      frequency:
+        address: 0x40023524
+        size: 0x4
+      config:
+        address: 0x40023554
+        size: 0x4
+      orc:
+        address: 0x400235c0
+        size: 0x4
+      psel:
+        address: 0x40023508
+        size: 0x4
+      rxd:
+        address: 0x40023534
+        size: 0x4
+      txd:
+        address: 0x40023544
+        size: 0x4
+      
+  spis0:
+    description: SPI Slave 0
+    perms: 0b011
+    base: 0x40003000
+    blocksize: 0x1000
+    registers:
+      tasks_acquire:
+        address: 0x40003024
+        size: 0x4
+      tasks_release:
+        address: 0x40003028
+        size: 0x4
+      events_end:
+        address: 0x40003104
+        size: 0x4
+      events_endrx:
+        address: 0x40003110
+        size: 0x4
+      events_acquired:
+        address: 0x40003128
+        size: 0x4
+      shorts:
+        address: 0x40003200
+        size: 0x4
+      intenset:
+        address: 0x40003304
+        size: 0x4
+      intenclr:
+        address: 0x40003308
+        size: 0x4
+      semstat:
+        address: 0x40003400
+        size: 0x4
+      status:
+        address: 0x40003440
+        size: 0x4
+      enable:
+        address: 0x40003500
+        size: 0x4
+      config:
+        address: 0x40003554
+        size: 0x4
+      def:
+        address: 0x4000355c
+        size: 0x4
+      orc:
+        address: 0x400035c0
+        size: 0x4
+      psel:
+        address: 0x40003508
+        size: 0x4
+      rxd:
+        address: 0x40003534
+        size: 0x4
+      txd:
+        address: 0x40003544
+        size: 0x4
+      
+  spis1:
+    description: SPI Slave 1
+    perms: 0b011
+    base: 0x40004000
+    blocksize: 0x1000
+    registers:
+      tasks_acquire:
+        address: 0x40004024
+        size: 0x4
+      tasks_release:
+        address: 0x40004028
+        size: 0x4
+      events_end:
+        address: 0x40004104
+        size: 0x4
+      events_endrx:
+        address: 0x40004110
+        size: 0x4
+      events_acquired:
+        address: 0x40004128
+        size: 0x4
+      shorts:
+        address: 0x40004200
+        size: 0x4
+      intenset:
+        address: 0x40004304
+        size: 0x4
+      intenclr:
+        address: 0x40004308
+        size: 0x4
+      semstat:
+        address: 0x40004400
+        size: 0x4
+      status:
+        address: 0x40004440
+        size: 0x4
+      enable:
+        address: 0x40004500
+        size: 0x4
+      config:
+        address: 0x40004554
+        size: 0x4
+      def:
+        address: 0x4000455c
+        size: 0x4
+      orc:
+        address: 0x400045c0
+        size: 0x4
+      psel:
+        address: 0x40004508
+        size: 0x4
+      rxd:
+        address: 0x40004534
+        size: 0x4
+      txd:
+        address: 0x40004544
+        size: 0x4
+      
+  spis2:
+    description: SPI Slave 2
+    perms: 0b011
+    base: 0x40023000
+    blocksize: 0x1000
+    registers:
+      tasks_acquire:
+        address: 0x40023024
+        size: 0x4
+      tasks_release:
+        address: 0x40023028
+        size: 0x4
+      events_end:
+        address: 0x40023104
+        size: 0x4
+      events_endrx:
+        address: 0x40023110
+        size: 0x4
+      events_acquired:
+        address: 0x40023128
+        size: 0x4
+      shorts:
+        address: 0x40023200
+        size: 0x4
+      intenset:
+        address: 0x40023304
+        size: 0x4
+      intenclr:
+        address: 0x40023308
+        size: 0x4
+      semstat:
+        address: 0x40023400
+        size: 0x4
+      status:
+        address: 0x40023440
+        size: 0x4
+      enable:
+        address: 0x40023500
+        size: 0x4
+      config:
+        address: 0x40023554
+        size: 0x4
+      def:
+        address: 0x4002355c
+        size: 0x4
+      orc:
+        address: 0x400235c0
+        size: 0x4
+      psel:
+        address: 0x40023508
+        size: 0x4
+      rxd:
+        address: 0x40023534
+        size: 0x4
+      txd:
+        address: 0x40023544
+        size: 0x4
+      
+  twi0:
+    description: I2C compatible Two-Wire Interface 0
+    perms: 0b011
+    base: 0x40003000
+    blocksize: 0x1000
+    registers:
+      tasks_startrx:
+        address: 0x40003000
+        size: 0x4
+      tasks_starttx:
+        address: 0x40003008
+        size: 0x4
+      tasks_stop:
+        address: 0x40003014
+        size: 0x4
+      tasks_suspend:
+        address: 0x4000301c
+        size: 0x4
+      tasks_resume:
+        address: 0x40003020
+        size: 0x4
+      events_stopped:
+        address: 0x40003104
+        size: 0x4
+      events_rxdready:
+        address: 0x40003108
+        size: 0x4
+      events_txdsent:
+        address: 0x4000311c
+        size: 0x4
+      events_error:
+        address: 0x40003124
+        size: 0x4
+      events_bb:
+        address: 0x40003138
+        size: 0x4
+      events_suspended:
+        address: 0x40003148
+        size: 0x4
+      shorts:
+        address: 0x40003200
+        size: 0x4
+      intenset:
+        address: 0x40003304
+        size: 0x4
+      intenclr:
+        address: 0x40003308
+        size: 0x4
+      errorsrc:
+        address: 0x400034c4
+        size: 0x4
+      enable:
+        address: 0x40003500
+        size: 0x4
+      pselscl:
+        address: 0x40003508
+        size: 0x4
+      pselsda:
+        address: 0x4000350c
+        size: 0x4
+      rxd:
+        address: 0x40003518
+        size: 0x4
+      txd:
+        address: 0x4000351c
+        size: 0x4
+      frequency:
+        address: 0x40003524
+        size: 0x4
+      address:
+        address: 0x40003588
+        size: 0x4
+      
+  twi1:
+    description: I2C compatible Two-Wire Interface 1
+    perms: 0b011
+    base: 0x40004000
+    blocksize: 0x1000
+    registers:
+      tasks_startrx:
+        address: 0x40004000
+        size: 0x4
+      tasks_starttx:
+        address: 0x40004008
+        size: 0x4
+      tasks_stop:
+        address: 0x40004014
+        size: 0x4
+      tasks_suspend:
+        address: 0x4000401c
+        size: 0x4
+      tasks_resume:
+        address: 0x40004020
+        size: 0x4
+      events_stopped:
+        address: 0x40004104
+        size: 0x4
+      events_rxdready:
+        address: 0x40004108
+        size: 0x4
+      events_txdsent:
+        address: 0x4000411c
+        size: 0x4
+      events_error:
+        address: 0x40004124
+        size: 0x4
+      events_bb:
+        address: 0x40004138
+        size: 0x4
+      events_suspended:
+        address: 0x40004148
+        size: 0x4
+      shorts:
+        address: 0x40004200
+        size: 0x4
+      intenset:
+        address: 0x40004304
+        size: 0x4
+      intenclr:
+        address: 0x40004308
+        size: 0x4
+      errorsrc:
+        address: 0x400044c4
+        size: 0x4
+      enable:
+        address: 0x40004500
+        size: 0x4
+      pselscl:
+        address: 0x40004508
+        size: 0x4
+      pselsda:
+        address: 0x4000450c
+        size: 0x4
+      rxd:
+        address: 0x40004518
+        size: 0x4
+      txd:
+        address: 0x4000451c
+        size: 0x4
+      frequency:
+        address: 0x40004524
+        size: 0x4
+      address:
+        address: 0x40004588
+        size: 0x4
+      
+  twim0:
+    description: I2C compatible Two-Wire Master Interface with EasyDMA 0
+    perms: 0b011
+    base: 0x40003000
+    blocksize: 0x1000
+    registers:
+      tasks_startrx:
+        address: 0x40003000
+        size: 0x4
+      tasks_starttx:
+        address: 0x40003008
+        size: 0x4
+      tasks_stop:
+        address: 0x40003014
+        size: 0x4
+      tasks_suspend:
+        address: 0x4000301c
+        size: 0x4
+      tasks_resume:
+        address: 0x40003020
+        size: 0x4
+      events_stopped:
+        address: 0x40003104
+        size: 0x4
+      events_error:
+        address: 0x40003124
+        size: 0x4
+      events_suspended:
+        address: 0x40003148
+        size: 0x4
+      events_rxstarted:
+        address: 0x4000314c
+        size: 0x4
+      events_txstarted:
+        address: 0x40003150
+        size: 0x4
+      events_lastrx:
+        address: 0x4000315c
+        size: 0x4
+      events_lasttx:
+        address: 0x40003160
+        size: 0x4
+      shorts:
+        address: 0x40003200
+        size: 0x4
+      inten:
+        address: 0x40003300
+        size: 0x4
+      intenset:
+        address: 0x40003304
+        size: 0x4
+      intenclr:
+        address: 0x40003308
+        size: 0x4
+      errorsrc:
+        address: 0x400034c4
+        size: 0x4
+      enable:
+        address: 0x40003500
+        size: 0x4
+      frequency:
+        address: 0x40003524
+        size: 0x4
+      address:
+        address: 0x40003588
+        size: 0x4
+      psel:
+        address: 0x40003508
+        size: 0x4
+      rxd:
+        address: 0x40003534
+        size: 0x4
+      txd:
+        address: 0x40003544
+        size: 0x4
+      
+  twim1:
+    description: I2C compatible Two-Wire Master Interface with EasyDMA 1
+    perms: 0b011
+    base: 0x40004000
+    blocksize: 0x1000
+    registers:
+      tasks_startrx:
+        address: 0x40004000
+        size: 0x4
+      tasks_starttx:
+        address: 0x40004008
+        size: 0x4
+      tasks_stop:
+        address: 0x40004014
+        size: 0x4
+      tasks_suspend:
+        address: 0x4000401c
+        size: 0x4
+      tasks_resume:
+        address: 0x40004020
+        size: 0x4
+      events_stopped:
+        address: 0x40004104
+        size: 0x4
+      events_error:
+        address: 0x40004124
+        size: 0x4
+      events_suspended:
+        address: 0x40004148
+        size: 0x4
+      events_rxstarted:
+        address: 0x4000414c
+        size: 0x4
+      events_txstarted:
+        address: 0x40004150
+        size: 0x4
+      events_lastrx:
+        address: 0x4000415c
+        size: 0x4
+      events_lasttx:
+        address: 0x40004160
+        size: 0x4
+      shorts:
+        address: 0x40004200
+        size: 0x4
+      inten:
+        address: 0x40004300
+        size: 0x4
+      intenset:
+        address: 0x40004304
+        size: 0x4
+      intenclr:
+        address: 0x40004308
+        size: 0x4
+      errorsrc:
+        address: 0x400044c4
+        size: 0x4
+      enable:
+        address: 0x40004500
+        size: 0x4
+      frequency:
+        address: 0x40004524
+        size: 0x4
+      address:
+        address: 0x40004588
+        size: 0x4
+      psel:
+        address: 0x40004508
+        size: 0x4
+      rxd:
+        address: 0x40004534
+        size: 0x4
+      txd:
+        address: 0x40004544
+        size: 0x4
+      
+  twis0:
+    description: I2C compatible Two-Wire Slave Interface with EasyDMA 0
+    perms: 0b011
+    base: 0x40003000
+    blocksize: 0x1000
+    registers:
+      tasks_stop:
+        address: 0x40003014
+        size: 0x4
+      tasks_suspend:
+        address: 0x4000301c
+        size: 0x4
+      tasks_resume:
+        address: 0x40003020
+        size: 0x4
+      tasks_preparerx:
+        address: 0x40003030
+        size: 0x4
+      tasks_preparetx:
+        address: 0x40003034
+        size: 0x4
+      events_stopped:
+        address: 0x40003104
+        size: 0x4
+      events_error:
+        address: 0x40003124
+        size: 0x4
+      events_rxstarted:
+        address: 0x4000314c
+        size: 0x4
+      events_txstarted:
+        address: 0x40003150
+        size: 0x4
+      events_write:
+        address: 0x40003164
+        size: 0x4
+      events_read:
+        address: 0x40003168
+        size: 0x4
+      shorts:
+        address: 0x40003200
+        size: 0x4
+      inten:
+        address: 0x40003300
+        size: 0x4
+      intenset:
+        address: 0x40003304
+        size: 0x4
+      intenclr:
+        address: 0x40003308
+        size: 0x4
+      errorsrc:
+        address: 0x400034d0
+        size: 0x4
+      match:
+        address: 0x400034d4
+        size: 0x4
+      enable:
+        address: 0x40003500
+        size: 0x4
+      address:
+        address: 0x40003588
+        dim: 0x2
+        size: 0x4
+      config:
+        address: 0x40003594
+        size: 0x4
+      orc:
+        address: 0x400035c0
+        size: 0x4
+      psel:
+        address: 0x40003508
+        size: 0x4
+      rxd:
+        address: 0x40003534
+        size: 0x4
+      txd:
+        address: 0x40003544
+        size: 0x4
+      
+  twis1:
+    description: I2C compatible Two-Wire Slave Interface with EasyDMA 1
+    perms: 0b011
+    base: 0x40004000
+    blocksize: 0x1000
+    registers:
+      tasks_stop:
+        address: 0x40004014
+        size: 0x4
+      tasks_suspend:
+        address: 0x4000401c
+        size: 0x4
+      tasks_resume:
+        address: 0x40004020
+        size: 0x4
+      tasks_preparerx:
+        address: 0x40004030
+        size: 0x4
+      tasks_preparetx:
+        address: 0x40004034
+        size: 0x4
+      events_stopped:
+        address: 0x40004104
+        size: 0x4
+      events_error:
+        address: 0x40004124
+        size: 0x4
+      events_rxstarted:
+        address: 0x4000414c
+        size: 0x4
+      events_txstarted:
+        address: 0x40004150
+        size: 0x4
+      events_write:
+        address: 0x40004164
+        size: 0x4
+      events_read:
+        address: 0x40004168
+        size: 0x4
+      shorts:
+        address: 0x40004200
+        size: 0x4
+      inten:
+        address: 0x40004300
+        size: 0x4
+      intenset:
+        address: 0x40004304
+        size: 0x4
+      intenclr:
+        address: 0x40004308
+        size: 0x4
+      errorsrc:
+        address: 0x400044d0
+        size: 0x4
+      match:
+        address: 0x400044d4
+        size: 0x4
+      enable:
+        address: 0x40004500
+        size: 0x4
+      address:
+        address: 0x40004588
+        dim: 0x2
+        size: 0x4
+      config:
+        address: 0x40004594
+        size: 0x4
+      orc:
+        address: 0x400045c0
+        size: 0x4
+      psel:
+        address: 0x40004508
+        size: 0x4
+      rxd:
+        address: 0x40004534
+        size: 0x4
+      txd:
+        address: 0x40004544
+        size: 0x4
+      
+  nfct:
+    description: NFC-A compatible radio
+    perms: 0b011
+    base: 0x40005000
+    blocksize: 0x1000
+    registers:
+      tasks_activate:
+        address: 0x40005000
+        size: 0x4
+      tasks_disable:
+        address: 0x40005004
+        size: 0x4
+      tasks_sense:
+        address: 0x40005008
+        size: 0x4
+      tasks_starttx:
+        address: 0x4000500c
+        size: 0x4
+      tasks_enablerxdata:
+        address: 0x4000501c
+        size: 0x4
+      tasks_goidle:
+        address: 0x40005024
+        size: 0x4
+      tasks_gosleep:
+        address: 0x40005028
+        size: 0x4
+      events_ready:
+        address: 0x40005100
+        size: 0x4
+      events_fielddetected:
+        address: 0x40005104
+        size: 0x4
+      events_fieldlost:
+        address: 0x40005108
+        size: 0x4
+      events_txframestart:
+        address: 0x4000510c
+        size: 0x4
+      events_txframeend:
+        address: 0x40005110
+        size: 0x4
+      events_rxframestart:
+        address: 0x40005114
+        size: 0x4
+      events_rxframeend:
+        address: 0x40005118
+        size: 0x4
+      events_error:
+        address: 0x4000511c
+        size: 0x4
+      events_rxerror:
+        address: 0x40005128
+        size: 0x4
+      events_endrx:
+        address: 0x4000512c
+        size: 0x4
+      events_endtx:
+        address: 0x40005130
+        size: 0x4
+      events_autocolresstarted:
+        address: 0x40005138
+        size: 0x4
+      events_collision:
+        address: 0x40005148
+        size: 0x4
+      events_selected:
+        address: 0x4000514c
+        size: 0x4
+      events_started:
+        address: 0x40005150
+        size: 0x4
+      shorts:
+        address: 0x40005200
+        size: 0x4
+      inten:
+        address: 0x40005300
+        size: 0x4
+      intenset:
+        address: 0x40005304
+        size: 0x4
+      intenclr:
+        address: 0x40005308
+        size: 0x4
+      errorstatus:
+        address: 0x40005404
+        size: 0x4
+      currentloadctrl:
+        address: 0x40005430
+        size: 0x4
+      fieldpresent:
+        address: 0x4000543c
+        size: 0x4
+      framedelaymin:
+        address: 0x40005504
+        size: 0x4
+      framedelaymax:
+        address: 0x40005508
+        size: 0x4
+      framedelaymode:
+        address: 0x4000550c
+        size: 0x4
+      packetptr:
+        address: 0x40005510
+        size: 0x4
+      maxlen:
+        address: 0x40005514
+        size: 0x4
+      nfcid1_last:
+        address: 0x40005590
+        size: 0x4
+      nfcid1_2nd_last:
+        address: 0x40005594
+        size: 0x4
+      nfcid1_3rd_last:
+        address: 0x40005598
+        size: 0x4
+      sensres:
+        address: 0x400055a0
+        size: 0x4
+      selres:
+        address: 0x400055a4
+        size: 0x4
+      framestatus:
+        address: 0x4000540c
+        size: 0x4
+      txd:
+        address: 0x40005518
+        size: 0x4
+      rxd:
+        address: 0x40005520
+        size: 0x4
+      
+  gpiote:
+    description: GPIO Tasks and Events
+    perms: 0b011
+    base: 0x40006000
+    blocksize: 0x1000
+    registers:
+      tasks_out:
+        address: 0x40006000
+        dim: 0x8
+        size: 0x4
+      tasks_set:
+        address: 0x40006030
+        dim: 0x8
+        size: 0x4
+      tasks_clr:
+        address: 0x40006060
+        dim: 0x8
+        size: 0x4
+      events_in:
+        address: 0x40006100
+        dim: 0x8
+        size: 0x4
+      events_port:
+        address: 0x4000617c
+        size: 0x4
+      intenset:
+        address: 0x40006304
+        size: 0x4
+      intenclr:
+        address: 0x40006308
+        size: 0x4
+      config:
+        address: 0x40006510
+        dim: 0x8
+        size: 0x4
+      
+  saadc:
+    description: Analog to Digital Converter
+    perms: 0b011
+    base: 0x40007000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40007000
+        size: 0x4
+      tasks_sample:
+        address: 0x40007004
+        size: 0x4
+      tasks_stop:
+        address: 0x40007008
+        size: 0x4
+      tasks_calibrateoffset:
+        address: 0x4000700c
+        size: 0x4
+      events_started:
+        address: 0x40007100
+        size: 0x4
+      events_end:
+        address: 0x40007104
+        size: 0x4
+      events_done:
+        address: 0x40007108
+        size: 0x4
+      events_resultdone:
+        address: 0x4000710c
+        size: 0x4
+      events_calibratedone:
+        address: 0x40007110
+        size: 0x4
+      events_stopped:
+        address: 0x40007114
+        size: 0x4
+      inten:
+        address: 0x40007300
+        size: 0x4
+      intenset:
+        address: 0x40007304
+        size: 0x4
+      intenclr:
+        address: 0x40007308
+        size: 0x4
+      status:
+        address: 0x40007400
+        size: 0x4
+      enable:
+        address: 0x40007500
+        size: 0x4
+      resolution:
+        address: 0x400075f0
+        size: 0x4
+      oversample:
+        address: 0x400075f4
+        size: 0x4
+      samplerate:
+        address: 0x400075f8
+        size: 0x4
+      events_ch:
+        address: 0x40007118
+        dim: 0x8
+        size: 0x8
+      ch:
+        address: 0x40007510
+        dim: 0x8
+        size: 0x10
+      result:
+        address: 0x4000762c
+        size: 0x4
+      
+  timer0:
+    description: Timer/Counter 0
+    perms: 0b011
+    base: 0x40008000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40008000
+        size: 0x4
+      tasks_stop:
+        address: 0x40008004
+        size: 0x4
+      tasks_count:
+        address: 0x40008008
+        size: 0x4
+      tasks_clear:
+        address: 0x4000800c
+        size: 0x4
+      tasks_shutdown:
+        address: 0x40008010
+        size: 0x4
+      tasks_capture:
+        address: 0x40008040
+        dim: 0x6
+        size: 0x4
+      events_compare:
+        address: 0x40008140
+        dim: 0x6
+        size: 0x4
+      shorts:
+        address: 0x40008200
+        size: 0x4
+      intenset:
+        address: 0x40008304
+        size: 0x4
+      intenclr:
+        address: 0x40008308
+        size: 0x4
+      mode:
+        address: 0x40008504
+        size: 0x4
+      bitmode:
+        address: 0x40008508
+        size: 0x4
+      prescaler:
+        address: 0x40008510
+        size: 0x4
+      cc:
+        address: 0x40008540
+        dim: 0x6
+        size: 0x4
+      
+  timer1:
+    description: Timer/Counter 1
+    perms: 0b011
+    base: 0x40009000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40009000
+        size: 0x4
+      tasks_stop:
+        address: 0x40009004
+        size: 0x4
+      tasks_count:
+        address: 0x40009008
+        size: 0x4
+      tasks_clear:
+        address: 0x4000900c
+        size: 0x4
+      tasks_shutdown:
+        address: 0x40009010
+        size: 0x4
+      tasks_capture:
+        address: 0x40009040
+        dim: 0x6
+        size: 0x4
+      events_compare:
+        address: 0x40009140
+        dim: 0x6
+        size: 0x4
+      shorts:
+        address: 0x40009200
+        size: 0x4
+      intenset:
+        address: 0x40009304
+        size: 0x4
+      intenclr:
+        address: 0x40009308
+        size: 0x4
+      mode:
+        address: 0x40009504
+        size: 0x4
+      bitmode:
+        address: 0x40009508
+        size: 0x4
+      prescaler:
+        address: 0x40009510
+        size: 0x4
+      cc:
+        address: 0x40009540
+        dim: 0x6
+        size: 0x4
+      
+  timer2:
+    description: Timer/Counter 2
+    perms: 0b011
+    base: 0x4000a000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x4000a000
+        size: 0x4
+      tasks_stop:
+        address: 0x4000a004
+        size: 0x4
+      tasks_count:
+        address: 0x4000a008
+        size: 0x4
+      tasks_clear:
+        address: 0x4000a00c
+        size: 0x4
+      tasks_shutdown:
+        address: 0x4000a010
+        size: 0x4
+      tasks_capture:
+        address: 0x4000a040
+        dim: 0x6
+        size: 0x4
+      events_compare:
+        address: 0x4000a140
+        dim: 0x6
+        size: 0x4
+      shorts:
+        address: 0x4000a200
+        size: 0x4
+      intenset:
+        address: 0x4000a304
+        size: 0x4
+      intenclr:
+        address: 0x4000a308
+        size: 0x4
+      mode:
+        address: 0x4000a504
+        size: 0x4
+      bitmode:
+        address: 0x4000a508
+        size: 0x4
+      prescaler:
+        address: 0x4000a510
+        size: 0x4
+      cc:
+        address: 0x4000a540
+        dim: 0x6
+        size: 0x4
+      
+  timer3:
+    description: Timer/Counter 3
+    perms: 0b011
+    base: 0x4001a000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x4001a000
+        size: 0x4
+      tasks_stop:
+        address: 0x4001a004
+        size: 0x4
+      tasks_count:
+        address: 0x4001a008
+        size: 0x4
+      tasks_clear:
+        address: 0x4001a00c
+        size: 0x4
+      tasks_shutdown:
+        address: 0x4001a010
+        size: 0x4
+      tasks_capture:
+        address: 0x4001a040
+        dim: 0x6
+        size: 0x4
+      events_compare:
+        address: 0x4001a140
+        dim: 0x6
+        size: 0x4
+      shorts:
+        address: 0x4001a200
+        size: 0x4
+      intenset:
+        address: 0x4001a304
+        size: 0x4
+      intenclr:
+        address: 0x4001a308
+        size: 0x4
+      mode:
+        address: 0x4001a504
+        size: 0x4
+      bitmode:
+        address: 0x4001a508
+        size: 0x4
+      prescaler:
+        address: 0x4001a510
+        size: 0x4
+      cc:
+        address: 0x4001a540
+        dim: 0x6
+        size: 0x4
+      
+  timer4:
+    description: Timer/Counter 4
+    perms: 0b011
+    base: 0x4001b000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x4001b000
+        size: 0x4
+      tasks_stop:
+        address: 0x4001b004
+        size: 0x4
+      tasks_count:
+        address: 0x4001b008
+        size: 0x4
+      tasks_clear:
+        address: 0x4001b00c
+        size: 0x4
+      tasks_shutdown:
+        address: 0x4001b010
+        size: 0x4
+      tasks_capture:
+        address: 0x4001b040
+        dim: 0x6
+        size: 0x4
+      events_compare:
+        address: 0x4001b140
+        dim: 0x6
+        size: 0x4
+      shorts:
+        address: 0x4001b200
+        size: 0x4
+      intenset:
+        address: 0x4001b304
+        size: 0x4
+      intenclr:
+        address: 0x4001b308
+        size: 0x4
+      mode:
+        address: 0x4001b504
+        size: 0x4
+      bitmode:
+        address: 0x4001b508
+        size: 0x4
+      prescaler:
+        address: 0x4001b510
+        size: 0x4
+      cc:
+        address: 0x4001b540
+        dim: 0x6
+        size: 0x4
+      
+  rtc0:
+    description: Real time counter 0
+    perms: 0b011
+    base: 0x4000b000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x4000b000
+        size: 0x4
+      tasks_stop:
+        address: 0x4000b004
+        size: 0x4
+      tasks_clear:
+        address: 0x4000b008
+        size: 0x4
+      tasks_trigovrflw:
+        address: 0x4000b00c
+        size: 0x4
+      events_tick:
+        address: 0x4000b100
+        size: 0x4
+      events_ovrflw:
+        address: 0x4000b104
+        size: 0x4
+      events_compare:
+        address: 0x4000b140
+        dim: 0x4
+        size: 0x4
+      intenset:
+        address: 0x4000b304
+        size: 0x4
+      intenclr:
+        address: 0x4000b308
+        size: 0x4
+      evten:
+        address: 0x4000b340
+        size: 0x4
+      evtenset:
+        address: 0x4000b344
+        size: 0x4
+      evtenclr:
+        address: 0x4000b348
+        size: 0x4
+      counter:
+        address: 0x4000b504
+        size: 0x4
+      prescaler:
+        address: 0x4000b508
+        size: 0x4
+      cc:
+        address: 0x4000b540
+        dim: 0x4
+        size: 0x4
+      
+  rtc1:
+    description: Real time counter 1
+    perms: 0b011
+    base: 0x40011000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40011000
+        size: 0x4
+      tasks_stop:
+        address: 0x40011004
+        size: 0x4
+      tasks_clear:
+        address: 0x40011008
+        size: 0x4
+      tasks_trigovrflw:
+        address: 0x4001100c
+        size: 0x4
+      events_tick:
+        address: 0x40011100
+        size: 0x4
+      events_ovrflw:
+        address: 0x40011104
+        size: 0x4
+      events_compare:
+        address: 0x40011140
+        dim: 0x4
+        size: 0x4
+      intenset:
+        address: 0x40011304
+        size: 0x4
+      intenclr:
+        address: 0x40011308
+        size: 0x4
+      evten:
+        address: 0x40011340
+        size: 0x4
+      evtenset:
+        address: 0x40011344
+        size: 0x4
+      evtenclr:
+        address: 0x40011348
+        size: 0x4
+      counter:
+        address: 0x40011504
+        size: 0x4
+      prescaler:
+        address: 0x40011508
+        size: 0x4
+      cc:
+        address: 0x40011540
+        dim: 0x4
+        size: 0x4
+      
+  rtc2:
+    description: Real time counter 2
+    perms: 0b011
+    base: 0x40024000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40024000
+        size: 0x4
+      tasks_stop:
+        address: 0x40024004
+        size: 0x4
+      tasks_clear:
+        address: 0x40024008
+        size: 0x4
+      tasks_trigovrflw:
+        address: 0x4002400c
+        size: 0x4
+      events_tick:
+        address: 0x40024100
+        size: 0x4
+      events_ovrflw:
+        address: 0x40024104
+        size: 0x4
+      events_compare:
+        address: 0x40024140
+        dim: 0x4
+        size: 0x4
+      intenset:
+        address: 0x40024304
+        size: 0x4
+      intenclr:
+        address: 0x40024308
+        size: 0x4
+      evten:
+        address: 0x40024340
+        size: 0x4
+      evtenset:
+        address: 0x40024344
+        size: 0x4
+      evtenclr:
+        address: 0x40024348
+        size: 0x4
+      counter:
+        address: 0x40024504
+        size: 0x4
+      prescaler:
+        address: 0x40024508
+        size: 0x4
+      cc:
+        address: 0x40024540
+        dim: 0x4
+        size: 0x4
+      
+  temp:
+    description: Temperature Sensor
+    perms: 0b011
+    base: 0x4000c000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x4000c000
+        size: 0x4
+      tasks_stop:
+        address: 0x4000c004
+        size: 0x4
+      events_datardy:
+        address: 0x4000c100
+        size: 0x4
+      intenset:
+        address: 0x4000c304
+        size: 0x4
+      intenclr:
+        address: 0x4000c308
+        size: 0x4
+      temp:
+        address: 0x4000c508
+        size: 0x4
+      a0:
+        address: 0x4000c520
+        size: 0x4
+      a1:
+        address: 0x4000c524
+        size: 0x4
+      a2:
+        address: 0x4000c528
+        size: 0x4
+      a3:
+        address: 0x4000c52c
+        size: 0x4
+      a4:
+        address: 0x4000c530
+        size: 0x4
+      a5:
+        address: 0x4000c534
+        size: 0x4
+      b0:
+        address: 0x4000c540
+        size: 0x4
+      b1:
+        address: 0x4000c544
+        size: 0x4
+      b2:
+        address: 0x4000c548
+        size: 0x4
+      b3:
+        address: 0x4000c54c
+        size: 0x4
+      b4:
+        address: 0x4000c550
+        size: 0x4
+      b5:
+        address: 0x4000c554
+        size: 0x4
+      t0:
+        address: 0x4000c560
+        size: 0x4
+      t1:
+        address: 0x4000c564
+        size: 0x4
+      t2:
+        address: 0x4000c568
+        size: 0x4
+      t3:
+        address: 0x4000c56c
+        size: 0x4
+      t4:
+        address: 0x4000c570
+        size: 0x4
+      
+  rng:
+    description: Random Number Generator
+    perms: 0b011
+    base: 0x4000d000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x4000d000
+        size: 0x4
+      tasks_stop:
+        address: 0x4000d004
+        size: 0x4
+      events_valrdy:
+        address: 0x4000d100
+        size: 0x4
+      shorts:
+        address: 0x4000d200
+        size: 0x4
+      intenset:
+        address: 0x4000d304
+        size: 0x4
+      intenclr:
+        address: 0x4000d308
+        size: 0x4
+      config:
+        address: 0x4000d504
+        size: 0x4
+      value:
+        address: 0x4000d508
+        size: 0x4
+      
+  ecb:
+    description: AES ECB Mode Encryption
+    perms: 0b011
+    base: 0x4000e000
+    blocksize: 0x1000
+    registers:
+      tasks_startecb:
+        address: 0x4000e000
+        size: 0x4
+      tasks_stopecb:
+        address: 0x4000e004
+        size: 0x4
+      events_endecb:
+        address: 0x4000e100
+        size: 0x4
+      events_errorecb:
+        address: 0x4000e104
+        size: 0x4
+      intenset:
+        address: 0x4000e304
+        size: 0x4
+      intenclr:
+        address: 0x4000e308
+        size: 0x4
+      ecbdataptr:
+        address: 0x4000e504
+        size: 0x4
+      
+  aar:
+    description: Accelerated Address Resolver
+    perms: 0b011
+    base: 0x4000f000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x4000f000
+        size: 0x4
+      tasks_stop:
+        address: 0x4000f008
+        size: 0x4
+      events_end:
+        address: 0x4000f100
+        size: 0x4
+      events_resolved:
+        address: 0x4000f104
+        size: 0x4
+      events_notresolved:
+        address: 0x4000f108
+        size: 0x4
+      intenset:
+        address: 0x4000f304
+        size: 0x4
+      intenclr:
+        address: 0x4000f308
+        size: 0x4
+      status:
+        address: 0x4000f400
+        size: 0x4
+      enable:
+        address: 0x4000f500
+        size: 0x4
+      nirk:
+        address: 0x4000f504
+        size: 0x4
+      irkptr:
+        address: 0x4000f508
+        size: 0x4
+      addrptr:
+        address: 0x4000f510
+        size: 0x4
+      scratchptr:
+        address: 0x4000f514
+        size: 0x4
+      
+  ccm:
+    description: AES CCM Mode Encryption
+    perms: 0b011
+    base: 0x4000f000
+    blocksize: 0x1000
+    registers:
+      tasks_ksgen:
+        address: 0x4000f000
+        size: 0x4
+      tasks_crypt:
+        address: 0x4000f004
+        size: 0x4
+      tasks_stop:
+        address: 0x4000f008
+        size: 0x4
+      events_endksgen:
+        address: 0x4000f100
+        size: 0x4
+      events_endcrypt:
+        address: 0x4000f104
+        size: 0x4
+      events_error:
+        address: 0x4000f108
+        size: 0x4
+      shorts:
+        address: 0x4000f200
+        size: 0x4
+      intenset:
+        address: 0x4000f304
+        size: 0x4
+      intenclr:
+        address: 0x4000f308
+        size: 0x4
+      micstatus:
+        address: 0x4000f400
+        size: 0x4
+      enable:
+        address: 0x4000f500
+        size: 0x4
+      mode:
+        address: 0x4000f504
+        size: 0x4
+      cnfptr:
+        address: 0x4000f508
+        size: 0x4
+      inptr:
+        address: 0x4000f50c
+        size: 0x4
+      outptr:
+        address: 0x4000f510
+        size: 0x4
+      scratchptr:
+        address: 0x4000f514
+        size: 0x4
+      
+  wdt:
+    description: Watchdog Timer
+    perms: 0b011
+    base: 0x40010000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40010000
+        size: 0x4
+      events_timeout:
+        address: 0x40010100
+        size: 0x4
+      intenset:
+        address: 0x40010304
+        size: 0x4
+      intenclr:
+        address: 0x40010308
+        size: 0x4
+      runstatus:
+        address: 0x40010400
+        size: 0x4
+      reqstatus:
+        address: 0x40010404
+        size: 0x4
+      crv:
+        address: 0x40010504
+        size: 0x4
+      rren:
+        address: 0x40010508
+        size: 0x4
+      config:
+        address: 0x4001050c
+        size: 0x4
+      rr:
+        address: 0x40010600
+        dim: 0x8
+        size: 0x4
+      
+  qdec:
+    description: Quadrature Decoder
+    perms: 0b011
+    base: 0x40012000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40012000
+        size: 0x4
+      tasks_stop:
+        address: 0x40012004
+        size: 0x4
+      tasks_readclracc:
+        address: 0x40012008
+        size: 0x4
+      tasks_rdclracc:
+        address: 0x4001200c
+        size: 0x4
+      tasks_rdclrdbl:
+        address: 0x40012010
+        size: 0x4
+      events_samplerdy:
+        address: 0x40012100
+        size: 0x4
+      events_reportrdy:
+        address: 0x40012104
+        size: 0x4
+      events_accof:
+        address: 0x40012108
+        size: 0x4
+      events_dblrdy:
+        address: 0x4001210c
+        size: 0x4
+      events_stopped:
+        address: 0x40012110
+        size: 0x4
+      shorts:
+        address: 0x40012200
+        size: 0x4
+      intenset:
+        address: 0x40012304
+        size: 0x4
+      intenclr:
+        address: 0x40012308
+        size: 0x4
+      enable:
+        address: 0x40012500
+        size: 0x4
+      ledpol:
+        address: 0x40012504
+        size: 0x4
+      sampleper:
+        address: 0x40012508
+        size: 0x4
+      sample:
+        address: 0x4001250c
+        size: 0x4
+      reportper:
+        address: 0x40012510
+        size: 0x4
+      acc:
+        address: 0x40012514
+        size: 0x4
+      accread:
+        address: 0x40012518
+        size: 0x4
+      dbfen:
+        address: 0x40012528
+        size: 0x4
+      ledpre:
+        address: 0x40012540
+        size: 0x4
+      accdbl:
+        address: 0x40012544
+        size: 0x4
+      accdblread:
+        address: 0x40012548
+        size: 0x4
+      psel:
+        address: 0x4001251c
+        size: 0x4
+      
+  comp:
+    description: Comparator
+    perms: 0b011
+    base: 0x40013000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40013000
+        size: 0x4
+      tasks_stop:
+        address: 0x40013004
+        size: 0x4
+      tasks_sample:
+        address: 0x40013008
+        size: 0x4
+      events_ready:
+        address: 0x40013100
+        size: 0x4
+      events_down:
+        address: 0x40013104
+        size: 0x4
+      events_up:
+        address: 0x40013108
+        size: 0x4
+      events_cross:
+        address: 0x4001310c
+        size: 0x4
+      shorts:
+        address: 0x40013200
+        size: 0x4
+      inten:
+        address: 0x40013300
+        size: 0x4
+      intenset:
+        address: 0x40013304
+        size: 0x4
+      intenclr:
+        address: 0x40013308
+        size: 0x4
+      result:
+        address: 0x40013400
+        size: 0x4
+      enable:
+        address: 0x40013500
+        size: 0x4
+      psel:
+        address: 0x40013504
+        size: 0x4
+      refsel:
+        address: 0x40013508
+        size: 0x4
+      extrefsel:
+        address: 0x4001350c
+        size: 0x4
+      th:
+        address: 0x40013530
+        size: 0x4
+      mode:
+        address: 0x40013534
+        size: 0x4
+      hyst:
+        address: 0x40013538
+        size: 0x4
+      isource:
+        address: 0x4001353c
+        size: 0x4
+      
+  lpcomp:
+    description: Low Power Comparator
+    perms: 0b011
+    base: 0x40013000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40013000
+        size: 0x4
+      tasks_stop:
+        address: 0x40013004
+        size: 0x4
+      tasks_sample:
+        address: 0x40013008
+        size: 0x4
+      events_ready:
+        address: 0x40013100
+        size: 0x4
+      events_down:
+        address: 0x40013104
+        size: 0x4
+      events_up:
+        address: 0x40013108
+        size: 0x4
+      events_cross:
+        address: 0x4001310c
+        size: 0x4
+      shorts:
+        address: 0x40013200
+        size: 0x4
+      intenset:
+        address: 0x40013304
+        size: 0x4
+      intenclr:
+        address: 0x40013308
+        size: 0x4
+      result:
+        address: 0x40013400
+        size: 0x4
+      enable:
+        address: 0x40013500
+        size: 0x4
+      psel:
+        address: 0x40013504
+        size: 0x4
+      refsel:
+        address: 0x40013508
+        size: 0x4
+      extrefsel:
+        address: 0x4001350c
+        size: 0x4
+      anadetect:
+        address: 0x40013520
+        size: 0x4
+      hyst:
+        address: 0x40013538
+        size: 0x4
+      
+  egu0:
+    description: Event Generator Unit 0
+    perms: 0b011
+    base: 0x40014000
+    blocksize: 0x1000
+    registers:
+      tasks_trigger:
+        address: 0x40014000
+        dim: 0x10
+        size: 0x4
+      events_triggered:
+        address: 0x40014100
+        dim: 0x10
+        size: 0x4
+      inten:
+        address: 0x40014300
+        size: 0x4
+      intenset:
+        address: 0x40014304
+        size: 0x4
+      intenclr:
+        address: 0x40014308
+        size: 0x4
+      
+  egu1:
+    description: Event Generator Unit 1
+    perms: 0b011
+    base: 0x40015000
+    blocksize: 0x1000
+    registers:
+      tasks_trigger:
+        address: 0x40015000
+        dim: 0x10
+        size: 0x4
+      events_triggered:
+        address: 0x40015100
+        dim: 0x10
+        size: 0x4
+      inten:
+        address: 0x40015300
+        size: 0x4
+      intenset:
+        address: 0x40015304
+        size: 0x4
+      intenclr:
+        address: 0x40015308
+        size: 0x4
+      
+  egu2:
+    description: Event Generator Unit 2
+    perms: 0b011
+    base: 0x40016000
+    blocksize: 0x1000
+    registers:
+      tasks_trigger:
+        address: 0x40016000
+        dim: 0x10
+        size: 0x4
+      events_triggered:
+        address: 0x40016100
+        dim: 0x10
+        size: 0x4
+      inten:
+        address: 0x40016300
+        size: 0x4
+      intenset:
+        address: 0x40016304
+        size: 0x4
+      intenclr:
+        address: 0x40016308
+        size: 0x4
+      
+  egu3:
+    description: Event Generator Unit 3
+    perms: 0b011
+    base: 0x40017000
+    blocksize: 0x1000
+    registers:
+      tasks_trigger:
+        address: 0x40017000
+        dim: 0x10
+        size: 0x4
+      events_triggered:
+        address: 0x40017100
+        dim: 0x10
+        size: 0x4
+      inten:
+        address: 0x40017300
+        size: 0x4
+      intenset:
+        address: 0x40017304
+        size: 0x4
+      intenclr:
+        address: 0x40017308
+        size: 0x4
+      
+  egu4:
+    description: Event Generator Unit 4
+    perms: 0b011
+    base: 0x40018000
+    blocksize: 0x1000
+    registers:
+      tasks_trigger:
+        address: 0x40018000
+        dim: 0x10
+        size: 0x4
+      events_triggered:
+        address: 0x40018100
+        dim: 0x10
+        size: 0x4
+      inten:
+        address: 0x40018300
+        size: 0x4
+      intenset:
+        address: 0x40018304
+        size: 0x4
+      intenclr:
+        address: 0x40018308
+        size: 0x4
+      
+  egu5:
+    description: Event Generator Unit 5
+    perms: 0b011
+    base: 0x40019000
+    blocksize: 0x1000
+    registers:
+      tasks_trigger:
+        address: 0x40019000
+        dim: 0x10
+        size: 0x4
+      events_triggered:
+        address: 0x40019100
+        dim: 0x10
+        size: 0x4
+      inten:
+        address: 0x40019300
+        size: 0x4
+      intenset:
+        address: 0x40019304
+        size: 0x4
+      intenclr:
+        address: 0x40019308
+        size: 0x4
+      
+  swi0:
+    description: Software interrupt 0
+    perms: 0b011
+    base: 0x40014000
+    blocksize: 0x1000
+    registers:
+      unused:
+        address: 0x40014000
+        size: 0x4
+      
+  swi1:
+    description: Software interrupt 1
+    perms: 0b011
+    base: 0x40015000
+    blocksize: 0x1000
+    registers:
+      unused:
+        address: 0x40015000
+        size: 0x4
+      
+  swi2:
+    description: Software interrupt 2
+    perms: 0b011
+    base: 0x40016000
+    blocksize: 0x1000
+    registers:
+      unused:
+        address: 0x40016000
+        size: 0x4
+      
+  swi3:
+    description: Software interrupt 3
+    perms: 0b011
+    base: 0x40017000
+    blocksize: 0x1000
+    registers:
+      unused:
+        address: 0x40017000
+        size: 0x4
+      
+  swi4:
+    description: Software interrupt 4
+    perms: 0b011
+    base: 0x40018000
+    blocksize: 0x1000
+    registers:
+      unused:
+        address: 0x40018000
+        size: 0x4
+      
+  swi5:
+    description: Software interrupt 5
+    perms: 0b011
+    base: 0x40019000
+    blocksize: 0x1000
+    registers:
+      unused:
+        address: 0x40019000
+        size: 0x4
+      
+  pwm0:
+    description: Pulse Width Modulation Unit 0
+    perms: 0b011
+    base: 0x4001c000
+    blocksize: 0x1000
+    registers:
+      tasks_stop:
+        address: 0x4001c004
+        size: 0x4
+      tasks_seqstart:
+        address: 0x4001c008
+        dim: 0x2
+        size: 0x4
+      tasks_nextstep:
+        address: 0x4001c010
+        size: 0x4
+      events_stopped:
+        address: 0x4001c104
+        size: 0x4
+      events_seqstarted:
+        address: 0x4001c108
+        dim: 0x2
+        size: 0x4
+      events_seqend:
+        address: 0x4001c110
+        dim: 0x2
+        size: 0x4
+      events_pwmperiodend:
+        address: 0x4001c118
+        size: 0x4
+      events_loopsdone:
+        address: 0x4001c11c
+        size: 0x4
+      shorts:
+        address: 0x4001c200
+        size: 0x4
+      inten:
+        address: 0x4001c300
+        size: 0x4
+      intenset:
+        address: 0x4001c304
+        size: 0x4
+      intenclr:
+        address: 0x4001c308
+        size: 0x4
+      enable:
+        address: 0x4001c500
+        size: 0x4
+      mode:
+        address: 0x4001c504
+        size: 0x4
+      countertop:
+        address: 0x4001c508
+        size: 0x4
+      prescaler:
+        address: 0x4001c50c
+        size: 0x4
+      decoder:
+        address: 0x4001c510
+        size: 0x4
+      loop:
+        address: 0x4001c514
+        size: 0x4
+      seq:
+        address: 0x4001c520
+        dim: 0x2
+        size: 0x20
+      psel:
+        address: 0x4001c560
+        size: 0x4
+      
+  pwm1:
+    description: Pulse Width Modulation Unit 1
+    perms: 0b011
+    base: 0x40021000
+    blocksize: 0x1000
+    registers:
+      tasks_stop:
+        address: 0x40021004
+        size: 0x4
+      tasks_seqstart:
+        address: 0x40021008
+        dim: 0x2
+        size: 0x4
+      tasks_nextstep:
+        address: 0x40021010
+        size: 0x4
+      events_stopped:
+        address: 0x40021104
+        size: 0x4
+      events_seqstarted:
+        address: 0x40021108
+        dim: 0x2
+        size: 0x4
+      events_seqend:
+        address: 0x40021110
+        dim: 0x2
+        size: 0x4
+      events_pwmperiodend:
+        address: 0x40021118
+        size: 0x4
+      events_loopsdone:
+        address: 0x4002111c
+        size: 0x4
+      shorts:
+        address: 0x40021200
+        size: 0x4
+      inten:
+        address: 0x40021300
+        size: 0x4
+      intenset:
+        address: 0x40021304
+        size: 0x4
+      intenclr:
+        address: 0x40021308
+        size: 0x4
+      enable:
+        address: 0x40021500
+        size: 0x4
+      mode:
+        address: 0x40021504
+        size: 0x4
+      countertop:
+        address: 0x40021508
+        size: 0x4
+      prescaler:
+        address: 0x4002150c
+        size: 0x4
+      decoder:
+        address: 0x40021510
+        size: 0x4
+      loop:
+        address: 0x40021514
+        size: 0x4
+      seq:
+        address: 0x40021520
+        dim: 0x2
+        size: 0x20
+      psel:
+        address: 0x40021560
+        size: 0x4
+      
+  pwm2:
+    description: Pulse Width Modulation Unit 2
+    perms: 0b011
+    base: 0x40022000
+    blocksize: 0x1000
+    registers:
+      tasks_stop:
+        address: 0x40022004
+        size: 0x4
+      tasks_seqstart:
+        address: 0x40022008
+        dim: 0x2
+        size: 0x4
+      tasks_nextstep:
+        address: 0x40022010
+        size: 0x4
+      events_stopped:
+        address: 0x40022104
+        size: 0x4
+      events_seqstarted:
+        address: 0x40022108
+        dim: 0x2
+        size: 0x4
+      events_seqend:
+        address: 0x40022110
+        dim: 0x2
+        size: 0x4
+      events_pwmperiodend:
+        address: 0x40022118
+        size: 0x4
+      events_loopsdone:
+        address: 0x4002211c
+        size: 0x4
+      shorts:
+        address: 0x40022200
+        size: 0x4
+      inten:
+        address: 0x40022300
+        size: 0x4
+      intenset:
+        address: 0x40022304
+        size: 0x4
+      intenclr:
+        address: 0x40022308
+        size: 0x4
+      enable:
+        address: 0x40022500
+        size: 0x4
+      mode:
+        address: 0x40022504
+        size: 0x4
+      countertop:
+        address: 0x40022508
+        size: 0x4
+      prescaler:
+        address: 0x4002250c
+        size: 0x4
+      decoder:
+        address: 0x40022510
+        size: 0x4
+      loop:
+        address: 0x40022514
+        size: 0x4
+      seq:
+        address: 0x40022520
+        dim: 0x2
+        size: 0x20
+      psel:
+        address: 0x40022560
+        size: 0x4
+      
+  pdm:
+    description: Pulse Density Modulation (Digital Microphone) Interface
+    perms: 0b011
+    base: 0x4001d000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x4001d000
+        size: 0x4
+      tasks_stop:
+        address: 0x4001d004
+        size: 0x4
+      events_started:
+        address: 0x4001d100
+        size: 0x4
+      events_stopped:
+        address: 0x4001d104
+        size: 0x4
+      events_end:
+        address: 0x4001d108
+        size: 0x4
+      inten:
+        address: 0x4001d300
+        size: 0x4
+      intenset:
+        address: 0x4001d304
+        size: 0x4
+      intenclr:
+        address: 0x4001d308
+        size: 0x4
+      enable:
+        address: 0x4001d500
+        size: 0x4
+      pdmclkctrl:
+        address: 0x4001d504
+        size: 0x4
+      mode:
+        address: 0x4001d508
+        size: 0x4
+      gainl:
+        address: 0x4001d518
+        size: 0x4
+      gainr:
+        address: 0x4001d51c
+        size: 0x4
+      psel:
+        address: 0x4001d540
+        size: 0x4
+      sample:
+        address: 0x4001d560
+        size: 0x4
+      
+  nvmc:
+    description: Non Volatile Memory Controller
+    perms: 0b011
+    base: 0x4001e000
+    blocksize: 0x1000
+    registers:
+      ready:
+        address: 0x4001e400
+        size: 0x4
+      config:
+        address: 0x4001e504
+        size: 0x4
+      erasepage:
+        address: 0x4001e508
+        size: 0x4
+      erasepcr1:
+        address: 0x4001e508
+        size: 0x4
+      eraseall:
+        address: 0x4001e50c
+        size: 0x4
+      erasepcr0:
+        address: 0x4001e510
+        size: 0x4
+      eraseuicr:
+        address: 0x4001e514
+        size: 0x4
+      icachecnf:
+        address: 0x4001e540
+        size: 0x4
+      ihit:
+        address: 0x4001e548
+        size: 0x4
+      imiss:
+        address: 0x4001e54c
+        size: 0x4
+      
+  ppi:
+    description: Programmable Peripheral Interconnect
+    perms: 0b011
+    base: 0x4001f000
+    blocksize: 0x1000
+    registers:
+      chen:
+        address: 0x4001f500
+        size: 0x4
+      chenset:
+        address: 0x4001f504
+        size: 0x4
+      chenclr:
+        address: 0x4001f508
+        size: 0x4
+      chg:
+        address: 0x4001f800
+        dim: 0x6
+        size: 0x4
+      tasks_chg:
+        address: 0x4001f000
+        dim: 0x6
+        size: 0x8
+      ch:
+        address: 0x4001f510
+        dim: 0x14
+        size: 0x8
+      fork:
+        address: 0x4001f910
+        dim: 0x20
+        size: 0x4
+      
+  mwu:
+    description: Memory Watch Unit
+    perms: 0b011
+    base: 0x40020000
+    blocksize: 0x1000
+    registers:
+      inten:
+        address: 0x40020300
+        size: 0x4
+      intenset:
+        address: 0x40020304
+        size: 0x4
+      intenclr:
+        address: 0x40020308
+        size: 0x4
+      nmien:
+        address: 0x40020320
+        size: 0x4
+      nmienset:
+        address: 0x40020324
+        size: 0x4
+      nmienclr:
+        address: 0x40020328
+        size: 0x4
+      regionen:
+        address: 0x40020510
+        size: 0x4
+      regionenset:
+        address: 0x40020514
+        size: 0x4
+      regionenclr:
+        address: 0x40020518
+        size: 0x4
+      events_region:
+        address: 0x40020100
+        dim: 0x4
+        size: 0x8
+      events_pregion:
+        address: 0x40020160
+        dim: 0x2
+        size: 0x8
+      perregion:
+        address: 0x40020400
+        dim: 0x2
+        size: 0x8
+      region:
+        address: 0x40020600
+        dim: 0x4
+        size: 0x10
+      pregion:
+        address: 0x400206c0
+        dim: 0x2
+        size: 0x10
+      
+  i2s:
+    description: Inter-IC Sound
+    perms: 0b011
+    base: 0x40025000
+    blocksize: 0x1000
+    registers:
+      tasks_start:
+        address: 0x40025000
+        size: 0x4
+      tasks_stop:
+        address: 0x40025004
+        size: 0x4
+      events_rxptrupd:
+        address: 0x40025104
+        size: 0x4
+      events_stopped:
+        address: 0x40025108
+        size: 0x4
+      events_txptrupd:
+        address: 0x40025114
+        size: 0x4
+      inten:
+        address: 0x40025300
+        size: 0x4
+      intenset:
+        address: 0x40025304
+        size: 0x4
+      intenclr:
+        address: 0x40025308
+        size: 0x4
+      enable:
+        address: 0x40025500
+        size: 0x4
+      config:
+        address: 0x40025504
+        size: 0x4
+      rxd:
+        address: 0x40025538
+        size: 0x4
+      txd:
+        address: 0x40025540
+        size: 0x4
+      rxtxd:
+        address: 0x40025550
+        size: 0x4
+      psel:
+        address: 0x40025560
+        size: 0x4
+      
+  fpu:
+    description: FPU
+    perms: 0b011
+    base: 0x40026000
+    blocksize: 0x1000
+    registers:
+      unused:
+        address: 0x40026000
+        size: 0x4
+      
