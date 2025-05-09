@@ -35,6 +35,8 @@ pub type HaltFn = dyn FnMut(
 pub struct DftExecutor<'policy, 'backend, 'irb, 'plugin> {
     /// an optional cycle count limit
     limit: Option<usize>,
+    /// an optional maximum number of executions
+    exc_limit: Option<usize>,
     /// a halt condition callback
     halt_fn: Box<HaltFn>,
     evaluator: dft::Evaluator<'policy, 'plugin>,
@@ -51,6 +53,7 @@ impl<'policy, 'backend, 'irb, 'plugin> DftExecutor<'policy, 'backend, 'irb, 'plu
         base_context: dft::Context<'backend>,
         pdb: programdb::ProgramDB<'irb>,
         limit: Option<usize>,
+        exc_limit: Option<usize>,
         halt_fn: Option<Box<HaltFn>>,
         access_log: (Sender<Access>, Receiver<Access>),
         read_src: (Sender<u8>, Receiver<u8>),
@@ -63,6 +66,7 @@ impl<'policy, 'backend, 'irb, 'plugin> DftExecutor<'policy, 'backend, 'irb, 'plu
             base_context,
             pdb,
             limit,
+            exc_limit,
             halt_fn,
             access_log,
             read_src,
@@ -107,8 +111,15 @@ where
         _mgr: &mut EM,
         input: &I,
     ) -> Result<ExitKind, libafl::Error> {
+        if let Some(exc_limit) = self.exc_limit {
+            if *state.executions() > exc_limit as u64 {
+                return Err(libafl::Error::ShuttingDown);
+            }
+        }
+
         // track execution count
         *state.executions_mut() += 1;
+        info!("EXECUTION COUNT: {}", *state.executions());
 
         let mut context = self.base_context.clone();
 

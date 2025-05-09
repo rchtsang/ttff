@@ -34,7 +34,9 @@ impl AnalysisPlugin for HcPlugin {
         flowtype: FlowType,
     ) -> Result<(), programdb::plugin::Error> {
         let hash = (child ^ parent) & (self.covmap.size() as u64 - 1);
-        self.covmap[hash as usize] += 1;
+        // let cnt = self.covmap[hash as usize];
+        // self.covmap[hash as usize] = cnt.saturating_add(1);
+        self.covmap[hash as usize] = 1;
         debug!(
             "edge hit: {flowtype:?} {{ {parent:#x} -> {child:#x} ; cnt = {}}}",
             self.covmap[hash as usize]);
