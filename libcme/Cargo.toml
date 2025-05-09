@@ -32,6 +32,7 @@ petgraph = "0.8.1"
 crossbeam = { version = "0.8.4", features = ["crossbeam-channel"] }
 yaml-rust2 = "0.10.1"
 elf = "0.7.4"
+tracing-appender = "0.2.3"
 
 [dev-dependencies]
 test-log = "0.2.16"

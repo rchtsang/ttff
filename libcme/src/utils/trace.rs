@@ -23,6 +23,10 @@ use tracing_subscriber::{
     FmtSubscriber,
     Registry,
 };
+use tracing_appender::{
+    non_blocking,
+    non_blocking::WorkerGuard,
+};
 
 /// configure tracing with a compact logger
 /// ```
@@ -83,13 +87,16 @@ pub fn compact_dbg_file_logger(path: &str) -> impl Subscriber {
 }
 
 /// configure tracing to output to stdout and file
-pub fn compact_file_logger(path: &str, level: Level) -> impl Subscriber {
+pub fn compact_file_logger(path: &str, level: Level) -> (impl Subscriber, WorkerGuard) {
     let log_file = OpenOptions::new()
         .write(true)
         .create(true)
+        .truncate(true)
         .open(path)
         .unwrap();
-    Registry::default()
+    let writer = std::io::BufWriter::new(log_file);
+    let (non_blocking_writer, guard) = non_blocking(writer);
+    let subscriber = Registry::default()
         .with(
             fmt::layer()
                 .compact()
@@ -100,11 +107,13 @@ pub fn compact_file_logger(path: &str, level: Level) -> impl Subscriber {
         .with(
             fmt::layer()
                 .with_ansi(true)
-                .with_writer(log_file)
+                .with_writer(non_blocking_writer)
                 .compact()
                 .with_file(true)
                 .with_line_number(true)
                 .with_target(true)
         )
-        .with(LevelFilter::from_level(level))
+        .with(LevelFilter::from_level(level));
+
+    (subscriber, guard)
 }
