@@ -88,7 +88,6 @@ impl<'a> dft::EvalPlugin for MemInterceptPlugin<'a> {
         _access_type: Permission,
         context: &mut dft::Context<'backend>,
     ) -> Result<(), dft::plugin::Error> {
-        info!("pre_mem_access_cb");
         if !context.backend().mmap().has_mapped(mem_address) {
             error!("encountered unmapped access @ {:#x}", mem_address.offset());
             (self.callback)(context, mem_address, mem_size)?;
@@ -100,7 +99,9 @@ impl<'a> dft::EvalPlugin for MemInterceptPlugin<'a> {
 
 #[test]
 pub fn main() -> Result<(), anyhow::Error> {
-    let global_sub = compact_dbg_file_logger("test_fuzz_jump_sc_blinky-o0");
+    let (global_sub, _guard) = compact_file_logger(
+        "tests/test_fuzz_jump_sc_blinky-o0.log",
+        Level::INFO);
     set_global_default(global_sub)
         .expect("failed to set tracing default logger");
 
@@ -193,6 +194,12 @@ pub fn main() -> Result<(), anyhow::Error> {
     let callback = &mut move |context: &mut dft::Context, address: &Address, size: usize| {
         let base = address.offset() & 0xFFFFF000;
         let size = ((size / 0x1000) + 1) * 0x1000;
+        if (0x20000000 <= base && base < 0x40000000)
+            || (0x60000000 <= base && base < 0xA0000000) {
+            // ram memory should never be dynamically mapped with a peripheral
+            return Ok(())
+        }
+        info!("dynamically mapping new channel peripheral @ [{base:#x}; {size:#x}]");
         let new_peripheral = peripheral.clone_with(base, size);
         context.map_mmio(new_peripheral.into(), Some(tag::ACCESSED.into()))
             .map_err(|err| dft::plugin::Error(err.into()))
@@ -233,13 +240,15 @@ pub fn main() -> Result<(), anyhow::Error> {
 
     info!("building dft executor...");
     let halt_fn = None;
-    let limit = Some(100000 as usize);
+    let limit = Some(50000 as usize);
+    let exc_limit = Some(200);
 
     let dft_executor = sc::DftExecutor::new_with(
         evaluator,
         context,
         pdb,
         limit,
+        exc_limit,
         halt_fn,
         access_log.clone(),
         read_src.clone(),
@@ -287,16 +296,19 @@ pub fn main() -> Result<(), anyhow::Error> {
     )?;
 
     info!("building monitor...");
-    let monitor = MultiMonitor::new(|s| println!("{s}"));
+    let monitor = MultiMonitor::new(|s| info!("{s}"));
     let mut manager = SimpleEventManager::new(monitor);
 
     info!("building scheduler, and fuzzer...");
     let scheduler = QueueScheduler::new();
     let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
 
-    let mut executor = WithObservers::new(dft_executor, tuple_list!(edges_observer));
+    let mut executor = WithObservers::new(
+        dft_executor,
+        tuple_list!(edges_observer, time_observer),
+    );
 
-    let mut generator = RandBytesGenerator::new(nonzero!(0x1000));
+    let mut generator = RandBytesGenerator::new(nonzero!(0x10000));
     state
         .generate_initial_inputs(&mut fuzzer, &mut executor, &mut generator, &mut manager, 8)
         .expect("failed to generate initial corpus");
