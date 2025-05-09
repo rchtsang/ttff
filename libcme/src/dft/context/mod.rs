@@ -208,7 +208,14 @@ impl<'backend> Context<'backend> {
         for range in peripheral.ranges().iter() {
             let base = range.start;
             let size = (range.end.offset() - range.start.offset()) as usize;
-            self.shadow.map_mem(base, size, tag)?;
+            match self.shadow.map_mem(base, size, tag) {
+                Err(shadow::Error::MapConflict(r1, r2)) if r1 == r2 => {
+                    // ignore conflicts for exactly the same ranges for
+                    // overlapping peripheral ranges
+                }
+                Err(err) => { return Err(err.into()) }
+                Ok(()) => {  }
+            };
         }
         self.backend.map_mmio(peripheral)?;
         Ok(())
