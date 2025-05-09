@@ -128,13 +128,13 @@ where
             match result {
                 Err(dft::eval::Error::Policy(err)) => {
                     // policy violation
-                    error!("execution {:>4}: policy violation: {err:?}",
+                    error!("execution {:>4}: policy violation: {err:#x?}",
                         *state.executions());
                     return Ok(ExitKind::Crash);
                 }
                 Err(err) => {
                     // other evaluation/emulation error
-                    error!("execution {:>4}: other error: {err:?}",
+                    error!("execution {:>4}: other error: {err:#x?}",
                         *state.executions());
                     return Ok(ExitKind::Crash);
                 }
