@@ -102,6 +102,7 @@ pub fn main() -> Result<(), anyhow::Error> {
         write_dst,
         peripheral,
     } = ChannelPeripheral::new(Address::default(), 0x1000);
+    let mut ranges: Vec<Range<Address>> = vec![];
     for &Region {
         ref name,
         address,

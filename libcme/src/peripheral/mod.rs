@@ -58,7 +58,8 @@ pub enum Event {
 /// this trait.
 pub trait PeripheralState: DynClone {
     fn base_address(&self) -> Address;
-    fn size(&self) -> u64;
+    fn blocksize(&self) -> u64;
+    fn ranges(&self) -> &[Range<Address>];
     fn read_bytes(&mut self, address: &Address, dst: &mut [u8], events: &mut VecDeque<Event>) -> Result<(), Error>;
     fn write_bytes(&mut self, address: &Address, src: &[u8], events: &mut VecDeque<Event>) -> Result<(), Error>;
     fn tick(&mut self) -> Result<Option<Event>, Error> { Ok(None) }
@@ -70,24 +71,24 @@ clone_trait_object!(PeripheralState);
 /// defining a new peripheral constitutes passing an internal state generic
 #[derive(Clone)]
 pub struct Peripheral {
-    pub range: Range<Address>,
     state: Box<dyn PeripheralState>,
 }
 
 impl Peripheral {
     pub fn new_with(state: Box<dyn PeripheralState>) -> Self {
-        let start = state.base_address();
-        let end = start + state.size();
-        let range = start..end;
-        Self { range, state }
+        Self { state }
+    }
+
+    pub fn ranges(&self) -> &[Range<Address>] {
+        self.state.ranges()
     }
 
     pub fn base_address(&self) -> Address {
         self.state.base_address()
     }
 
-    pub fn size(&self) -> u64 {
-        self.state.size()
+    pub fn blocksize(&self) -> u64 {
+        self.state.blocksize()
     }
 
     pub fn tick(&mut self) -> Result<Option<Event>, Error> {

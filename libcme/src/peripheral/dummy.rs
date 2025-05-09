@@ -10,13 +10,17 @@ use super::*;
 #[derive(Clone)]
 pub struct DummyState {
     base: Address,
+    ranges: Vec<Range<Address>>,
     backing: FixedState,
 }
 
 impl DummyState {
     pub fn new_with(base: impl Into<Address>, size: usize) -> Self {
+        let base = base.into();
+        let ranges = vec![base..(base + size as u64)];
         Self {
-            base: base.into(),
+            base,
+            ranges,
             backing: FixedState::new(size),
         }
     }
@@ -27,7 +31,11 @@ impl PeripheralState for DummyState {
         self.base.clone()
     }
 
-    fn size(&self) -> u64 {
+    fn ranges(&self) -> &[Range<Address>] {
+        self.ranges.as_slice()
+    }
+
+    fn blocksize(&self) -> u64 {
         self.backing.len() as u64
     }
 

@@ -2,6 +2,7 @@
 //! 
 //! a peripheral implementation that sends and receives
 //! via crossbeam channel
+use std::ops::Range;
 use std::collections::VecDeque;
 use anyhow;
 use thiserror::Error;
@@ -57,6 +58,7 @@ impl From<ChannelStateError> for peripheral::Error {
 pub struct ChannelPeripheral {
     base: Address,
     size: usize,
+    ranges: Vec<Range<Address>>,
     access_log: Sender<Access>,
     read_src: Receiver<u8>,
     write_dst: Sender<u8>,
@@ -71,22 +73,25 @@ pub struct GeneratedChannelPeripheral {
 }
 
 impl ChannelPeripheral {
-    pub fn new_with(
+    pub fn new_with<'a>(
         base: impl Into<Address>,
         size: usize,
+        ranges: impl Iterator<Item=&'a Range<Address>>,
         access_log: Sender<Access>,
         read_src: Receiver<u8>,
         write_dst: Sender<u8>,
     ) -> Self {
         let base = base.into();
-        Self { base, size, access_log, read_src, write_dst }
+        let ranges = ranges.cloned().collect();
+        Self { base, size, ranges, access_log, read_src, write_dst }
     }
 
     /// creates a new channel peripheral and returns the other side of the 
     /// access log, read_src, and write_dst channels
-    pub fn new(
+    pub fn new<'a>(
         base: impl Into<Address>,
         size: usize,
+        ranges: impl Iterator<Item=&'a Range<Address>>,
     ) -> GeneratedChannelPeripheral {
         let access_log = unbounded();
         let read_src = unbounded();
@@ -94,6 +99,7 @@ impl ChannelPeripheral {
         let peripheral = ChannelPeripheral::new_with(
             base,
             size,
+            ranges,
             access_log.0.clone(),
             read_src.1.clone(),
             write_dst.0.clone(),
@@ -108,10 +114,15 @@ impl ChannelPeripheral {
 
     /// create a new channel peripheral that shares the underlying channels of
     /// an existing channel peripheral
-    pub fn clone_with(&self, base: impl Into<Address>, size: usize) -> Self {
-        let mut peripheral = self.clone();
+    pub fn clone_with<'a>(&self,
+        base: impl Into<Address>,
+        size: usize,
+        ranges: impl Iterator<Item=&'a Range<Address>>,
+    ) -> Self {
+        let mut peripheral: ChannelPeripheral = self.clone();
         peripheral.base = base.into();
         peripheral.size = size.into();
+        peripheral.ranges = ranges.cloned().collect();
         peripheral
     }
 }
@@ -127,7 +138,11 @@ impl PeripheralState for ChannelPeripheral {
         self.base.clone()
     }
 
-    fn size(&self) -> u64 {
+    fn ranges(&self) -> &[Range<Address>] {
+        self.ranges.as_slice()
+    }
+
+    fn blocksize(&self) -> u64 {
         self.size as u64
     }
 
@@ -204,12 +219,15 @@ mod test {
         let mut backend = armv7m::Backend::new_with(&builder, None)?;
 
         info!("mapping channel peripheral...");
+        let base = Address::from(0x40001000u32);
+        let size = 0x1000 as usize;
+        let ranges = vec![base..(base + size as u64)];
         let GeneratedChannelPeripheral {
             access_log,
             read_src,
             write_dst,
             peripheral
-        } = ChannelPeripheral::new(Address::from(0x40001000u32), 0x1000);
+        } = ChannelPeripheral::new(base, size, ranges.iter());
         backend.map_mmio(peripheral.into())?;
 
         // initializing data for peripheral byte reads

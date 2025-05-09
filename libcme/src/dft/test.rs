@@ -15,7 +15,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     use crate::programdb::{
         self,
         ProgramDB,
-        Region,
+        MemRegion,
         Platform,
         Program,
     };
@@ -49,7 +49,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
         fpu_present: false,
         nvic_prio_bits: 8,
         vendor_systick_config: false,
-        mem: vec![Region {
+        mem: vec![MemRegion {
             name: "memory".into(),
             address: 0x0u64.into(),
             size: 0x1000,

@@ -34,7 +34,8 @@ pub mod prelude {
         ProgramDB,
         Block,
         Platform,
-        Region,
+        MemRegion,
+        MmioRegion,
         Program,
     };
     pub use super::utils::*;
