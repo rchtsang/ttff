@@ -27,7 +27,7 @@ pub use dummy::DummyEvalPlugin;
 
 /// allow arbitrary plugin error types
 #[derive(Debug, derive_more::Display, Error)]
-pub struct Error(pub(crate) anyhow::Error);
+pub struct Error(pub anyhow::Error);
 
 
 /// plugin trait for evaluator
@@ -67,6 +67,15 @@ pub trait EvalPlugin: fmt::Debug {
         context: &mut Context<'backend>,
     ) -> Result<(), Error> { Ok(()) }
 
+    fn pre_mem_access_cb<'irb, 'backend>(
+        &mut self,
+        loc: &Location,
+        mem_address: &Address,
+        mem_size: usize,
+        access_type: Permission,
+        context: &mut Context<'backend>,
+    ) -> Result<(), Error> { Ok(()) }
+
     fn mem_access_cb<'irb, 'backend>(
         &mut self,
         loc: &Location,
@@ -103,27 +112,27 @@ pub trait EvalPlugin: fmt::Debug {
 /// a wrapper for the plugin(s) that will be provided to the
 /// evaluator upon instantiation
 #[derive(Debug)]
-pub(crate) struct EvaluatorPlugin {
-    plugins: Vec<Box<dyn EvalPlugin>>,
+pub(crate) struct EvaluatorPlugin<'a> {
+    plugins: Vec<Box<dyn EvalPlugin + 'a>>,
 }
 
-impl EvaluatorPlugin {
-    pub(crate) fn new_with(plugins: Vec<Box<dyn EvalPlugin>>) -> Self {
+impl<'a> EvaluatorPlugin<'a> {
+    pub(crate) fn new_with(plugins: Vec<Box<dyn EvalPlugin + 'a>>) -> Self {
         Self { plugins }
     }
 
-    pub(crate) fn add_plugin(&mut self, plugin: Box<dyn EvalPlugin>) {
+    pub(crate) fn add_plugin(&mut self, plugin: Box<dyn EvalPlugin + 'a>) {
         self.plugins.push(plugin)
     }
 }
 
-impl Default for EvaluatorPlugin {
+impl<'a> Default for EvaluatorPlugin<'a> {
     fn default() -> Self {
         Self::new_with(vec![])
     }
 }
 
-impl EvalPlugin for EvaluatorPlugin {
+impl<'a> EvalPlugin for EvaluatorPlugin<'a> {
 
     fn pre_insn_cb<'irb, 'backend>(
         &mut self,
@@ -169,6 +178,20 @@ impl EvalPlugin for EvaluatorPlugin {
     ) -> Result<(), Error> {
         for plugin in self.plugins.iter_mut() {
             plugin.as_mut().post_pcode_cb(loc, pcode, context)?;
+        }
+        Ok(())
+    }
+
+    fn pre_mem_access_cb<'irb, 'backend>(
+        &mut self,
+        loc: &Location,
+        mem_address: &Address,
+        mem_size: usize,
+        access_type: Permission,
+        context: &mut Context<'backend>,
+    ) -> Result<(), Error> {
+        for plugin in self.plugins.iter_mut() {
+            plugin.as_mut().pre_mem_access_cb(loc, mem_address, mem_size, access_type, context)?;
         }
         Ok(())
     }

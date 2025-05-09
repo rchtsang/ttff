@@ -59,14 +59,14 @@ impl From<plugin::Error> for Error {
 
 /// concrete pcode evaluator
 #[derive(Debug)]
-pub struct Evaluator<'policy> {
+pub struct Evaluator<'policy, 'plugin> {
     pub pc: Location,
     pub pc_tag: Tag,
     pub policy: &'policy dyn TaintPolicy,
-    plugin: EvaluatorPlugin,
+    plugin: EvaluatorPlugin<'plugin>,
 }
 
-impl<'policy> Default for Evaluator<'policy> {
+impl<'policy, 'plugin> Default for Evaluator<'policy, 'plugin> {
     fn default() -> Self {
         Self {
             pc: Location::default(),
@@ -77,7 +77,7 @@ impl<'policy> Default for Evaluator<'policy> {
     }
 }
 
-impl<'policy> Evaluator<'policy> {
+impl<'policy, 'plugin> Evaluator<'policy, 'plugin> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -91,12 +91,12 @@ impl<'policy> Evaluator<'policy> {
         }
     }
 
-    pub fn add_plugin(&mut self, plugin:  Box<dyn EvalPlugin>) {
+    pub fn add_plugin(&mut self, plugin:  Box<dyn EvalPlugin + 'plugin>) {
         self.plugin.add_plugin(plugin)
     }
 }
 
-impl<'irb, 'policy, 'backend> Evaluator<'policy> {
+impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
     #[instrument(skip_all)]
     pub fn step(&mut self,
         context: &mut Context<'backend>,
@@ -174,7 +174,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     }
 }
 
-impl<'irb, 'policy, 'backend> Evaluator<'policy> {
+impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
     /// evaluate a single pcode operation
     #[instrument(skip_all)]
     fn _evaluate(
@@ -196,6 +196,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
                 let lsz = dst.size();
 
                 let loc = self._read_addr(src, context)?;
+                self.plugin.pre_mem_access_cb(&self.pc, &loc.0, lsz, Permission::R, context)?;
                 let val = self._read_mem(&loc.0, lsz, context)?;
 
                 let tag = self.policy.propagate_load(dst, &val, &loc)?;
@@ -215,6 +216,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
                 let tag = self.policy.propagate_store(dst, &val, &loc)?;
                 let mem_size = val.0.bytes();
                 let mut value = (val.0, tag);
+                self.plugin.pre_mem_access_cb(&self.pc, &loc.0, mem_size, Permission::W, context)?;
                 self.plugin.mem_access_cb(&self.pc, &loc.0, mem_size, Permission::W, &mut value, context)?;
                 let (val, tag) = value;
                 self._write_mem(&loc.0, &val, &tag, context)?;
@@ -401,7 +403,7 @@ impl<'irb, 'policy, 'backend> Evaluator<'policy> {
     }
 }
 
-impl<'irb, 'policy, 'backend> Evaluator<'policy> {
+impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
 
     fn _read_bool(&self,
         vnd: &VarnodeData,

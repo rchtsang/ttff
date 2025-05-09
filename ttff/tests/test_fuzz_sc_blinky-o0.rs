@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::PathBuf;
-use std::ops::Range;
 use std::sync::Arc;
 use anyhow;
 use libcme::prelude::*;
@@ -61,6 +60,42 @@ use libafl::{
 
 const COVMAP_SIZE: usize = 0x2000;
 static mut COVMAP: [u8; COVMAP_SIZE] = [0u8; COVMAP_SIZE];
+
+
+type MemCallback = dyn FnMut(
+    &mut dft::Context,
+    &Address,
+    usize,
+) -> Result<(), dft::plugin::Error>;
+
+pub struct MemInterceptPlugin<'a> {
+    pub callback: &'a mut MemCallback,
+}
+
+impl<'a> std::fmt::Debug for MemInterceptPlugin<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MemInterceptPlugin")
+    }
+}
+
+impl<'a> dft::EvalPlugin for MemInterceptPlugin<'a> {
+    #[instrument(skip_all)]
+    fn pre_mem_access_cb<'irb, 'backend>(
+        &mut self,
+        _loc: &Location,
+        mem_address: &Address,
+        mem_size: usize,
+        _access_type: Permission,
+        context: &mut dft::Context<'backend>,
+    ) -> Result<(), dft::plugin::Error> {
+        info!("pre_mem_access_cb");
+        if !context.backend().mmap().has_mapped(mem_address) {
+            error!("encountered unmapped access @ {:#x}", mem_address.offset());
+            (self.callback)(context, mem_address, mem_size)?;
+        }
+        Ok(())
+    }
+}
 
 
 #[test]
@@ -155,6 +190,14 @@ pub fn main() -> Result<(), anyhow::Error> {
         let new_peripheral = peripheral.clone_with(peri.base, peri.size);
         context.map_mmio(new_peripheral.into(), Some(peri.tag))?;
     }
+    let callback = &mut move |context: &mut dft::Context, address: &Address, size: usize| {
+        let base = address.offset() & 0xFFFFF000;
+        let size = ((size / 0x1000) + 1) * 0x1000;
+        let new_peripheral = peripheral.clone_with(base, size);
+        context.map_mmio(new_peripheral.into(), Some(tag::ACCESSED.into()))
+            .map_err(|err| dft::plugin::Error(err.into()))
+    };
+    let unmapped_plugin = MemInterceptPlugin { callback };
 
     info!("loading program binary...");
     // this can probably be absorbed into the pdb backend builder
@@ -184,6 +227,7 @@ pub fn main() -> Result<(), anyhow::Error> {
 
     info!("building evaluator...");
     let mut evaluator = dft::Evaluator::new_with_policy(&policy);
+    evaluator.add_plugin(Box::new(unmapped_plugin));
     (evaluator.pc, evaluator.pc_tag) = context.read_pc()
         .map(|(pc, tag)| (Location::from(pc), tag))?;
 

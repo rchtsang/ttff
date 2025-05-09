@@ -211,6 +211,10 @@ impl<'backend> Context<'backend> {
         self.backend.map_mmio(peripheral)?;
         Ok(())
     }
+
+    pub fn has_mapped(&self, address: &Address) -> bool {
+        self.backend().mmap().has_mapped(address)
+    }
 }
 
 impl<'backend> Context<'backend> {

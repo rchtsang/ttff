@@ -112,6 +112,13 @@ impl MemoryMap {
             })
     }
 
+    pub fn has_mapped(&self, address: &Address) -> bool {
+        match self._get_mapped_region(*address) {
+            Err(backend::Error::Unmapped(_addr)) => { false }
+            _ => { true }
+        }
+    }
+
     #[instrument(skip_all)]
     pub fn load_bytes<E>(
         &mut self,

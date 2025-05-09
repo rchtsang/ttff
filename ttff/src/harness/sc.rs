@@ -32,12 +32,12 @@ pub type HaltFn = dyn FnMut(
 /// fuzzing should begin, so it must already be initialized for execution.
 /// 
 /// if cycle limit is None, then there is no limit.
-pub struct DftExecutor<'policy, 'backend, 'irb> {
+pub struct DftExecutor<'policy, 'backend, 'irb, 'plugin> {
     /// an optional cycle count limit
     limit: Option<usize>,
     /// a halt condition callback
     halt_fn: Box<HaltFn>,
-    evaluator: dft::Evaluator<'policy>,
+    evaluator: dft::Evaluator<'policy, 'plugin>,
     base_context: dft::Context<'backend>,
     pdb: ProgramDB<'irb>,
     access_log: (Sender<Access>, Receiver<Access>),
@@ -45,9 +45,9 @@ pub struct DftExecutor<'policy, 'backend, 'irb> {
     write_dst: (Sender<u8>, Receiver<u8>),
 }
 
-impl<'policy, 'backend, 'irb> DftExecutor<'policy, 'backend, 'irb> {
+impl<'policy, 'backend, 'irb, 'plugin> DftExecutor<'policy, 'backend, 'irb, 'plugin> {
     pub fn new_with(
-        evaluator: dft::Evaluator<'policy>,
+        evaluator: dft::Evaluator<'policy, 'plugin>,
         base_context: dft::Context<'backend>,
         pdb: programdb::ProgramDB<'irb>,
         limit: Option<usize>,
@@ -94,7 +94,7 @@ impl<'policy, 'backend, 'irb> DftExecutor<'policy, 'backend, 'irb> {
 }
 
 
-impl<'p, 'b, 'a, EM, I, S, Z> Executor<EM, I, S, Z> for DftExecutor<'p, 'b, 'a>
+impl<'p, 'b, 'a, 'z, EM, I, S, Z> Executor<EM, I, S, Z> for DftExecutor<'p, 'b, 'a, 'z>
 where
     S: HasCorpus<I> + HasExecutions,
     I: HasTargetBytes,
