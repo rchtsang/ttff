@@ -4,7 +4,7 @@
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-use std::ops::Range;
+// use std::ops::Range;
 
 use thiserror::Error;
 use yaml_rust2::{Yaml, YamlLoader, ScanError};
@@ -58,7 +58,6 @@ pub struct MmioRegion {
     pub name: String,
     pub base: Address,
     pub blocksize: usize,
-    pub ranges: Vec<Range<Address>>,
     pub perms: FlagSet<Permission>,
     pub description: String,
 }
@@ -320,35 +319,35 @@ impl MmioRegion {
         let perms = FlagSet::new(perms as u8)
             .map_err(|_| Error::InvalidField("region perms"))?;
 
-        let mut ranges: Vec<Range<Address>> = vec![];
-        let registers = yaml["registers"].as_hash()
-            .ok_or(Error::InvalidField("registers"))?;
-        for (_reg_name, reg_yaml) in registers {
-            let address = reg_yaml["address"].as_i64()
-                .ok_or(Error::InvalidField("register address"))? as u64;
-            let size = reg_yaml["size"].as_i64()
-                .ok_or(Error::InvalidField("register size"))? as u64;
-            let size = match reg_yaml["dim"] {
-                Yaml::BadValue => { size }
-                Yaml::Integer(val) => { size * val as u64 }
-                _ => { return Err(Error::InvalidField("register dim")) }
-            };
-            let this_range = address.into()..(address + size).into();
-            let mut added = false;
-            for range in ranges.iter_mut() {
-                if (*range).start <= this_range.end && this_range.start <= (*range).end {
-                    range.start = std::cmp::min(range.start, this_range.start);
-                    range.end = std::cmp::max(range.end, this_range.end);
-                    added = true;
-                    break;
-                }
-            }
-            if !added {
-                ranges.push(this_range);
-            }
-        }
+        // let mut ranges: Vec<Range<Address>> = vec![];
+        // let registers = yaml["registers"].as_hash()
+        //     .ok_or(Error::InvalidField("registers"))?;
+        // for (_reg_name, reg_yaml) in registers {
+        //     let address = reg_yaml["address"].as_i64()
+        //         .ok_or(Error::InvalidField("register address"))? as u64;
+        //     let size = reg_yaml["size"].as_i64()
+        //         .ok_or(Error::InvalidField("register size"))? as u64;
+        //     let size = match reg_yaml["dim"] {
+        //         Yaml::BadValue => { size }
+        //         Yaml::Integer(val) => { size * val as u64 }
+        //         _ => { return Err(Error::InvalidField("register dim")) }
+        //     };
+        //     let this_range = address.into()..(address + size).into();
+        //     let mut added = false;
+        //     for range in ranges.iter_mut() {
+        //         if (*range).start <= this_range.end && this_range.start <= (*range).end {
+        //             range.start = std::cmp::min(range.start, this_range.start);
+        //             range.end = std::cmp::max(range.end, this_range.end);
+        //             added = true;
+        //             break;
+        //         }
+        //     }
+        //     if !added {
+        //         ranges.push(this_range);
+        //     }
+        // }
 
-        Ok(Self{ name, base, blocksize, ranges, perms, description })
+        Ok(Self{ name, base, blocksize, perms, description })
     }
 }
 

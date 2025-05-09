@@ -2,7 +2,6 @@
 //! 
 //! a peripheral implementation that sends and receives
 //! via crossbeam channel
-use std::ops::Range;
 use std::collections::VecDeque;
 use anyhow;
 use thiserror::Error;
@@ -58,7 +57,6 @@ impl From<ChannelStateError> for peripheral::Error {
 pub struct ChannelPeripheral {
     base: Address,
     size: usize,
-    ranges: Vec<Range<Address>>,
     access_log: Sender<Access>,
     read_src: Receiver<u8>,
     write_dst: Sender<u8>,
@@ -76,14 +74,12 @@ impl ChannelPeripheral {
     pub fn new_with<'a>(
         base: impl Into<Address>,
         size: usize,
-        ranges: impl Iterator<Item=&'a Range<Address>>,
         access_log: Sender<Access>,
         read_src: Receiver<u8>,
         write_dst: Sender<u8>,
     ) -> Self {
         let base = base.into();
-        let ranges = ranges.cloned().collect();
-        Self { base, size, ranges, access_log, read_src, write_dst }
+        Self { base, size, access_log, read_src, write_dst }
     }
 
     /// creates a new channel peripheral and returns the other side of the 
@@ -91,7 +87,6 @@ impl ChannelPeripheral {
     pub fn new<'a>(
         base: impl Into<Address>,
         size: usize,
-        ranges: impl Iterator<Item=&'a Range<Address>>,
     ) -> GeneratedChannelPeripheral {
         let access_log = unbounded();
         let read_src = unbounded();
@@ -99,7 +94,6 @@ impl ChannelPeripheral {
         let peripheral = ChannelPeripheral::new_with(
             base,
             size,
-            ranges,
             access_log.0.clone(),
             read_src.1.clone(),
             write_dst.0.clone(),
@@ -117,12 +111,10 @@ impl ChannelPeripheral {
     pub fn clone_with<'a>(&self,
         base: impl Into<Address>,
         size: usize,
-        ranges: impl Iterator<Item=&'a Range<Address>>,
     ) -> Self {
         let mut peripheral: ChannelPeripheral = self.clone();
         peripheral.base = base.into();
         peripheral.size = size.into();
-        peripheral.ranges = ranges.cloned().collect();
         peripheral
     }
 }
@@ -138,11 +130,7 @@ impl PeripheralState for ChannelPeripheral {
         self.base.clone()
     }
 
-    fn ranges(&self) -> &[Range<Address>] {
-        self.ranges.as_slice()
-    }
-
-    fn blocksize(&self) -> u64 {
+    fn size(&self) -> u64 {
         self.size as u64
     }
 
@@ -221,13 +209,12 @@ mod test {
         info!("mapping channel peripheral...");
         let base = Address::from(0x40001000u32);
         let size = 0x1000 as usize;
-        let ranges = vec![base..(base + size as u64)];
         let GeneratedChannelPeripheral {
             access_log,
             read_src,
             write_dst,
             peripheral
-        } = ChannelPeripheral::new(base, size, ranges.iter());
+        } = ChannelPeripheral::new(base, size);
         backend.map_mmio(peripheral.into())?;
 
         // initializing data for peripheral byte reads

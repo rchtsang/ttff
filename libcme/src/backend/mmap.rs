@@ -67,20 +67,23 @@ impl MemoryMap {
             "peripheral is not word-aligned!");
 
         // check for collision with existing mapped regions
-        for range in peripheral.ranges().iter() {
-            if let Some(colliding) = self.mmap.intervals(range.clone()).next() {
-                return Err(backend::Error::MapConflict(range.clone(), colliding));
-            }
-        }
+        let base = peripheral.base_address();
+        let range = base..(base + peripheral.size());
+        let collision = self.mmap.intervals(range.clone()).next();
 
         // add peripheral to map
+        // note we force_insert so that the map conflict can be ignored if desired
+        // this allows us to later trigger multiply mapped mmio
         let idx = MapIx::Mmio(self.mmio.len());
-        for range in peripheral.ranges().iter() {
-            self.mmap.insert(range.clone(), idx);
-        }
+        self.mmap.force_insert(range.clone(), idx);
         self.mmio.push(peripheral);
 
-        Ok(())
+        match collision {
+            None => { Ok(()) }
+            Some(colliding) => {
+                Err(backend::Error::MapConflict(range.clone(), colliding))
+            }
+        }
     }
 
     /// tick peripherals

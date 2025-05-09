@@ -4,7 +4,6 @@
 pub mod dummy;
 pub mod channel;
 
-use std::ops::Range;
 use std::collections::VecDeque;
 
 use anyhow;
@@ -58,8 +57,7 @@ pub enum Event {
 /// this trait.
 pub trait PeripheralState: DynClone {
     fn base_address(&self) -> Address;
-    fn blocksize(&self) -> u64;
-    fn ranges(&self) -> &[Range<Address>];
+    fn size(&self) -> u64;
     fn read_bytes(&mut self, address: &Address, dst: &mut [u8], events: &mut VecDeque<Event>) -> Result<(), Error>;
     fn write_bytes(&mut self, address: &Address, src: &[u8], events: &mut VecDeque<Event>) -> Result<(), Error>;
     fn tick(&mut self) -> Result<Option<Event>, Error> { Ok(None) }
@@ -79,16 +77,12 @@ impl Peripheral {
         Self { state }
     }
 
-    pub fn ranges(&self) -> &[Range<Address>] {
-        self.state.ranges()
-    }
-
     pub fn base_address(&self) -> Address {
         self.state.base_address()
     }
 
-    pub fn blocksize(&self) -> u64 {
-        self.state.blocksize()
+    pub fn size(&self) -> u64 {
+        self.state.size()
     }
 
     pub fn tick(&mut self) -> Result<Option<Event>, Error> {

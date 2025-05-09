@@ -205,11 +205,9 @@ impl<'backend> Context<'backend> {
         peripheral: Peripheral,
         tag: Option<Tag>,
     ) -> Result<(), Error> {
-        for range in peripheral.ranges().iter() {
-            let base = range.start;
-            let size = (range.end.offset() - range.start.offset()) as usize;
-            self.shadow.map_mem(base, size, tag)?;
-        }
+        let base = peripheral.base_address();
+        let size = peripheral.size() as usize;
+        self.shadow.map_mem(base, size, tag)?;
         self.backend.map_mmio(peripheral)?;
         Ok(())
     }
