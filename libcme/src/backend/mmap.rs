@@ -26,7 +26,7 @@ enum MapIx {
 /// memory map
 #[derive(Default, Clone)]
 pub struct MemoryMap {
-    mmap: IntervalMap<Address, Vec<MapIx>>,
+    mmap: IntervalMap<Address, MapIx>,
     mem: Vec<FixedState>,
     mmio: Vec<Peripheral>,
 }
@@ -54,7 +54,7 @@ impl MemoryMap {
         let mem = FixedState::new(size);
         let idx = MapIx::Mem(self.mem.len());
         self.mem.push(mem);
-        self.mmap.insert(range, vec![idx]);
+        self.mmap.insert(range, idx);
 
         Ok(())
     }
@@ -67,11 +67,8 @@ impl MemoryMap {
             "peripheral is not word-aligned!");
 
         // check for collision with existing mapped regions
-        // collisions only reported for partial overlaps.
         for range in peripheral.ranges().iter() {
-            let mut intervals = self.mmap.intervals(range.clone());
-            while let Some(colliding) = intervals.next() {
-                if *range == colliding { continue; }
+            if let Some(colliding) = self.mmap.intervals(range.clone()).next() {
                 return Err(backend::Error::MapConflict(range.clone(), colliding));
             }
         }
@@ -79,9 +76,7 @@ impl MemoryMap {
         // add peripheral to map
         let idx = MapIx::Mmio(self.mmio.len());
         for range in peripheral.ranges().iter() {
-            self.mmap.entry(range.clone())
-                .and_modify(|v| v.push(idx))
-                .or_insert(vec![idx]);
+            self.mmap.insert(range.clone(), idx);
         }
         self.mmio.push(peripheral);
 
@@ -106,9 +101,7 @@ impl MemoryMap {
 
     pub fn mapped(&self) -> impl Iterator<Item=MappedRange> + use<'_> {
         self.mmap.iter(..)
-            .flat_map(|(range, idxs)| {
-                idxs.iter().map(move |ix| (range.clone(), ix))
-            }).map(|(range, ix)| {
+            .map(|(range, ix)| {
                 match ix {
                     MapIx::Mem(_) => { MappedRange::Mem(range.clone()) }
                     MapIx::Mmio(_) => { MappedRange::Mmio(range.clone()) }
@@ -127,34 +120,27 @@ impl MemoryMap {
         E: From<peripheral::Event>,
     {
         let (range, val) = self._get_mapped_region(address.clone())?;
-        match val[0] {
+        match val {
             MapIx::Mem(idx) => {
                 let state = self.mem.get(idx).unwrap();
                 let offset = (*address - range.start).offset() as usize;
                 state.read_bytes(offset, dst)
                     .map_err(backend::Error::from)
             }
-            MapIx::Mmio(_) => {
-                for ix in val {
-                    let MapIx::Mmio(idx) = ix else {
-                        error!("mem overlaps with mmio at range: {:#x}..{:#x}",
-                            range.start.offset(), range.end.offset());
-                        panic!("mem cannot overlap with mmio");
-                    };
-                    let peripheral = self.mmio.get_mut(idx).unwrap();
-                    let mut peripheral_events = VecDeque::new();
-                    let result = peripheral.read_bytes(address, dst, &mut peripheral_events);
-                    for peripheral_event in peripheral_events {
-                        events.push_back(peripheral_event.into());
-                    }
-                    if let Err(peripheral::Error::InvalidPeripheralReg(address)) = result {
-                        let offset = address.offset();
-                        warn!("warning: ignoring unimplemented peripheral register @ {offset:#x}");
-                    } else {
-                        result.map_err(backend::Error::from)?;
-                    }
+            MapIx::Mmio(idx) => {
+                let peripheral = self.mmio.get_mut(idx).unwrap();
+                let mut peripheral_events = VecDeque::new();
+                let result = peripheral.read_bytes(address, dst, &mut peripheral_events);
+                for peripheral_event in peripheral_events {
+                    events.push_back(peripheral_event.into());
                 }
-                Ok(())
+                if let Err(peripheral::Error::InvalidPeripheralReg(address)) = result {
+                    let offset = address.offset();
+                    warn!("warning: ignoring unimplemented peripheral register @ {offset:#x}");
+                    Ok(())
+                } else {
+                    result.map_err(backend::Error::from)
+                }
             }
         }
     }
@@ -170,34 +156,27 @@ impl MemoryMap {
         E: From<peripheral::Event>,
     {
         let (range, val) = self._get_mapped_region(address.clone())?;
-        match val[0] {
+        match val {
             MapIx::Mem(idx) => {
                 let state = self.mem.get_mut(idx).unwrap();
                 let offset = (*address - range.start).offset() as usize;
                 state.write_bytes(offset, src)
                     .map_err(backend::Error::from)
             }
-            MapIx::Mmio(_) => {
-                for ix in val {
-                    let MapIx::Mmio(idx) = ix else {
-                        error!("mem overlaps with mmio at range: {:#x}..{:#x}",
-                            range.start.offset(), range.end.offset());
-                        panic!("mem cannot overlap with mmio");
-                    };
-                    let peripheral = self.mmio.get_mut(idx).unwrap();
-                    let mut peripheral_events = VecDeque::new();
-                    let result = peripheral.write_bytes(address, src, &mut peripheral_events);
-                    for peripheral_event in peripheral_events {
-                        events.push_back(peripheral_event.into());
-                    }
-                    if let Err(peripheral::Error::InvalidPeripheralReg(address)) = result {
-                        let offset = address.offset();
-                        warn!("warning: ignoring unimplemented peripheral register @ {offset:#x}");
-                    } else {
-                        result.map_err(backend::Error::from)?;
-                    }
+            MapIx::Mmio(idx) => {
+                let peripheral = self.mmio.get_mut(idx).unwrap();
+                let mut peripheral_events = VecDeque::new();
+                let result = peripheral.write_bytes(address, src, &mut peripheral_events);
+                for peripheral_event in peripheral_events {
+                    events.push_back(peripheral_event.into());
                 }
-                Ok(())
+                if let Err(peripheral::Error::InvalidPeripheralReg(address)) = result {
+                    let offset = address.offset();
+                    warn!("warning: ignoring unimplemented peripheral register @ {offset:#x}");
+                    Ok(())
+                } else {
+                    result.map_err(backend::Error::from)
+                }
             }
         }
     }
@@ -205,7 +184,7 @@ impl MemoryMap {
     pub fn mem_view_bytes(&self, address: &Address, size: Option<usize>) -> Result<&[u8], backend::Error> {
         let (range, val) = self._get_mapped_region(address.clone())?;
         let size = size.unwrap_or((range.end.offset() - range.start.offset()) as usize);
-        match val[0] {
+        match val {
             MapIx::Mem(idx) => {
                 let state = self.mem.get(idx).unwrap();
                 let offset = (*address - range.start).offset() as usize;
@@ -221,7 +200,7 @@ impl MemoryMap {
     pub fn mem_view_bytes_mut(&mut self, address: &Address, size: Option<usize>) -> Result<&mut [u8], backend::Error> {
         let (range, val) = self._get_mapped_region(address.clone())?;
         let size = size.unwrap_or((range.end.offset() - range.start.offset()) as usize);
-        match val[0] {
+        match val {
             MapIx::Mem(idx) => {
                 let state = self.mem.get_mut(idx).unwrap();
                 let offset = (*address - range.start).offset() as usize;
@@ -235,15 +214,12 @@ impl MemoryMap {
     }
 
 
-    fn _get_mapped_region(&self, address: impl Into<Address>) -> Result<(Range<Address>, Vec<MapIx>), backend::Error> {
+    fn _get_mapped_region(&self, address: impl Into<Address>) -> Result<(Range<Address>, MapIx), backend::Error> {
         let address: Address = address.into();
         let mut overlaps = self.mmap.overlap(address.clone());
         let (range, val) = overlaps.next()
             .ok_or(backend::Error::Unmapped(address.clone()))?;
         if let Some((other_range, _)) = overlaps.next() {
-            // note multiple mapped peripherals is only valid when ranges are identical,
-            // and if so, they will be mapped to the same range.
-            // different ranges should be invalid.
             return Err(backend::Error::MapConflict(range, other_range));
         }
         Ok((range, val.clone()))
