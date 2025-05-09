@@ -79,7 +79,7 @@ impl Backend {
     #[allow(unused)]
     #[instrument(skip_all)]
     pub(crate) fn handle_event(&mut self, evt: Event) -> Result<(), backend::Error> {
-        info!("handling {evt:?}");
+        debug!("handling {evt:?}");
         match evt {
             Event::SetProcessorStatus(status) => {
                 self.status = status;

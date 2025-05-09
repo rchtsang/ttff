@@ -14,6 +14,7 @@ pub use tracing::{
     error,
     info,
     warn,
+    trace,
 };
 use tracing_subscriber::{
     prelude::*,

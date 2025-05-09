@@ -124,7 +124,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
 
         // let insn = context.fetch(address, pdb.arena)?;
         let insn = pdb.fetch(address, context.backend())?;
-        info!("pc @ {:#010x} (tag={}): {}", address.offset(), &self.pc_tag, insn.disasm_str());
+        debug!("pc @ {:#010x} (tag={}): {}", address.offset(), &self.pc_tag, insn.disasm_str());
         self.plugin.pre_insn_cb(&self.pc, insn.as_ref(), context)?;
 
         let pcode = &insn.pcode;
@@ -183,8 +183,8 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         context: &mut Context<'backend>,
     ) -> Result<Flow, Error> {
         let loc = self.pc.clone();
-        debug!("{:#010x}_{}: {}", loc.address.offset(), loc.position, context.fmt_pcodeop(operation));
-        debug!("    inputs: {}", context.fmt_inputs(operation)?);
+        trace!("{:#010x}_{}: {}", loc.address.offset(), loc.position, context.fmt_pcodeop(operation));
+        trace!("    inputs: {}", context.fmt_inputs(operation)?);
         match operation.opcode {
             Opcode::Copy => {
                 let (val, tag) = context.read(&operation.inputs[0])?;
