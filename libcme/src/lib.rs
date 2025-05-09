@@ -14,6 +14,7 @@ pub mod types;
 mod test;
 
 pub mod prelude {
+    pub use elf::ElfBytes;
     pub use fugue_core::prelude::*;
     pub use fugue_core::ir::Location;
     pub use fugue_ir::disassembly::IRBuilderArena;
