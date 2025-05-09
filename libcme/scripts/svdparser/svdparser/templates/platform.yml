@@ -21,19 +21,8 @@ mmio:
   {% for instance_name, derived in sorted(peripheral['#derives'].items()) %}
   {{ derived['name'].lower() }}:
     description: {{ " ".join(str(derived['description']).split()) }}
+    address: {{ hex(int(derived['baseAddress'], 0)) }}
+    size: {{ hex(int(peripheral['addressBlock']['size'], 0)) }}
     perms: 0b011
-    base: {{ hex(int(derived['baseAddress'], 0)) }}
-    blocksize: {{ hex(int(peripheral['addressBlock']['size'], 0)) }}
-    registers:
-      {% for register in peripheral['registers'] -%}
-      {{ register['name'].replace('[%s]', '').lower() }}:
-        address: {{ hex(int(derived['baseAddress'], 0) + int(register['addressOffset'], 0)) }}
-        {% if 'dim' in register -%}
-        dim: {{ hex(int(register['dim'], 0)) }}
-        size: {{ hex(int(register['dimIncrement'], 0)) }}
-        {%- else -%}
-        size: 0x4
-        {%- endif %}
-      {% endfor -%}
   {% endfor %}
   {%- endfor -%}

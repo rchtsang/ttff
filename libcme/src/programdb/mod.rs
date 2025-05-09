@@ -20,11 +20,7 @@ pub use cfg::*;
 mod types;
 pub use types::*;
 pub mod platform;
-pub use platform::{
-    MmioRegion,
-    MemRegion,
-    Platform,
-};
+pub use platform::{Region, Platform};
 pub mod program;
 pub use program::Program;
 

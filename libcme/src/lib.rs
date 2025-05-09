@@ -14,7 +14,6 @@ pub mod types;
 mod test;
 
 pub mod prelude {
-    pub use elf::ElfBytes;
     pub use fugue_core::prelude::*;
     pub use fugue_core::ir::Location;
     pub use fugue_ir::disassembly::IRBuilderArena;
@@ -34,8 +33,7 @@ pub mod prelude {
         ProgramDB,
         Block,
         Platform,
-        MemRegion,
-        MmioRegion,
+        Region,
         Program,
     };
     pub use super::utils::*;
