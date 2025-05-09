@@ -119,10 +119,14 @@ impl Backend {
                 Ok(())
             }
             Event::ExternSysResetRequest => {
-                todo!()
+                let err = super::Error::System("extern system reset").into();
+                let msg = "system reset unsupported";
+                Err(backend::Error::Arch(msg, Arc::new(err)))
             }
             Event::LocalSysResetRequest => {
-                todo!()
+                let err = super::Error::System("local system reset").into();
+                let msg = "system reset unsupported";
+                Err(backend::Error::Arch(msg, Arc::new(err)))
             }
             Event::ExceptionClrAllActive => {
                 // TODO: this must also clear the IPSR

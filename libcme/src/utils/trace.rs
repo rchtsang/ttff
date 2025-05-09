@@ -80,3 +80,30 @@ pub fn compact_dbg_file_logger(path: &str) -> impl Subscriber {
         )
         .with(LevelFilter::from_level(Level::DEBUG))
 }
+
+/// configure tracing to output to stdout and file
+pub fn compact_file_logger(path: &str, level: Level) -> impl Subscriber {
+    let log_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(path)
+        .unwrap();
+    Registry::default()
+        .with(
+            fmt::layer()
+                .compact()
+                .with_file(true)
+                .with_line_number(true)
+                .with_target(true)
+        )
+        .with(
+            fmt::layer()
+                .with_ansi(true)
+                .with_writer(log_file)
+                .compact()
+                .with_file(true)
+                .with_line_number(true)
+                .with_target(true)
+        )
+        .with(LevelFilter::from_level(level))
+}
