@@ -143,6 +143,23 @@ where
                         *state.executions());
                     return Ok(ExitKind::Crash);
                 }
+                Err(dft::eval::Error::Context(
+                    dft::context::Error::Backend(
+                        backend::Error::Peripheral(err)
+                ))) => {
+                    let peripheral::Error::State(err) = err.as_ref() else {
+                        return Ok(ExitKind::Crash);
+                    };
+                    if let Some(peripheral::channel::ChannelStateError::Recv(addr, err)) = err.downcast_ref() {
+                        error!("execution {:>4}: channel error on read at {}: {:?}",
+                            *state.executions(),
+                            addr.offset(),
+                            err);
+                        return Ok(ExitKind::Timeout);
+                    } else {
+                        return Ok(ExitKind::Crash);
+                    }
+                }
                 Err(err) => {
                     // other evaluation/emulation error
                     error!("execution {:>4}: other error: {err:#x?}",
