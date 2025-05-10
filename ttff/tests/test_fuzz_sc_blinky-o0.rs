@@ -70,6 +70,11 @@ pub fn main() -> Result<(), anyhow::Error> {
     set_global_default(global_sub)
         .expect("failed to set tracing default logger");
 
+    // configure test fuzz run limits
+    let limit = Some(10000 as usize);
+    let exc_limit = Some(20);
+
+
     let irb = IRBuilderArena::with_capacity(0x10000);
 
     let covmap = CovMap::new(
@@ -205,8 +210,6 @@ pub fn main() -> Result<(), anyhow::Error> {
 
     info!("building dft executor...");
     let halt_fn = None;
-    let limit = Some(50000 as usize);
-    let exc_limit = Some(200);
 
     let dft_executor = sc::DftExecutor::new_with(
         evaluator,

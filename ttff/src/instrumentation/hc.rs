@@ -44,10 +44,11 @@ impl AnalysisPlugin for HcPlugin {
 
     fn post_lift_block_cb<'z, 'irb>(
         &mut self,
-        _block: &mut Block<'z>,
+        block: &mut Block<'z>,
         _cache: Arc<RwLock<TranslationCache<'irb>>>,
     ) -> () {
-        ()
+        info!(">> new block found: ({:#x}, {})",
+            block.address(), block.size());
     }
 }
 
