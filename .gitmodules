@@ -1,5 +1,5 @@
 [submodule "fugue-core"]
 	path = fugue-core
-	url = git@github.com-rchtsang:rchtsang/fugue-core.git 
+	url = git@github.com:rchtsang/fugue-core.git 
 	branch = cme
 	update = merge
