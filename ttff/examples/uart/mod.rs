@@ -252,7 +252,7 @@ impl UARTState {
                 // note that for tasks, val probably has to be exactly `1`
                 let val = (u32::from_le_bytes(val) != 0) as u32;
                 self.backing[word_offset] = val;
-                let tasks_stoprx = UARTRegType::TASKS_STOPRX.offset();
+                let tasks_stoprx = UARTRegType::TASKS_STOPRX.offset() / 4;
                 // treat stoprx as the inversion of startrx and vice versa
                 // it's write-only so this is only for internal representation
                 self.backing[tasks_stoprx] = (val != 1) as u32;
@@ -263,7 +263,7 @@ impl UARTState {
                 val.copy_from_slice(src);
                 let val = (u32::from_le_bytes(val) != 0) as u32;
                 self.backing[word_offset] = (val != 0) as u32;
-                let tasks_startrx = UARTRegType::TASKS_STARTRX.offset();
+                let tasks_startrx = UARTRegType::TASKS_STARTRX.offset() / 4;
                 self.backing[tasks_startrx] = (val != 1) as u32;
                 Ok(())
             }
@@ -273,7 +273,7 @@ impl UARTState {
                 // note that for tasks, val probably has to be exactly `1`
                 let val = (u32::from_le_bytes(val) != 0) as u32;
                 self.backing[word_offset] = val;
-                let tasks_stoptx = UARTRegType::TASKS_STOPTX.offset();
+                let tasks_stoptx = UARTRegType::TASKS_STOPTX.offset() / 4;
                 // treat stoprx as the inversion of startrx and vice versa
                 // it's write-only so this is only for internal representation
                 self.backing[tasks_stoptx] = (val != 1) as u32;
@@ -284,7 +284,7 @@ impl UARTState {
                 val.copy_from_slice(src);
                 let val = (u32::from_le_bytes(val) != 0) as u32;
                 self.backing[word_offset] = (val != 0) as u32;
-                let tasks_starttx = UARTRegType::TASKS_STARTTX.offset();
+                let tasks_starttx = UARTRegType::TASKS_STARTTX.offset() / 4;
                 self.backing[tasks_starttx] = (val != 1) as u32;
                 Ok(())
             }
@@ -326,7 +326,7 @@ impl UARTState {
                 let val = u32::from_le_bytes(val);
                 // let old_intenset = self.backing[word_offset];
                 self.backing[word_offset] |= val;
-                let intenclr_offset = UARTRegType::INTENCLR.offset();
+                let intenclr_offset = UARTRegType::INTENCLR.offset() / 4;
                 self.backing[intenclr_offset] |= val;
 
                 // interrupt enable probably not be necessary here
@@ -345,7 +345,7 @@ impl UARTState {
                 let val = u32::from_le_bytes(val);
                 // let old_intenclr = self.backing[word_offset];
                 self.backing[word_offset] &= val ^ 0xFFFFFFFF;
-                let intenset_offset = UARTRegType::INTENSET.offset();
+                let intenset_offset = UARTRegType::INTENSET.offset() / 4;
                 self.backing[intenset_offset] &= val ^ 0xFFFFFFFF;
 
                 // interrupt disable probably not be necessary here
