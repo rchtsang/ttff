@@ -88,7 +88,7 @@ impl /*{ peripheral_group['name'] }*/State {
     pub fn new_with(base_address: u32) -> Self {
         let mut backing = Box::new([0u32; /*{ hex(_backing_size(peripheral_group)) }*/]);
         for reg_type in /*{ _reg_type(peripheral_group) }*/::list() {
-            let offset = reg_type.offset();
+            let offset = reg_type.offset() / 4;
             if let Some(reset_value) = reg_type.reset() {
                 backing[offset] = reset_value;
             }
