@@ -1,6 +1,7 @@
 //! uart-jump demo
 //! 
 use std::fs;
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -21,7 +22,7 @@ use libafl::{
         // SendExiting,
         // ShutdownSignalData,
     },
-    executors::WithObservers,
+    executors::{ExitKind, WithObservers},
     feedback_or, feedback_or_fast,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback, TimeoutFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
@@ -52,22 +53,55 @@ use ttff::prelude::*;
 pub mod ficr;
 pub mod uicr;
 pub mod uart;
-
+pub mod gpio;
 
 const COVMAP_SIZE: usize = 0x2000;
 static mut COVMAP: [u8; COVMAP_SIZE] = [0u8; COVMAP_SIZE];
 
 
+#[derive(Debug, Default)]
+pub struct CallStackPlugin {
+    callstack: VecDeque<Address>,
+}
+
+impl EvalPlugin for CallStackPlugin {
+    #[instrument(skip_all)]
+    fn post_insn_cb<'irb, 'backend>(
+        &mut self,
+        _loc: &Location,
+        _insn: &Insn<'irb>,
+        flow: &Flow,
+        _context: &mut dft::Context<'backend>,
+    ) -> Result<(), dft::plugin::Error> {
+        match flow.flowtype {
+            FlowType::Call
+            | FlowType::ICall => {
+                let target = flow.target.unwrap().address();
+                debug!("calling {:#x} from {:#x}",
+                    target.offset(),
+                    self.callstack.back().unwrap_or(&0u64.into()).offset());
+                self.callstack.push_back(target);
+                Ok(())
+            }
+            FlowType::Return => {
+                self.callstack.pop_back().unwrap();
+                Ok(())
+            }
+            _ => { Ok(()) }
+        }
+    }
+}
+
 pub fn main() -> Result<(), anyhow::Error> {
     let (global_sub, _guard) = compact_file_logger(
-        "examples/uart-jump.log",
-        Level::INFO,
+        "examples/uart-jump/uart-jump.log",
+        Level::DEBUG,
     );
     set_global_default(global_sub)?;
 
     // configure test fuzz run limits
-    let limit = Some(50000 as usize);
-    let exc_limit = Some(100);
+    let limit = Some(100000 as usize);
+    let exc_limit = Some(5);
 
     let irb = IRBuilderArena::with_capacity(0x10000);
 
@@ -97,11 +131,13 @@ pub fn main() -> Result<(), anyhow::Error> {
     let backend = pdb.backend(&builder)?;
     let mut context = dft::Context::from_backend(backend)?;
 
-    info!("mapping peripherals");
+    info!("mapping peripherals...");
     let ficr_peripheral = ficr::FICRState::new_with(ficr::FICR_BASE);
     let uicr_peripheral = uicr::UICRState::new_with(uicr::UICR_BASE);
+    let gpio_peripheral = gpio::GPIOState::new_with(gpio::P0_BASE);
     context.map_mmio(Peripheral::new_with(Box::new(ficr_peripheral)), None)?;
     context.map_mmio(Peripheral::new_with(Box::new(uicr_peripheral)), None)?;
+    context.map_mmio(Peripheral::new_with(Box::new(gpio_peripheral)), None)?;
     
     let access_log = unbounded();
     let tx_channel = unbounded();
@@ -112,6 +148,19 @@ pub fn main() -> Result<(), anyhow::Error> {
         Peripheral::new_with(Box::new(uart_peripheral)),
         Some(dft::Tag::from(tag::TAINTED_VAL)),
     )?;
+
+    for mapped_range in context.backend().mmap().mapped() {
+        match mapped_range {
+            MappedRange::Mem(range) => {
+                info!("mapped mem: [{:#x}, {:#x}]",
+                    range.start.offset(), range.end.offset());
+            }
+            MappedRange::Mmio(range) => {
+                info!("mapped mmio: [{:#x}, {:#x}]",
+                    range.start.offset(), range.end.offset());
+            }
+        }
+    }
 
     info!("loading program binary...");
     for section in pdb.program().loadable_sections() {
@@ -139,11 +188,25 @@ pub fn main() -> Result<(), anyhow::Error> {
 
     info!("building evaluator...");
     let mut evaluator = dft::Evaluator::new_with_policy(&policy);
+    evaluator.add_plugin(Box::new(CallStackPlugin::default()));
     (evaluator.pc, evaluator.pc_tag) = context.read_pc()
         .map(|(pc, tag)| (Location::from(pc), tag))?;
 
     info!("building dft executor...");
-    let halt_cb = None;
+    let halt_on_exit = &mut |
+        evaluator: &dft::Evaluator,
+        _pdb: &ProgramDB,
+        _context: &mut dft::Context,
+    | {
+        match evaluator.pc.address().offset() {
+            0xac8 => { info!("_exit reached"); Some(ExitKind::Ok) }
+            _ => { None }
+        }
+    };
+    let halt_cb = Some(sc::HaltCallback {
+        callback: halt_on_exit,
+    });
+
     let stop_on_policy_violation = &mut |
         result: &Result<(), dft::eval::Error>,
     | {
@@ -202,8 +265,8 @@ pub fn main() -> Result<(), anyhow::Error> {
     );
 
     info!("building libafl state...");
-    let queue_corpus_path = PathBuf::from("tests/fuzz_sc_blinky-o0/queue");
-    let crash_corpus_path = PathBuf::from("tests/fuzz_sc_blinky-o0/crashes");
+    let queue_corpus_path = PathBuf::from("examples/uart-jump/queue");
+    let crash_corpus_path = PathBuf::from("examples/uart-jump/crashes");
     let mut state = StdState::new(
         StdRand::with_seed(42),
         // OnDiskCorpus::new(queue_corpus_path)?,
