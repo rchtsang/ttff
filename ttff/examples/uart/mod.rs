@@ -5,6 +5,7 @@
 use std::fmt;
 use std::collections::VecDeque;
 
+use libcme::peripheral::channel::Access;
 use thiserror::Error;
 use bitfield_struct::bitfield;
 use crossbeam::channel::{
@@ -55,6 +56,7 @@ impl From<TryRecvError> for UartError {
 pub struct UARTState {
     pub base_address: u32,
     backing: Box<[u32; 0x400]>,
+    access_log: (Sender<Access>, Receiver<Access>),
     rx_channel: (Sender<u8>, Receiver<u8>),
     tx_channel: (Sender<u8>, Receiver<u8>),
     // rxd_buf: [u8; 6]
@@ -112,6 +114,7 @@ impl AsMut<[u8]> for UARTState {
 
 impl UARTState {
     pub fn new_with(
+        access_log: (Sender<Access>, Receiver<Access>),
         rx_channel: (Sender<u8>, Receiver<u8>),
         tx_channel: (Sender<u8>, Receiver<u8>),
     ) -> Self {
@@ -121,6 +124,7 @@ impl UARTState {
         let state = Self {
             base_address,
             backing,
+            access_log,
             rx_channel,
             tx_channel,
             // rxd_buf,
@@ -132,7 +136,7 @@ impl UARTState {
         self.backing = Box::new([0u32; 0x400]);
         // self.rxd_buf = [0; 6];
         for reg_type in UARTRegType::list() {
-            let offset = reg_type.offset();
+            let offset = reg_type.offset() / 4;
             if let Some(reset_value) = reg_type.reset() {
                 self.backing[offset] = reset_value;
             }
@@ -206,6 +210,11 @@ impl UARTState {
                     && !self.get_tasks_suspend().tasks_suspend()
                     && !self.get_events_rxdrdy().events_rxdrdy()
                 {
+                    self.access_log.0.try_send(Access {
+                        address: address.into(),
+                        size: 1,
+                        is_write: false,
+                    }).expect("failed to send over access log");
                     let val = self.rx_channel.1.try_recv()
                         .map_err(|e| {
                             let e = UartError::from(e);
@@ -386,6 +395,11 @@ impl UARTState {
                     && !self.get_tasks_suspend().tasks_suspend()
                     && !self.get_events_txdrdy().events_txdrdy()
                 {
+                    self.access_log.0.try_send(Access {
+                        address: address.into(),
+                        size: 1,
+                        is_write: true,
+                    }).expect("failed to send over access log");
                     self.tx_channel.0.try_send(src[0])
                         .map_err(|e| {
                             let e = UartError::from(e);

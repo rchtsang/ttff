@@ -92,7 +92,7 @@ impl FICRState {
     pub fn new_with(base_address: u32) -> Self {
         let mut backing = Box::new([0u32; 0x400]);
         for reg_type in FICRRegType::list() {
-            let offset = reg_type.offset();
+            let offset = reg_type.offset() / 4;
             if let Some(reset_value) = reg_type.reset() {
                 backing[offset] = reset_value;
             }

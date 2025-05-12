@@ -70,6 +70,7 @@ impl UARTRegType {
         Address::from(base.into() + (self._data().offset as u64))
     }
 
+    // offset in bytes
     pub fn offset(&self) -> usize {
         self._data().offset
     }

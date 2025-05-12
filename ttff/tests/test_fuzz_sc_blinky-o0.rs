@@ -210,6 +210,7 @@ pub fn main() -> Result<(), anyhow::Error> {
 
     info!("building dft executor...");
     let halt_fn = None;
+    let step_cb_fn = None;
 
     let dft_executor = sc::DftExecutor::new_with(
         evaluator,
@@ -218,6 +219,7 @@ pub fn main() -> Result<(), anyhow::Error> {
         limit,
         exc_limit,
         halt_fn,
+        step_cb_fn,
         access_log.clone(),
         read_src.clone(),
         write_dst.clone(),

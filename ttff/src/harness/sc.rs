@@ -20,11 +20,23 @@ use libafl::{
     inputs::HasTargetBytes,
 };
 
-pub type HaltFn = dyn FnMut(
+pub type HaltCallbackFn = dyn FnMut(
     &dft::Evaluator,
     &ProgramDB,
     &mut dft::Context,
 ) -> Option<ExitKind>;
+
+pub type StepCallbackFn = dyn FnMut(
+    &Result<(), dft::eval::Error>,
+) -> Result<Option<ExitKind>, libafl::Error>;
+
+pub struct HaltCallback<'a> {
+    pub callback: &'a mut HaltCallbackFn,
+}
+
+pub struct StepCallback<'a> {
+    pub callback: &'a mut StepCallbackFn,
+}
 
 /// a dft executor for channel-based peripherals
 /// 
@@ -38,7 +50,10 @@ pub struct DftExecutor<'policy, 'backend, 'irb, 'plugin> {
     /// an optional maximum number of executions
     exc_limit: Option<usize>,
     /// a halt condition callback
-    halt_fn: Box<HaltFn>,
+    halt_cb: Option<HaltCallback<'plugin>>,
+    /// a post-step callback
+    /// (this is redundant and should be combined with halt_fn)
+    step_cb: Option<StepCallback<'plugin>>,
     evaluator: dft::Evaluator<'policy, 'plugin>,
     base_context: dft::Context<'backend>,
     pdb: ProgramDB<'irb>,
@@ -54,20 +69,20 @@ impl<'policy, 'backend, 'irb, 'plugin> DftExecutor<'policy, 'backend, 'irb, 'plu
         pdb: programdb::ProgramDB<'irb>,
         limit: Option<usize>,
         exc_limit: Option<usize>,
-        halt_fn: Option<Box<HaltFn>>,
+        halt_cb: Option<HaltCallback<'plugin>>,
+        step_cb: Option<StepCallback<'plugin>>,
         access_log: (Sender<Access>, Receiver<Access>),
         read_src: (Sender<u8>, Receiver<u8>),
         write_dst: (Sender<u8>, Receiver<u8>),
     ) -> Self {
-        let halt_fn = halt_fn
-            .unwrap_or(Box::new(|_, _, _| None));
         Self {
             evaluator,
             base_context,
             pdb,
             limit,
             exc_limit,
-            halt_fn,
+            halt_cb,
+            step_cb,
             access_log,
             read_src,
             write_dst,
@@ -136,6 +151,11 @@ where
         let mut cycles: usize = 0;
         while self.limit.is_none() || cycles < self.limit.unwrap() {
             let result = self.evaluator.step(&mut context, &mut self.pdb);
+            if let Some(ref mut step_cb) = self.step_cb {
+                if let Some(kind) = (step_cb.callback)(&result)? {
+                    return Ok(kind);
+                }
+            }
             match result {
                 Err(dft::eval::Error::Policy(err)) => {
                     // policy violation
@@ -168,10 +188,12 @@ where
                 }
                 _ => {
                     cycles += 1;
-                    if let Some(kind) = (self.halt_fn)(
-                        &mut self.evaluator, &mut self.pdb, &mut context)
-                    {
-                        return Ok(kind);
+                    if let Some(ref mut halt_cb) = self.halt_cb {
+                        if let Some(kind) = (halt_cb.callback)(
+                            &mut self.evaluator, &mut self.pdb, &mut context)
+                        {
+                            return Ok(kind);
+                        }
                     }
                 }
             }
