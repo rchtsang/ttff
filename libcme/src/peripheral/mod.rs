@@ -56,10 +56,15 @@ pub enum Event {
 /// the peripheral struct is a wrapper for objects that implement
 /// this trait.
 pub trait PeripheralState: DynClone {
+    /// base address of peripheral
     fn base_address(&self) -> Address;
+    /// peripheral block size in bytes
     fn size(&self) -> u64;
+    /// read bytes from peripheral
     fn read_bytes(&mut self, address: &Address, dst: &mut [u8], events: &mut VecDeque<Event>) -> Result<(), Error>;
+    /// write bytes to peripheral
     fn write_bytes(&mut self, address: &Address, src: &[u8], events: &mut VecDeque<Event>) -> Result<(), Error>;
+    /// increment time for peripheral
     fn tick(&mut self) -> Result<Option<Event>, Error> { Ok(None) }
 }
 clone_trait_object!(PeripheralState);

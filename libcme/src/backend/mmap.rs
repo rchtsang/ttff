@@ -224,11 +224,15 @@ impl MemoryMap {
     }
 
 
+    #[instrument(skip_all)]
     fn _get_mapped_region(&self, address: impl Into<Address>) -> Result<(Range<Address>, MapIx), backend::Error> {
         let address: Address = address.into();
         let mut overlaps = self.mmap.overlap(address.clone());
         let (range, val) = overlaps.next()
-            .ok_or(backend::Error::Unmapped(address.clone()))?;
+            .ok_or_else(|| {
+                error!("unmapped address: {:#x}", address.offset());
+                backend::Error::Unmapped(address.clone())
+            })?;
         if let Some((other_range, _)) = overlaps.next() {
             return Err(backend::Error::MapConflict(range, other_range));
         }

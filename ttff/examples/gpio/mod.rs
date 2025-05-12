@@ -43,7 +43,7 @@ impl PeripheralState for GPIOState {
     }
 
     fn size(&self) -> u64 {
-        self.backing.len() as u64
+        (self.backing.len() * 4) as u64
     }
 
     fn read_bytes(&mut self,
