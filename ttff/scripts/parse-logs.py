@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 from collections import namedtuple
+from string import Template
 
 """
 parse generated fuzzing log files and convert to structured data 
@@ -24,8 +25,44 @@ LOG_ENTRY_PTRN = re.compile(
     re.DOTALL)
 
 
-LogEntry = namedtuple("LogEntry",
-    ["delta", "time", "level", "calls", "src", "line", "msg"])
+# https://stackoverflow.com/questions/8906926
+class DeltaTemplate(Template):
+    delimiter = "%"
+
+def strfdelta(tdelta, fmt):
+    d = {"D": tdelta.days}
+    hours, rem = divmod(tdelta.seconds, 3600)
+    minutes, seconds = divmod(rem, 60)
+    d["H"] = '{:02d}'.format(hours)
+    d["M"] = '{:02d}'.format(minutes)
+    d["S"] = '{:02d}'.format(seconds)
+    d["f"] = '{:06d}'.format(tdelta.microseconds)
+    t = DeltaTemplate(fmt)
+    return t.substitute(**d)
+
+
+class LogEntry:
+    __slots__ = ["delta", "time", "level", "calls", "src", "line", "msg"]
+
+    def __init__(self, delta, time, level, calls, src, line, msg):
+        self.delta = delta
+        self.time = time
+        self.level = level
+        self.calls = calls
+        self.src = src
+        self.line = line
+        self.msg = msg
+
+    def __repr__(self):
+        return "{delta} {time} {lvl:>5} {calls}: {src}:{line}: {msg}".format(
+            delta=strfdelta(self.delta, "%H:%M:%S.%f"),
+            time=self.time.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            lvl=self.level,
+            calls=self.calls,
+            src=self.src,
+            line=self.line,
+            msg=self.msg)
+
 
 
 def strip_ansi(text: str):
