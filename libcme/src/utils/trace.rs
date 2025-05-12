@@ -61,6 +61,10 @@ pub fn compact_dbg_logger() -> FmtSubscriber<DefaultFields, Format<Compact>> {
 
 /// configure tracing to output to stdout and file
 pub fn compact_dbg_file_logger(path: &str) -> impl Subscriber {
+    let buf = std::path::Path::new(path);
+    if let Some(parent) = buf.parent() {
+        std::fs::create_dir_all(parent).unwrap();
+    }
     let log_file = OpenOptions::new()
         .write(true)
         .create(true)
@@ -88,6 +92,10 @@ pub fn compact_dbg_file_logger(path: &str) -> impl Subscriber {
 
 /// configure tracing to output to stdout and file
 pub fn compact_file_logger(path: &str, level: Level) -> (impl Subscriber, WorkerGuard) {
+    let buf = std::path::Path::new(path);
+    if let Some(parent) = buf.parent() {
+        std::fs::create_dir_all(parent).unwrap();
+    }
     let log_file = OpenOptions::new()
         .write(true)
         .create(true)

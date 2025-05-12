@@ -48,6 +48,7 @@ impl EvalPlugin for DummyEvalPlugin {
         &mut self,
         _loc: &Location,
         _insn: &Insn<'irb>,
+        _flow: &Flow,
         _context: &mut Context<'backend>,
     ) -> Result<(), Error> {
         self.post_insn_cnt += 1;

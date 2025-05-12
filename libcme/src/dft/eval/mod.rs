@@ -168,7 +168,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         // handle events after pc is written
         context.process_events()?;
         
-        self.plugin.post_insn_cb(&self.pc, insn.as_ref(), context)?;
+        self.plugin.post_insn_cb(&self.pc, insn.as_ref(), &flow, context)?;
 
         Ok(())
     }

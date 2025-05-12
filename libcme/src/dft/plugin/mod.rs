@@ -50,6 +50,7 @@ pub trait EvalPlugin: fmt::Debug {
         &mut self,
         loc: &Location,
         insn: &Insn<'irb>,
+        flow: &Flow,
         context: &mut Context<'backend>,
     ) -> Result<(), Error> { Ok(()) }
 
@@ -150,10 +151,11 @@ impl<'a> EvalPlugin for EvaluatorPlugin<'a> {
         &mut self,
         loc: &Location,
         insn: &Insn<'irb>,
+        flow: &Flow,
         context: &mut Context<'backend>,
     ) -> Result<(), Error> {
         for plugin in self.plugins.iter_mut() {
-            plugin.as_mut().post_insn_cb(loc, insn, context)?;
+            plugin.as_mut().post_insn_cb(loc, insn, flow, context)?;
         }
         Ok(())
     }
