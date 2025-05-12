@@ -127,7 +127,8 @@ where
         input: &I,
     ) -> Result<ExitKind, libafl::Error> {
         if let Some(exc_limit) = self.exc_limit {
-            if *state.executions() > exc_limit as u64 {
+            if *state.executions() >= exc_limit as u64 {
+                error!("execution limit hit! terminating fuzzer...");
                 return Err(libafl::Error::ShuttingDown);
             }
         }
@@ -198,6 +199,7 @@ where
                 }
             }
         }
+        error!("cycle limit hit! exiting with timeout...");
         Ok(ExitKind::Timeout)
     }
 }

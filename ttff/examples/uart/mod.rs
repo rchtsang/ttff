@@ -200,11 +200,19 @@ impl UARTState {
             | UARTRegType::PSELRXD
             | UARTRegType::BAUDRATE
             | UARTRegType::CONFIG => {
-                let val = self.backing[word_offset].to_le_bytes();
+                let val = self.backing[word_offset];
+                trace!("reading {val:#x} from {reg_type:?}...");
+                let val = val.to_le_bytes();
                 dst.copy_from_slice(&val);
                 Ok(())
             }
             UARTRegType::RXD => {
+                trace!("UART RXD: {{ enabled: {:?}, startrx: {:?}, suspend: {:?}, rxdrdy: {:?} }}",
+                    self.get_enable().enable() == 4,
+                    self.get_tasks_startrx().tasks_startrx(),
+                    self.get_tasks_suspend().tasks_suspend(),
+                    self.get_events_rxdrdy().events_rxdrdy(),
+                );
                 if self.get_enable().enable() == 4
                     && self.get_tasks_startrx().tasks_startrx()
                     && !self.get_tasks_suspend().tasks_suspend()
@@ -229,11 +237,11 @@ impl UARTState {
         }
     }
 
-    #[instrument]
+    #[instrument(skip_all)]
     pub fn _write_bytes(&mut self,
         offset: usize,
         src: &[u8],
-        events: &mut VecDeque<Event>,
+        _events: &mut VecDeque<Event>,
     ) -> Result<(), Error> {
         let address = self.base_address + offset as u32;
         let word_offset = offset / 4;
@@ -251,17 +259,22 @@ impl UARTState {
                 val.copy_from_slice(src);
                 // note that for tasks, val probably has to be exactly `1`
                 let val = (u32::from_le_bytes(val) != 0) as u32;
+                trace!("writing {val:#x} to {reg_type:?}...");
                 self.backing[word_offset] = val;
                 let tasks_stoprx = UARTRegType::TASKS_STOPRX.offset() / 4;
                 // treat stoprx as the inversion of startrx and vice versa
                 // it's write-only so this is only for internal representation
                 self.backing[tasks_stoprx] = (val != 1) as u32;
+                // set rxdrdy event (always ready in simulation)
+                let events_rxdrdy = UARTRegType::EVENTS_RXDRDY.offset() / 4;
+                self.backing[events_rxdrdy] = val;
                 Ok(())
             }
             UARTRegType::TASKS_STOPRX => {
                 let mut val = [0u8; 4];
                 val.copy_from_slice(src);
                 let val = (u32::from_le_bytes(val) != 0) as u32;
+                trace!("writing {val:#x} to {reg_type:?}...");
                 self.backing[word_offset] = (val != 0) as u32;
                 let tasks_startrx = UARTRegType::TASKS_STARTRX.offset() / 4;
                 self.backing[tasks_startrx] = (val != 1) as u32;
@@ -272,17 +285,21 @@ impl UARTState {
                 val.copy_from_slice(src);
                 // note that for tasks, val probably has to be exactly `1`
                 let val = (u32::from_le_bytes(val) != 0) as u32;
+                trace!("writing {val:#x} to {reg_type:?}...");
                 self.backing[word_offset] = val;
                 let tasks_stoptx = UARTRegType::TASKS_STOPTX.offset() / 4;
                 // treat stoprx as the inversion of startrx and vice versa
                 // it's write-only so this is only for internal representation
                 self.backing[tasks_stoptx] = (val != 1) as u32;
+                let events_txdrdy = UARTRegType::EVENTS_TXDRDY.offset() / 4;
+                self.backing[events_txdrdy] = val;
                 Ok(())
             }
             UARTRegType::TASKS_STOPTX => {
                 let mut val = [0u8; 4];
                 val.copy_from_slice(src);
                 let val = (u32::from_le_bytes(val) != 0) as u32;
+                trace!("writing {val:#x} to {reg_type:?}...");
                 self.backing[word_offset] = (val != 0) as u32;
                 let tasks_starttx = UARTRegType::TASKS_STARTTX.offset() / 4;
                 self.backing[tasks_starttx] = (val != 1) as u32;
@@ -292,6 +309,7 @@ impl UARTState {
                 let mut val = [0u8; 4];
                 val.copy_from_slice(src);
                 let val = u32::from_le_bytes(val);
+                trace!("writing {val:#x} to {reg_type:?}...");
                 // i think tasks are all single bit values,
                 // need to clarify in docs
                 self.backing[word_offset] = (val != 0) as u32;
@@ -306,6 +324,7 @@ impl UARTState {
                 let mut val = [0u8; 4];
                 val.copy_from_slice(src);
                 let val = u32::from_le_bytes(val);
+                trace!("writing {val:#x} to {reg_type:?}...");
                 // i think events are all single bit values,
                 // need to clarify in docs
                 self.backing[word_offset] = (val != 0) as u32;
@@ -315,6 +334,7 @@ impl UARTState {
                 let mut val = [0u8; 4];
                 val.copy_from_slice(src);
                 let val = u32::from_le_bytes(val);
+                trace!("writing {val:#x} to {reg_type:?}...");
                 let new_shorts = SHORTS::from_bits(val);
                 *self.get_shorts_mut() = new_shorts;
                 Ok(())
@@ -324,6 +344,7 @@ impl UARTState {
                 let mut val = [0u8; 4];
                 val.copy_from_slice(src);
                 let val = u32::from_le_bytes(val);
+                trace!("writing {val:#x} to {reg_type:?}...");
                 // let old_intenset = self.backing[word_offset];
                 self.backing[word_offset] |= val;
                 let intenclr_offset = UARTRegType::INTENCLR.offset() / 4;
@@ -343,6 +364,7 @@ impl UARTState {
                 let mut val = [0u8; 4];
                 val.copy_from_slice(src);
                 let val = u32::from_le_bytes(val);
+                trace!("writing {val:#x} to {reg_type:?}...");
                 // let old_intenclr = self.backing[word_offset];
                 self.backing[word_offset] &= val ^ 0xFFFFFFFF;
                 let intenset_offset = UARTRegType::INTENSET.offset() / 4;
@@ -363,6 +385,7 @@ impl UARTState {
                 let mut val = [0; 4];
                 val.copy_from_slice(src);
                 let val = u32::from_le_bytes(val) & 0xF;
+                trace!("writing {val:#x} to {reg_type:?}...");
                 self.backing[word_offset] = val;
                 Ok(())
             }
@@ -370,6 +393,7 @@ impl UARTState {
                 let mut val = [0; 4];
                 val.copy_from_slice(src);
                 let val = u32::from_le_bytes(val) & 0xF;
+                trace!("writing {val:#x} to {reg_type:?}...");
                 // do i need a peripheral enable event?
                 self.get_enable_mut().set_enable(val as u8);
                 Ok(())
@@ -378,6 +402,7 @@ impl UARTState {
             | UARTRegType::PSELTXD
             | UARTRegType::PSELCTS
             | UARTRegType::PSELRXD => {
+                trace!("writing {src:#x?} to {reg_type:?}...");
                 let slice = &mut self
                     .view_as_bytes_mut()[offset..offset + src.len()];
                 slice.copy_from_slice(src);
@@ -414,6 +439,7 @@ impl UARTState {
                 let mut val = [0; 4];
                 val.copy_from_slice(src);
                 let val = u32::from_le_bytes(val);
+                trace!("writing {val:#x} to {reg_type:?}...");
                 match val {
                     0x0004F000    /* 1200 baud */    
                     | 0x0009D000  /* 2400 baud */  
@@ -443,6 +469,7 @@ impl UARTState {
                 let mut val = [0; 4];
                 val.copy_from_slice(src);
                 let val = u32::from_le_bytes(val) & 0xF;
+                trace!("writing {val:#x} to {reg_type:?}...");
                 self.backing[word_offset] = val;
                 Ok(())
             }
