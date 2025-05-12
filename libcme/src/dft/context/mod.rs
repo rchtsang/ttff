@@ -172,6 +172,10 @@ impl<'backend> Context<'backend> {
         &self.backend
     }
 
+    pub fn backend_mut(&mut self) -> &mut (impl Backend + use<'backend>) {
+        &mut self.backend
+    }
+
     pub fn fmt_pcodeop(&self, pcodeop: &PCodeData) -> String {
         self.backend.fmt_pcodeop(pcodeop)
     }

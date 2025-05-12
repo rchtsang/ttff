@@ -15,7 +15,13 @@ use bitfield_struct::bitfield;
 use flagset::{FlagSet, flags};
 
 use fugue_ir::{
-    disassembly::IRBuilderArena, Translator, VarnodeData
+    disassembly::{
+        IRBuilderArena,
+        context::ContextDatabase,
+    },
+    Translator,
+    VarnodeData,
+
 };
 use fugue_core::prelude::*;
 use fugue_core::eval::fixed_state::FixedState;
@@ -170,6 +176,10 @@ pub struct Backend {
     mmap: MemoryMap,
 
     events: VecDeque<Event>,
+
+    /// contextdb needed to preserve context between lifted instructions
+    /// i think it is needed for it instruction to be lifted properly
+    ctx_db: ContextDatabase,
 }
 
 impl<'irb> fmt::Debug for Backend {
@@ -185,16 +195,24 @@ impl Backend {
         builder: &LanguageBuilder,
         scs_config: Option<SysCtrlConfig>,
     ) -> Result<Self, backend::Error> {
-        let lang = builder.build("ARM:LE:32:Cortex", "default")?;
-        let t = lang.translator();
+        let mut lang = builder.build("ARM:LE:32:Cortex", "default")?;
+        let t = lang.translator_mut();
+        t.set_variable_default("TMode", 1);
+        let pc = t.program_counter().clone();
+        let apsr = t.register_by_name("cpsr").unwrap();
+        let endian = if t.is_big_endian() { Endian::Big } else { Endian::Little };
+        let regs = FixedState::new(t.register_space_size());
+        let tmps = FixedState::new(t.unique_space_size());
+        let ctx_db = t.context_database();
+        let sp = lang.convention().stack_pointer().varnode().clone();
         let scs_config = scs_config.unwrap_or_default();
 
         Ok(Self {
             id: 0,
             status: Status::Alive,
-            pc: t.program_counter().clone(),
-            sp: lang.convention().stack_pointer().varnode().clone(),
-            endian: if t.is_big_endian() { Endian::Big } else { Endian::Little },
+            pc,
+            sp,
+            endian,
             mode: Mode::Thread,
             event: system::EVENT::default(),
             xpsr: system::XPSR(0),
@@ -204,13 +222,14 @@ impl Backend {
             primask: system::PRIMASK::default(),
             faultmask: system::FAULTMASK::default(),
             basepri: system::BASEPRI::default(),
-            apsr: t.register_by_name("cpsr").unwrap(),
-            regs: FixedState::new(t.register_space_size()),
-            tmps: FixedState::new(t.unique_space_size()),
+            apsr,
+            regs,
+            tmps,
             mmap: MemoryMap::default(),
             scs: SysCtrlSpace::new_from(scs_config),
             events: VecDeque::new(),
             lang,
+            ctx_db,
         })
     }
 
@@ -361,8 +380,9 @@ impl BackendTrait for Backend {
         Ok(())
     }
 
-    fn fetch<'irb>(&self, address: &Address, irb: &'irb IRBuilderArena) -> LiftResult<'irb> {
-        let mut lifter = self.lang.lifter();
+    fn fetch<'irb>(&mut self, address: &Address, irb: &'irb IRBuilderArena) -> LiftResult<'irb> {
+        // cloning the context db around is super inefficient, but for now we just need this to work...
+        let mut lifter = Lifter::new_with(self.lang.translator(), self.ctx_db.clone());
         let bytes = self._mem_view_bytes(address, Some(MAX_INSN_SIZE))?;
         let pcode_result = lifter.lift(irb, address.clone(), bytes);
         if let Err(err) = pcode_result {
@@ -375,6 +395,7 @@ impl BackendTrait for Backend {
         }
         let disasm = disasm_result.unwrap();
 
+        self.ctx_db = lifter.context().clone();
         Ok(Arc::new(Insn { disasm, pcode }))
     }
 

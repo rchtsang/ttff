@@ -100,7 +100,7 @@ pub trait Backend: fmt::Debug + DynClone {
     fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error>;
 
     /// fetch the instruction bytes at the given address
-    fn fetch<'irb>(&self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb>;
+    fn fetch<'irb>(&mut self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb>;
 
     /// read a varnode
     fn read(&mut self, vnd: &VarnodeData) -> Result<BitVec, Error>;
@@ -194,7 +194,7 @@ impl<'backend> Backend for Box<dyn Backend + 'backend> {
     fn map_mem(&mut self, base: &Address, size: usize) -> Result<(), Error> { (**self).map_mem(base, size) }
     fn map_mmio(&mut self, peripheral: Peripheral) -> Result<(), Error> { (**self).map_mmio(peripheral) }
     fn mmap(&self) -> &MemoryMap { (**self).mmap() }
-    fn fetch<'irb>(&self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb> { (**self).fetch(address, arena) }
+    fn fetch<'irb>(&mut self, address: &Address, arena: &'irb IRBuilderArena) -> LiftResult<'irb> { (**self).fetch(address, arena) }
     fn read(&mut self, vnd: &VarnodeData) -> Result<BitVec, Error> { (**self).read(vnd) }
     fn write(&mut self, vnd: &VarnodeData, val: &BitVec) -> Result<(), Error> { (**self).write(vnd, val) }
     fn read_pc(&self) -> Result<Address, Error> { (**self).read_pc() }

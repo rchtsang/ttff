@@ -81,7 +81,7 @@ impl<'irb> ProgramDB<'irb> {
         self.plugin.add_plugin(plugin)
     }
 
-    pub fn fetch(&mut self, address: Address, backend: &impl Backend) -> LiftResult<'irb> {
+    pub fn fetch(&mut self, address: Address, backend: &mut impl Backend) -> LiftResult<'irb> {
         let address: Address = (address.offset() & !1).into();
 
         if !self.cache.read().contains_key(&address.offset()) {
@@ -122,7 +122,7 @@ impl<'irb> ProgramDB<'irb> {
     #[instrument(skip_all)]
     fn _lift_block(&mut self,
         address: impl Into<Address> + fmt::Debug,
-        backend: &impl Backend,
+        backend: &mut impl Backend,
     ) {
         let base = address.into();
         let mut offset = 0usize;

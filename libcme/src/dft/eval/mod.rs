@@ -123,7 +123,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         let address = self.pc.address();
 
         // let insn = context.fetch(address, pdb.arena)?;
-        let insn = pdb.fetch(address, context.backend())?;
+        let insn = pdb.fetch(address, context.backend_mut())?;
         debug!("pc @ {:#010x} (tag={}): {}", address.offset(), &self.pc_tag, insn.disasm_str());
         self.plugin.pre_insn_cb(&self.pc, insn.as_ref(), context)?;
 
