@@ -5,11 +5,11 @@
 
 use flagset::FlagSet;
 
-use crate::types::*;
+use libcme::types::*;
 use super::*;
 
 /*% for cluster_type in _cluster_types(peripheral_group) -%*/
-mod /*{ _cluster_mod(cluster_type) }*/;
+pub mod /*{ _cluster_mod(cluster_type) }*/;
 pub use /*{ _cluster_mod(cluster_type) }*/::*;
 /*% endfor %*/
 

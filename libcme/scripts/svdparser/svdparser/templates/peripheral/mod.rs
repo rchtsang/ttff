@@ -7,17 +7,16 @@ use std::collections::VecDeque;
 
 use bitfield_struct::bitfield;
 
-use crate::prelude::*;
-use crate::peripheral::{ Error, Event };
-use crate::utils::*;
+use libcme::prelude::*;
+use libcme::peripheral::{ Error, Event };
 
-use super::*;
+// use super::*;
 
 mod registers;
 pub use registers::*;
 
 /*% for group in peripheral_group['#derives'].values() -%*/
-pub static /*{ group['name'] }*/_BASE: u32 = /*{ group['baseAddress'] }*/
+pub static /*{ group['name'] }*/_BASE: u32 = /*{ group['baseAddress'] }*/;
 /*% endfor %*/
 
 
@@ -126,7 +125,7 @@ impl /*{ peripheral_group['name'] }*/State {
             // treat unimplemented registers as memory and issue warning
             let err = Error::InvalidPeripheralReg(address.into());
             warn!("{err:x?} (treated as memory)");
-            let slice = &self.view_as_bytes()[byte_offset..byte_offset + dst.len()];
+            let slice = &self.view_as_bytes()[offset..offset + dst.len()];
             dst.copy_from_slice(slice);
             return Err(err.into());
         };
@@ -160,7 +159,7 @@ impl /*{ peripheral_group['name'] }*/State {
         let Some(reg_type) = /*{ _reg_type(peripheral_group) }*/::lookup_offset(offset) else {
             let err = Error::InvalidPeripheralReg(address.into());
             warn!("{err:x?} (treated as memory)");
-            let slice = &mut self.view_as_bytes_mut()[byte_offset..byte_offset + src.len()];
+            let slice = &mut self.view_as_bytes_mut()[offset..offset + src.len()];
             slice.copy_from_slice(src);
             return Err(err.into());
         };
@@ -246,22 +245,22 @@ impl /*{ peripheral_group['name'] }*/State {
     /*% if cluster_type.dim and reg_type.dim -%*/
     pub fn get_/*{ cluster_type.name.lower() }*/_/*{ reg_type.name.lower() }*/_mut(&mut self, n: u8, i: u8) -> &mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/ {
         let word_offset = /*{ _reg_type(cluster_type) }*/::/*{ reg_type.name }*/(i).offset(n) / 4;
-        unsafe { &mut *(&self.backing[word_offset] as *mut u32 as *mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/) }
+        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/) }
     }
     /*% elif cluster_type.dim and not reg_type.dim -%*/
     pub fn get_/*{ cluster_type.name.lower() }*/_/*{ reg_type.name.lower() }*/_mut(&mut self, n: u8) -> &mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/ {
         let word_offset = /*{ _reg_type(cluster_type) }*/::/*{ reg_type.name }*/.offset(n) / 4;
-        unsafe { &mut *(&self.backing[word_offset] as *mut u32 as *mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/) }
+        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/) }
     }
     /*% elif reg_type.dim -%*/
     pub fn get_/*{ cluster_type.name.lower() }*/_/*{ reg_type.name.lower() }*/_mut(&mut self, i: u8) -> &mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/ {
         let word_offset = /*{ _reg_type(cluster_type) }*/::/*{ reg_type.name }*/(i).offset() / 4;
-        unsafe { &mut *(&self.backing[word_offset] as *mut u32 as *mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/) }
+        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/) }
     }
     /*% else -%*/
     pub fn get_/*{ cluster_type.name.lower() }*/_/*{ reg_type.name.lower() }*/_mut(&mut self) -> &mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/ {
         let word_offset = /*{ _reg_type(cluster_type) }*/::/*{ reg_type.name }*/.offset() / 4;
-        unsafe { &mut *(&self.backing[word_offset] as *mut u32 as *mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/) }
+        unsafe { &mut *(&mut self.backing[word_offset] as *mut u32 as *mut /*{ _cluster_mod(cluster_type) }*/::/*{ reg_type.struct }*/) }
     }
     /*%- endif %*/
     /*% endfor -%*/

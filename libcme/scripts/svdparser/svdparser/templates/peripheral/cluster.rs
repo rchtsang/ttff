@@ -5,7 +5,7 @@
 
 use bitfield_struct::bitfield;
 
-use crate::types::RegInfo;
+use libcme::types::RegInfo;
 use super::*;
 
 
