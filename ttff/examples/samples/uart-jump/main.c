@@ -17,7 +17,7 @@
 #define UART_RX_BUF_SIZE    200     /**< UART RX buffer size. */
 
 
-int main(void)
+nrfx_err_t read_uart(void)
 {
     nrfx_err_t err_code;
 
@@ -53,5 +53,30 @@ int main(void)
     }
 
     return err_code;
+}
+
+// compiled at O1 to prevent tail-call optimization
+nrfx_err_t dummy_fn(void)
+{
+    nrfx_err_t err_code;
+    
+    err_code = read_uart();
+
+    return err_code;
+}
+
+
+int main(void)
+{
+    #define PADDING_SIZE 256
+    uint8_t padding[PADDING_SIZE];
+
+    for (int i = 0; i < PADDING_SIZE; i++) {
+        padding[i] = 0;
+    }
+
+    dummy_fn();
+
+    return padding[0];
 }
 

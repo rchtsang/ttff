@@ -95,12 +95,12 @@ impl EvalPlugin for CallStackPlugin {
 pub fn main() -> Result<(), anyhow::Error> {
     let (global_sub, _guard) = compact_file_logger(
         "examples/uart-jump/uart-jump.log",
-        Level::DEBUG,
+        Level::INFO,
     );
     set_global_default(global_sub)?;
 
     // configure test fuzz run limits
-    let limit = Some(100000 as usize);
+    let limit = Some(1000000 as usize);
     let exc_limit = Some(5);
 
     let irb = IRBuilderArena::with_capacity(0x10000);
@@ -199,7 +199,10 @@ pub fn main() -> Result<(), anyhow::Error> {
         _context: &mut dft::Context,
     | {
         match evaluator.pc.address().offset() {
-            0xac8 => { info!("_exit reached"); Some(ExitKind::Ok) }
+            // we can locate obvious exit functions statically as self loops.
+            // a more sophisticated method would be to check if interrupts are
+            // disabled and only halt then, but this sample has no interrupts.
+            0xb1c => { info!("_exit reached"); Some(ExitKind::Ok) }
             _ => { None }
         }
     };
