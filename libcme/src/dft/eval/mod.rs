@@ -201,7 +201,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
                 self.plugin.pre_mem_access_cb(&self.pc, &loc.0, lsz, Permission::R, context)?;
                 let val = self._read_mem(&loc.0, lsz, context)?;
 
-                let tag = self.policy.inner.propagate_load(dst, &val, &loc)?;
+                let tag = self.policy.inner.propagate_load(dst, &val, &loc, context)?;
                 let mem_size = val.0.bytes();
                 let mut value = (val.0, tag);
                 self.plugin.mem_access_cb(&self.pc, &loc.0, mem_size, Permission::R, &mut value, context)?;
@@ -215,7 +215,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
                 let val = context.read(&src)?;
                 let loc = self._read_addr(dst, context)?;
 
-                let tag = self.policy.inner.propagate_store(dst, &val, &loc)?;
+                let tag = self.policy.inner.propagate_store(dst, &val, &loc, context)?;
                 let mem_size = val.0.bytes();
                 let mut value = (val.0, tag);
                 self.plugin.pre_mem_access_cb(&self.pc, &loc.0, mem_size, Permission::W, context)?;

@@ -18,7 +18,6 @@ use thiserror::Error;
 use crossbeam::channel::{
     Sender,
     Receiver,
-    TryRecvError,
 };
 
 use fugue_bv::BitVec;
@@ -31,6 +30,7 @@ use fugue_ir::{
 
 use libcme::prelude::*;
 use libcme::dft::{
+    self,
     tag::Tag,
     policy::*,
 };
@@ -45,10 +45,10 @@ pub enum PolicyViolation {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct FrameStart { pc: Address, sp: Address }
+pub struct FrameStart { pub pc: Address, pub sp: Address }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub enum FrameStack {
+pub enum FrameUpdate {
     Call(FrameStart),
     Return,
 }
@@ -56,17 +56,30 @@ pub enum FrameStack {
 /// a control flow integrity policy to catch tainted PC writes
 pub struct TaintedAddressPolicy {
     pub lang: Arc<Language>,
-    pub call_channel: (Sender<FrameStack>, Receiver<FrameStack>),
+    pub call_channel: (Sender<FrameUpdate>, Receiver<FrameUpdate>),
     pub stack: VecDeque<FrameStart>,
 }
 
 impl TaintedAddressPolicy {
     pub fn new_with(
         lang: Arc<Language>,
-        call_channel: (Sender<FrameStack>, Receiver<FrameStack>),
+        call_channel: (Sender<FrameUpdate>, Receiver<FrameUpdate>),
     ) -> Self {
         let stack = VecDeque::default();
         Self { lang, call_channel, stack }
+    }
+
+    pub fn update_stack(&mut self) {
+        while let Ok(frame_update) = self.call_channel.1.try_recv() {
+            match frame_update {
+                FrameUpdate::Call(frame_start) => {
+                    self.stack.push_back(frame_start);
+                }
+                FrameUpdate::Return => {
+                    self.stack.pop_back();
+                }
+            }
+        }
     }
 }
 
@@ -163,33 +176,45 @@ impl TaintPolicy for TaintedAddressPolicy {
     /// in the tainted address policy, a loaded value is tainted if the value at
     /// the read location was tainted, while a load using a tainted address
     /// will trigger a policy violation
-    fn propagate_load(
+    fn propagate_load<'a>(
         &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
+        ctx: &dft::Context<'a>,
     ) -> Result<Tag, policy::Error> {
         if loc.1.is_tainted() {
-            Err(policy::Error::from(PolicyViolation::TaintedRead))
-        } else {
-            Ok(Tag::new().with_tainted_val(val.1.is_tainted()))
+            self.update_stack();
+            let sp = ctx.backend().read_sp().expect("failed to read sp");
+            if let Some(frame_start) = self.stack.back() {
+                if loc.0 > frame_start.sp || loc.0 < sp {
+                    return Err(policy::Error::from(PolicyViolation::TaintedRead))
+                }
+            }
         }
+        Ok(Tag::new().with_tainted_val(val.1.is_tainted()))
     }
     
     /// in the tainted address policy, a stored value is tainted if  
     /// the source of the value was tainted, while a store using a tainted
     /// address will trigger a policy violation
-    fn propagate_store(
+    fn propagate_store<'a>(
         &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
+        ctx: &dft::Context<'a>,
     ) -> Result<Tag, policy::Error> {
         if loc.1.is_tainted() {
-            Err(policy::Error::from(PolicyViolation::TaintedWrite))
-        } else {
-            Ok(Tag::new().with_tainted_val(val.1.is_tainted()))
+            self.update_stack();
+            let sp = ctx.backend().read_sp().expect("failed to read sp");
+            if let Some(frame_start) = self.stack.back() {
+                if loc.0 > frame_start.sp || loc.0 < sp {
+                    return Err(policy::Error::from(PolicyViolation::TaintedWrite))
+                }
+            }
         }
+        Ok(Tag::new().with_tainted_val(val.1.is_tainted()))
     }
 }
 

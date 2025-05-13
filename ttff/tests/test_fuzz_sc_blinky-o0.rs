@@ -203,7 +203,7 @@ pub fn main() -> Result<(), anyhow::Error> {
     let policy = ttff::policy::TaintedJumpPolicy::new_with(lang);
 
     info!("building evaluator...");
-    let mut evaluator = dft::Evaluator::new_with_policy(&policy);
+    let mut evaluator = dft::Evaluator::new_with_policy(Box::new(policy));
     evaluator.add_plugin(Box::new(unmapped_plugin));
     (evaluator.pc, evaluator.pc_tag) = context.read_pc()
         .map(|(pc, tag)| (Location::from(pc), tag))?;

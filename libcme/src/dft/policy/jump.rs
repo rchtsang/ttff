@@ -17,7 +17,7 @@ use fugue_ir::{
     disassembly::Opcode,
 };
 
-use crate::dft::tag::Tag;
+use crate::dft::{self, tag::Tag};
 use super::TaintPolicy;
 
 /// control flow policy violations
@@ -133,21 +133,23 @@ impl TaintPolicy for TaintedJumpPolicy {
         Ok(rhs.1)
     }
 
-    fn propagate_load(
+    fn propagate_load<'a>(
         &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
+        _ctx: &dft::Context<'a>,
     ) -> Result<Tag, super::Error> {
         Ok(Tag::new()
             .with_tainted_val(loc.1.is_tainted() || val.1.is_tainted()))
     }
     
-    fn propagate_store(
+    fn propagate_store<'a>(
         &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
+        _ctx: &dft::Context<'a>,
     ) -> Result<Tag, super::Error> {
         Ok(Tag::new()
             .with_tainted_val(val.1.is_tainted())

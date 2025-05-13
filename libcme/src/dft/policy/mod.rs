@@ -8,6 +8,7 @@ use fugue_ir::disassembly::{
     VarnodeData,
     Opcode,
 };
+use crate::dft;
 use super::tag::{self, Tag};
 
 pub mod jump;
@@ -108,20 +109,22 @@ pub trait TaintPolicy: std::fmt::Debug {
 
     /// check for policy violations during load operations
     /// return error if violation detected, otherwise propagate taint
-    fn propagate_load(
+    fn propagate_load<'a>(
         &mut self,
         dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
+        ctx: &dft::Context<'a>,
     ) -> Result<Tag, Error>;
 
     /// check for policy violations during store operations
     /// return error if violation detected, otherwise propagate taint
-    fn propagate_store(
+    fn propagate_store<'a>(
         &mut self,
         dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
+        ctx: &dft::Context<'a>,
     ) -> Result<Tag, Error>;
 }
 
@@ -204,20 +207,22 @@ impl TaintPolicy for NoPolicy {
         Ok(Tag::from(tag::ACCESSED))
     }
 
-    fn propagate_load(
+    fn propagate_load<'a>(
         &mut self,
         _dst: &VarnodeData,
         _val: &(BitVec, Tag),
         _loc: &(Address, Tag),
+        _ctx: &dft::Context<'a>,
     ) -> Result<Tag, Error> {
         Ok(Tag::from(tag::ACCESSED))
     }
     
-    fn propagate_store(
+    fn propagate_store<'a>(
         &mut self,
         _dst: &VarnodeData,
         _val: &(BitVec, Tag),
         _loc: &(Address, Tag),
+        _ctx: &dft::Context<'a>,
     ) -> Result<Tag, Error> {
         Ok(Tag::from(tag::ACCESSED))
     }
@@ -302,21 +307,23 @@ impl TaintPolicy for DefaultPolicy {
         Ok(rhs.1)
     }
 
-    fn propagate_load(
+    fn propagate_load<'a>(
         &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
+        _ctx: &dft::Context<'a>,
     ) -> Result<Tag, Error> {
         Ok(Tag::new()
             .with_tainted_val(loc.1.is_tainted() || val.1.is_tainted()))
     }
     
-    fn propagate_store(
+    fn propagate_store<'a>(
         &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
+        _ctx: &dft::Context<'a>,
     ) -> Result<Tag, Error> {
         Ok(Tag::new()
             .with_tainted_val(val.1.is_tainted())

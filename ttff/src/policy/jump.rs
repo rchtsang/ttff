@@ -22,6 +22,7 @@ use fugue_ir::{
 
 use libcme::prelude::*;
 use libcme::dft::{
+    self,
     tag::Tag,
     policy::*,
 };
@@ -153,11 +154,12 @@ impl TaintPolicy for TaintedJumpPolicy {
     /// a loaded value is considered tainted if either the value at that 
     /// location was tainted, or if the pointer to the location was
     /// tainted
-    fn propagate_load(
+    fn propagate_load<'a>(
         &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
+        _ctx: &dft::Context<'a>,
     ) -> Result<Tag, policy::Error> {
         Ok(Tag::new()
             .with_tainted_val(val.1.is_tainted())
@@ -166,11 +168,12 @@ impl TaintPolicy for TaintedJumpPolicy {
     
     /// a stored value is considered tainted if it came from a tainted
     /// source, or if the pointer used to store it was tainted.
-    fn propagate_store(
+    fn propagate_store<'a>(
         &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
+        _ctx: &dft::Context<'a>,
     ) -> Result<Tag, policy::Error> {
         Ok(Tag::new()
             .with_tainted_val(val.1.is_tainted())
