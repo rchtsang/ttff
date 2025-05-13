@@ -46,7 +46,7 @@ impl TaintedOverflowPolicy {
 impl TaintPolicy for TaintedOverflowPolicy {
 
     fn check_assign(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         _val: &(BitVec, Tag),
     ) -> Result<(), policy::Error> {
@@ -54,7 +54,7 @@ impl TaintPolicy for TaintedOverflowPolicy {
     }
 
     fn check_cond_branch(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _cond: &(bool, Tag),
     ) -> Result<(), policy::Error> {
@@ -62,7 +62,7 @@ impl TaintPolicy for TaintedOverflowPolicy {
     }
 
     fn check_branch(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _target: &(Address, Tag),
     ) -> Result<(), policy::Error> {
@@ -70,7 +70,7 @@ impl TaintPolicy for TaintedOverflowPolicy {
     }
 
     fn check_write_mem(
-        &self,
+        &mut self,
         _address: &Address,
         _val: (&BitVec, &Tag),
     ) -> Result<(), policy::Error> {
@@ -79,7 +79,7 @@ impl TaintPolicy for TaintedOverflowPolicy {
 
     /// preserve the tag of the source
     fn propagate_subpiece(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         src: &(BitVec, Tag),
@@ -90,7 +90,7 @@ impl TaintPolicy for TaintedOverflowPolicy {
     /// the result tag of any binary operation is a bitwise or of its
     /// parameters' tags
     fn propagate_int2(
-        &self,
+        &mut self,
         opcode: &Opcode,
         _dst: &VarnodeData,
         lhs: &(BitVec, Tag),
@@ -145,7 +145,7 @@ impl TaintPolicy for TaintedOverflowPolicy {
     /// the result tag of any unary operation is the same as its
     /// parameter's tag
     fn propagate_int1(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         rhs: &(BitVec, Tag),
@@ -156,7 +156,7 @@ impl TaintPolicy for TaintedOverflowPolicy {
     /// the result tag of any binary operation is a bitwise or of its
     /// parameters' tags
     fn propagate_bool2(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         lhs: &(BitVec, Tag),
@@ -168,7 +168,7 @@ impl TaintPolicy for TaintedOverflowPolicy {
     /// the result tag of any unary operation is the same as its
     /// parameter's tag
     fn propagate_bool1(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         rhs: &(BitVec, Tag),
@@ -180,7 +180,7 @@ impl TaintPolicy for TaintedOverflowPolicy {
     /// location was tainted, or if the pointer to the location was
     /// tainted
     fn propagate_load(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
@@ -193,7 +193,7 @@ impl TaintPolicy for TaintedOverflowPolicy {
     /// a stored value is considered tainted if it came from a tainted
     /// source, or if the pointer used to store it was tainted.
     fn propagate_store(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),

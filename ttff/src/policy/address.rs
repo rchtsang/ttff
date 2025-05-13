@@ -1,12 +1,25 @@
 //! address.rs
 //! 
-//! tainted address policy as described in "All You Ever Wanted to Know..." 
+//! tainted address policy based on "All You Ever Wanted to Know..." 
 //! by Schwartz, Avgerinos, and Brumley, 2010
 //! 
-//! this is the naive, overtainting version as originally presented,
-//! which will trigger a crash on every tainted memory access.
+//! we add a condition that a violation should only be triggered if
+//! the tainted address is outside of the current stack frame.
+//! 
+//! the frame information must be provided externally from a
+//! callstack plugin that defines frame boundaries based on 
+//! the sp at the time of calls and returns.
+//! 
+//! the frame information must be maintained locally and is updated 
+//! based on what is provided.
+use std::collections::VecDeque;
 use std::sync::Arc;
 use thiserror::Error;
+use crossbeam::channel::{
+    Sender,
+    Receiver,
+    TryRecvError,
+};
 
 use fugue_bv::BitVec;
 use fugue_core::language::Language;
@@ -31,21 +44,36 @@ pub enum PolicyViolation {
     TaintedWrite,
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct FrameStart { pc: Address, sp: Address }
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub enum FrameStack {
+    Call(FrameStart),
+    Return,
+}
+
 /// a control flow integrity policy to catch tainted PC writes
 pub struct TaintedAddressPolicy {
     pub lang: Arc<Language>,
+    pub call_channel: (Sender<FrameStack>, Receiver<FrameStack>),
+    pub stack: VecDeque<FrameStart>,
 }
 
 impl TaintedAddressPolicy {
-    pub fn new_with(lang: Arc<Language>) -> Self {
-        Self { lang }
+    pub fn new_with(
+        lang: Arc<Language>,
+        call_channel: (Sender<FrameStack>, Receiver<FrameStack>),
+    ) -> Self {
+        let stack = VecDeque::default();
+        Self { lang, call_channel, stack }
     }
 }
 
 impl TaintPolicy for TaintedAddressPolicy {
 
     fn check_assign(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         _val: &(BitVec, Tag),
     ) -> Result<(), policy::Error> {
@@ -53,7 +81,7 @@ impl TaintPolicy for TaintedAddressPolicy {
     }
 
     fn check_cond_branch(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _cond: &(bool, Tag),
     ) -> Result<(), policy::Error> {
@@ -61,7 +89,7 @@ impl TaintPolicy for TaintedAddressPolicy {
     }
 
     fn check_branch(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _target: &(Address, Tag),
     ) -> Result<(), policy::Error> {
@@ -69,7 +97,7 @@ impl TaintPolicy for TaintedAddressPolicy {
     }
 
     fn check_write_mem(
-        &self,
+        &mut self,
         _address: &Address,
         _val: (&BitVec, &Tag),
     ) -> Result<(), policy::Error> {
@@ -78,7 +106,7 @@ impl TaintPolicy for TaintedAddressPolicy {
 
     /// preserve the tag of the source
     fn propagate_subpiece(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         src: &(BitVec, Tag),
@@ -89,7 +117,7 @@ impl TaintPolicy for TaintedAddressPolicy {
     /// the result tag of any binary operation is a bitwise or of its
     /// parameters' tags
     fn propagate_int2(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         lhs: &(BitVec, Tag),
@@ -101,7 +129,7 @@ impl TaintPolicy for TaintedAddressPolicy {
     /// the result tag of any unary operation is the same as its
     /// parameter's tag
     fn propagate_int1(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         rhs: &(BitVec, Tag),
@@ -112,7 +140,7 @@ impl TaintPolicy for TaintedAddressPolicy {
     /// the result tag of any binary operation is a bitwise or of its
     /// parameters' tags
     fn propagate_bool2(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         lhs: &(BitVec, Tag),
@@ -124,7 +152,7 @@ impl TaintPolicy for TaintedAddressPolicy {
     /// the result tag of any unary operation is the same as its
     /// parameter's tag
     fn propagate_bool1(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         rhs: &(BitVec, Tag),
@@ -136,7 +164,7 @@ impl TaintPolicy for TaintedAddressPolicy {
     /// the read location was tainted, while a load using a tainted address
     /// will trigger a policy violation
     fn propagate_load(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
@@ -152,7 +180,7 @@ impl TaintPolicy for TaintedAddressPolicy {
     /// the source of the value was tainted, while a store using a tainted
     /// address will trigger a policy violation
     fn propagate_store(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),

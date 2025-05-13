@@ -17,6 +17,7 @@ use crate::utils::*;
 use super::plugin::{self, EvaluatorPlugin};
 use super::policy::{
     self,
+    EvalPolicy,
     TaintPolicy,
 };
 use super::tag::{
@@ -62,16 +63,17 @@ impl From<plugin::Error> for Error {
 pub struct Evaluator<'policy, 'plugin> {
     pub pc: Location,
     pub pc_tag: Tag,
-    pub policy: &'policy dyn TaintPolicy,
+    pub policy: EvalPolicy<'policy>,
     plugin: EvaluatorPlugin<'plugin>,
 }
 
 impl<'policy, 'plugin> Default for Evaluator<'policy, 'plugin> {
     fn default() -> Self {
+        let inner = Box::new(policy::DefaultPolicy);
         Self {
             pc: Location::default(),
             pc_tag: Tag::from(tag::ACCESSED),
-            policy: policy::default(),
+            policy: EvalPolicy { inner },
             plugin: EvaluatorPlugin::default(),
         }
     }
@@ -82,11 +84,11 @@ impl<'policy, 'plugin> Evaluator<'policy, 'plugin> {
         Self::default()
     }
 
-    pub fn new_with_policy(policy: &'policy dyn TaintPolicy) -> Self {
+    pub fn new_with_policy(policy: Box<dyn TaintPolicy + 'policy>) -> Self {
         Self {
             pc: Location::default(),
             pc_tag: Tag::from(tag::ACCESSED),
-            policy,
+            policy: EvalPolicy { inner: policy },
             plugin: EvaluatorPlugin::default(),
         }
     }
@@ -108,7 +110,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
             // for different architectures, target may not be 32 bits, which could be an issue.
             let target = BitVec::from_u32(thread_switch.target_address.offset() as u32, 32);
             let val = (target, target_tag);
-            self.policy.check_assign(context.lang().translator().program_counter(), &val)?;
+            self.policy.inner.check_assign(context.lang().translator().program_counter(), &val)?;
             self.pc = thread_switch.target_address.into();
             self.pc_tag = target_tag;
         } else {
@@ -199,7 +201,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
                 self.plugin.pre_mem_access_cb(&self.pc, &loc.0, lsz, Permission::R, context)?;
                 let val = self._read_mem(&loc.0, lsz, context)?;
 
-                let tag = self.policy.propagate_load(dst, &val, &loc)?;
+                let tag = self.policy.inner.propagate_load(dst, &val, &loc)?;
                 let mem_size = val.0.bytes();
                 let mut value = (val.0, tag);
                 self.plugin.mem_access_cb(&self.pc, &loc.0, mem_size, Permission::R, &mut value, context)?;
@@ -213,7 +215,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
                 let val = context.read(&src)?;
                 let loc = self._read_addr(dst, context)?;
 
-                let tag = self.policy.propagate_store(dst, &val, &loc)?;
+                let tag = self.policy.inner.propagate_store(dst, &val, &loc)?;
                 let mem_size = val.0.bytes();
                 let mut value = (val.0, tag);
                 self.plugin.pre_mem_access_cb(&self.pc, &loc.0, mem_size, Permission::W, context)?;
@@ -355,7 +357,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
             }
             Opcode::CBranch => {
                 let bool_val = self._read_bool(&operation.inputs[1], context)?;
-                self.policy.check_cond_branch(&operation.opcode, &bool_val)?;
+                self.policy.inner.check_cond_branch(&operation.opcode, &bool_val)?;
                 if bool_val.0 {
                     let target = _absolute_loc(loc.address(), operation.inputs[0], loc.position());
                     return Ok(FlowType::Branch.target(target));
@@ -363,7 +365,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
             }
             Opcode::IBranch => {
                 let target = self._read_addr(&operation.inputs[0], context)?;
-                self.policy.check_branch(&operation.opcode, &target)?;
+                self.policy.inner.check_branch(&operation.opcode, &target)?;
                 return Ok(FlowType::IBranch.target(target.0.into()));
             }
             Opcode::Call => {
@@ -373,12 +375,12 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
             }
             Opcode::ICall => {
                 let target = self._read_addr(&operation.inputs[0], context)?;
-                self.policy.check_branch(&operation.opcode, &target)?;
+                self.policy.inner.check_branch(&operation.opcode, &target)?;
                 return Ok(FlowType::Call.target(target.0.into()));
             }
             Opcode::Return => {
                 let target = self._read_addr(&operation.inputs[0], context)?;
-                self.policy.check_branch(&operation.opcode, &target)?;
+                self.policy.inner.check_branch(&operation.opcode, &target)?;
                 return Ok(FlowType::Return.target(target.0.into()));
             }
             Opcode::CallOther => {
@@ -424,7 +426,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
             .map(|address| (address, tag))
     }
 
-    fn _read_mem(&self,
+    fn _read_mem(&mut self,
         address: &Address,
         size: usize,
         context: &mut Context<'backend>,
@@ -437,7 +439,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         Ok(context.read(&mem)?)
     }
 
-    fn _write_mem(&self,
+    fn _write_mem(&mut self,
         address: &Address,
         val: &BitVec,
         tag: &Tag,
@@ -449,23 +451,23 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
             .default_space();
         let mem = VarnodeData::new(spc.as_ref(), address.offset(), val.bytes());
         let value = (val, tag);
-        self.policy.check_write_mem(address, value)?;
+        self.policy.inner.check_write_mem(address, value)?;
         Ok(context.write(&mem, val, tag)?)
     }
 
-    fn _assign(&self,
+    fn _assign(&mut self,
         vnd: &VarnodeData,
         val: BitVec,
         tag: Tag,
         context: &mut Context<'backend>,
     ) -> Result<(), Error> {
         let val = (val, tag);
-        self.policy.check_assign(vnd, &val)?;
+        self.policy.inner.check_assign(vnd, &val)?;
         context.write(vnd, &val.0.cast(vnd.bits()), &val.1)
             .map_err(Error::from)
     }
 
-    fn _subpiece(&self,
+    fn _subpiece(&mut self,
         operation: &PCodeData,
         context: &mut Context<'backend>
     ) -> Result<(), Error> {
@@ -493,11 +495,11 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         };
 
         let val = (trunc, tag);
-        self.policy.propagate_subpiece(&operation.opcode, dst, &val)?;
+        self.policy.inner.propagate_subpiece(&operation.opcode, dst, &val)?;
         self._assign(dst, val.0, tag, context)
     }
 
-    fn _apply_int2<F, G>(&self,
+    fn _apply_int2<F, G>(&mut self,
         operation: &PCodeData,
         cast: F,
         op: G,
@@ -511,7 +513,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         let rhs = context.read(&operation.inputs[1])?;
         let dst = operation.output.as_ref().unwrap();
 
-        let tag = self.policy
+        let tag = self.policy.inner
             .propagate_int2(&operation.opcode, dst, &lhs, &rhs)?;
 
         let size = lhs.0.bits().max(rhs.0.bits());
@@ -520,7 +522,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         self._assign(dst, val.cast(dst.bits()), tag, context)
     }
 
-    fn _apply_signed_int2<F>(&self,
+    fn _apply_signed_int2<F>(&mut self,
         operation: &PCodeData,
         op: F,
         context: &mut Context<'backend>,
@@ -531,7 +533,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         self._apply_int2(operation, |val, bits| val.signed().cast(bits), op, context)
     }
 
-    fn _apply_unsigned_int2<F>(&self,
+    fn _apply_unsigned_int2<F>(&mut self,
         operation: &PCodeData,
         op: F,
         context: &mut Context<'backend>,
@@ -542,7 +544,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         self._apply_int2(operation, |val, bits| val.unsigned().cast(bits), op, context)
     }
 
-    fn _apply_int1<F, G>(&self,
+    fn _apply_int1<F, G>(&mut self,
         operation: &PCodeData,
         cast: F,
         op: G,
@@ -555,7 +557,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         let rhs = context.read(&operation.inputs[0])?;
         let dst = operation.output.as_ref().unwrap();
 
-        let tag = self.policy
+        let tag = self.policy.inner
             .propagate_int1(&operation.opcode, dst, &rhs)?;
 
         let val = op(cast(rhs.0))?;
@@ -563,7 +565,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         self._assign(dst, val.cast(dst.bits()), tag, context)
     }
 
-    fn _apply_signed_int1<F>(&self,
+    fn _apply_signed_int1<F>(&mut self,
         operation: &PCodeData,
         op: F,
         context: &mut Context<'backend>,
@@ -574,7 +576,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         self._apply_int1(operation, |val| val.signed(), op, context)
     }
 
-    fn _apply_unsigned_int1<F>(&self,
+    fn _apply_unsigned_int1<F>(&mut self,
         operation: &PCodeData,
         op: F,
         context: &mut Context<'backend>,
@@ -585,7 +587,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         self._apply_int1(operation, |val| val.unsigned(), op, context)
     }
 
-    fn _apply_bool2<F>(&self,
+    fn _apply_bool2<F>(&mut self,
         operation: &PCodeData,
         op: F,
         context: &mut Context<'backend>,
@@ -597,7 +599,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         let rhs = context.read(&operation.inputs[1])?;
         let dst = operation.output.as_ref().unwrap();
 
-        let tag = self.policy
+        let tag = self.policy.inner
             .propagate_bool2(&operation.opcode, dst, &lhs, &rhs)?;
 
         let val = bool2bv(op(!lhs.0.is_zero(), !rhs.0.is_zero())?);
@@ -605,7 +607,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         self._assign(dst, val.cast(dst.bits()), tag, context)
     }
 
-    fn _apply_bool1<F>(&self,
+    fn _apply_bool1<F>(&mut self,
         operation: &PCodeData,
         op: F,
         context: &mut Context<'backend>,
@@ -616,7 +618,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         let rhs = context.read(&operation.inputs[0])?;
         let dst = operation.output.as_ref().unwrap();
         
-        let tag = self.policy
+        let tag = self.policy.inner
             .propagate_bool1(&operation.opcode, dst, &rhs)?;
 
         let val = bool2bv(op(!rhs.0.is_zero())?);

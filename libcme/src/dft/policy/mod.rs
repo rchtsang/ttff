@@ -25,31 +25,36 @@ impl From<anyhow::Error> for Error {
     }
 }
 
+#[derive(Debug)]
+pub struct EvalPolicy<'policy> {
+    pub inner: Box<dyn TaintPolicy + 'policy>,
+}
+
 pub trait TaintPolicy: std::fmt::Debug {
     /// check for policy violations on varnode assignment
     fn check_assign(
-        &self,
+        &mut self,
         dst: &VarnodeData,
         val: &(BitVec, Tag),
     ) -> Result<(), Error>;
 
     /// check for policy violations on memory write
     fn check_write_mem(
-        &self,
+        &mut self,
         address: &Address,
         val: (&BitVec, &Tag),
     ) -> Result<(), Error>;
     
     /// check for policy violations on conditional branches
     fn check_cond_branch(
-        &self,
+        &mut self,
         opcode: &Opcode,
         cond: &(bool, Tag),
     ) -> Result<(), Error>;
 
     /// check for policy violations on target branches
     fn check_branch(
-        &self,
+        &mut self,
         opcode: &Opcode,
         target: &(Address, Tag),
     ) -> Result<(), Error>;
@@ -57,7 +62,7 @@ pub trait TaintPolicy: std::fmt::Debug {
     /// check for policy violations during subpiece operations.
     /// return error if violation detected, otherwise propagate taint
     fn propagate_subpiece(
-        &self,
+        &mut self,
         opcode: &Opcode,
         dst: &VarnodeData,
         src: &(BitVec, Tag),
@@ -66,7 +71,7 @@ pub trait TaintPolicy: std::fmt::Debug {
     /// check for policy violations during operations involving 2 integers.
     /// return error if violation detected, otherwise propagate taint
     fn propagate_int2(
-        &self,
+        &mut self,
         opcode: &Opcode,
         dst: &VarnodeData,
         lhs: &(BitVec, Tag),
@@ -76,7 +81,7 @@ pub trait TaintPolicy: std::fmt::Debug {
     /// check for policy violations during operations involving 2 integer.
     /// return error if violation detected, otherwise propagate taint
     fn propagate_int1(
-        &self,
+        &mut self,
         opcode: &Opcode,
         dst: &VarnodeData,
         rhs: &(BitVec, Tag),
@@ -85,7 +90,7 @@ pub trait TaintPolicy: std::fmt::Debug {
     /// check for policy violations during operations involving 2 booleans.
     /// return error if violation detected, otherwise propagate taint
     fn propagate_bool2(
-        &self,
+        &mut self,
         opcode: &Opcode,
         dst: &VarnodeData,
         lhs: &(BitVec, Tag),
@@ -95,7 +100,7 @@ pub trait TaintPolicy: std::fmt::Debug {
     /// check for policy violations during operations involving 1 boolean.
     /// return error if violation detected, otherwise propagate taint
     fn propagate_bool1(
-        &self,
+        &mut self,
         opcode: &Opcode,
         dst: &VarnodeData,
         rhs: &(BitVec, Tag),
@@ -104,7 +109,7 @@ pub trait TaintPolicy: std::fmt::Debug {
     /// check for policy violations during load operations
     /// return error if violation detected, otherwise propagate taint
     fn propagate_load(
-        &self,
+        &mut self,
         dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
@@ -113,63 +118,47 @@ pub trait TaintPolicy: std::fmt::Debug {
     /// check for policy violations during store operations
     /// return error if violation detected, otherwise propagate taint
     fn propagate_store(
-        &self,
+        &mut self,
         dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
     ) -> Result<Tag, Error>;
 }
 
-
-
-/// returns a reference to a global static default policy.
-pub fn default() -> &'static DefaultPolicy {
-    &DEFAULT_POLICY
-}
-
-/// returns a reference to a global static no policy struct.
-pub fn no_policy() -> &'static NoPolicy {
-    &NO_POLICY
-}
-
-
-
 /// a dummy policy that has no violations and no propagation
 /// should be identical to concrete execution but with the obvious overhead
 #[derive(Debug)]
 pub struct NoPolicy;
 
-pub static NO_POLICY: NoPolicy = NoPolicy {};
-
 // #[allow(unused)]
 impl TaintPolicy for NoPolicy {
 
     fn check_assign(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         _val: &(BitVec, Tag),
     ) -> Result<(), Error> { Ok(()) }
 
     fn check_write_mem(
-        &self,
+        &mut self,
         _address: &Address,
         _val: (&BitVec, &Tag),
     ) -> Result<(), Error> { Ok(()) }
 
     fn check_cond_branch(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _cond: &(bool, Tag),
     ) -> Result<(), Error> { Ok(()) }
     
     fn check_branch(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _target: &(Address, Tag),
     ) -> Result<(), Error> { Ok(()) }
 
     fn propagate_subpiece(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         _src: &(BitVec, Tag),
@@ -178,7 +167,7 @@ impl TaintPolicy for NoPolicy {
     }
     
     fn propagate_int2(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         _lhs: &(BitVec, Tag),
@@ -188,7 +177,7 @@ impl TaintPolicy for NoPolicy {
     }
     
     fn propagate_int1(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         _rhs: &(BitVec, Tag)
@@ -197,7 +186,7 @@ impl TaintPolicy for NoPolicy {
     }
     
     fn propagate_bool2(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         _lhs: &(BitVec, Tag),
@@ -207,7 +196,7 @@ impl TaintPolicy for NoPolicy {
     }
     
     fn propagate_bool1(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         _rhs: &(BitVec, Tag),
@@ -216,7 +205,7 @@ impl TaintPolicy for NoPolicy {
     }
 
     fn propagate_load(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         _val: &(BitVec, Tag),
         _loc: &(Address, Tag),
@@ -225,7 +214,7 @@ impl TaintPolicy for NoPolicy {
     }
     
     fn propagate_store(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         _val: &(BitVec, Tag),
         _loc: &(Address, Tag),
@@ -240,36 +229,34 @@ impl TaintPolicy for NoPolicy {
 #[derive(Debug)]
 pub struct DefaultPolicy;
 
-pub static DEFAULT_POLICY: DefaultPolicy = DefaultPolicy {};
-
 impl TaintPolicy for DefaultPolicy {
     fn check_assign(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         _val: &(BitVec, Tag),
     ) -> Result<(), Error> { Ok(()) }
 
     fn check_write_mem(
-        &self,
+        &mut self,
         _address: &Address,
         _val: (&BitVec, &Tag),
     ) -> Result<(), Error> { Ok(()) }
 
     /// check tag on conditional branches
     fn check_cond_branch(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _cond: &(bool, Tag),
     ) -> Result<(), Error> { Ok(()) }
 
     fn check_branch(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _target: &(Address, Tag),
     ) -> Result<(), Error> { Ok(()) }
 
     fn propagate_subpiece(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         src: &(BitVec, Tag),
@@ -278,7 +265,7 @@ impl TaintPolicy for DefaultPolicy {
     }
     
     fn propagate_int2(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         lhs: &(BitVec, Tag),
@@ -288,7 +275,7 @@ impl TaintPolicy for DefaultPolicy {
     }
     
     fn propagate_int1(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         rhs: &(BitVec, Tag),
@@ -297,7 +284,7 @@ impl TaintPolicy for DefaultPolicy {
     }
     
     fn propagate_bool2(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         lhs: &(BitVec, Tag),
@@ -307,7 +294,7 @@ impl TaintPolicy for DefaultPolicy {
     }
     
     fn propagate_bool1(
-        &self,
+        &mut self,
         _opcode: &Opcode,
         _dst: &VarnodeData,
         rhs: &(BitVec, Tag),
@@ -316,7 +303,7 @@ impl TaintPolicy for DefaultPolicy {
     }
 
     fn propagate_load(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
@@ -326,7 +313,7 @@ impl TaintPolicy for DefaultPolicy {
     }
     
     fn propagate_store(
-        &self,
+        &mut self,
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
