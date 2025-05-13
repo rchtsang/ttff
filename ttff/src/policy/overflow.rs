@@ -112,9 +112,10 @@ impl TaintPolicy for TaintedOverflowPolicy {
             Opcode::IntAdd if lhs.0 > max_value - rhs.0.clone() => {
                 Err(policy::Error::from(PolicyViolation::TaintedOverflow))
             }
-            Opcode::IntSub if lhs.0 < rhs.0 => {
-                Err(policy::Error::from(PolicyViolation::TaintedUnderflow))
-            }
+            // Opcode::IntSub if lhs.0 < rhs.0 => {
+            //     // excluded since `cmp` instructions rely on underflow behavior
+            //     Err(policy::Error::from(PolicyViolation::TaintedUnderflow))
+            // }
             Opcode::IntMul if {
                 // based on responses from https://stackoverflow.com/questions/1815367
                 // do mul in larger bitvec and check result
