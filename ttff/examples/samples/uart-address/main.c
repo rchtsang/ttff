@@ -11,8 +11,8 @@
 #include "nrfx_errors.h"
 
 
-#define UART_TX_BUF_SIZE    200     /**< UART TX buffer size. */
-#define UART_RX_BUF_SIZE    200     /**< UART RX buffer size. */
+#define UART_TX_BUF_SIZE    256     /**< UART TX buffer size. */
+#define UART_RX_BUF_SIZE    256     /**< UART RX buffer size. */
 
 
 int read_uart(nrfx_err_t * err_code)

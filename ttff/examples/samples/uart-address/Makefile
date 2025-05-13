@@ -101,6 +101,8 @@ LIB_FILES += -lc -lnosys -lm
 
 # Default target - first one defined
 default: nrf52832_xxaa
+	cp $(OUTPUT_DIRECTORY)/nrf52832_xxaa.out uart-address.elf
+	@arm-none-eabi-objdump -d $(OUTPUT_DIRECTORY)/nrf52832_xxaa.out > uart-address.disasm
 
 # Print all targets that can be built
 help:

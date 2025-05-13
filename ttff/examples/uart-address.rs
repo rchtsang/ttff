@@ -132,7 +132,7 @@ pub fn main() -> Result<(), anyhow::Error> {
     );
 
     info!("reading program binary...");
-    let path = "examples/samples/uart-int-overflow/_build/nrf52832_xxaa.out";
+    let path = "examples/samples/uart-address/uart-address.elf";
     let bytes = fs::read(path)?;
     let elf_bytes = ElfBytes::minimal_parse(bytes.as_slice())?;
     let program = Program::new_from_elf(irb.inner(), elf_bytes)?;
