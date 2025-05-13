@@ -131,5 +131,8 @@ if __name__ == "__main__":
 
     log = parse_log(strip_ansi(log_content))
 
+    with open(args.path.with_suffix('.txt.log'), 'w') as f:
+        f.write('\n'.join([repr(e) for e in log]))
+
     block_data = block_discovery_data(log)
 
