@@ -42,8 +42,8 @@ impl<'arena> Block<'arena> {
         (self.range.end - self.range.start) as usize
     }
 
-    pub fn range(&self) -> &Range<u64> {
-        &self.range
+    pub fn range(&self) -> Range<u64> {
+        self.range.clone()
     }
 
     pub fn insns(&self) -> &[u64] {
@@ -56,6 +56,33 @@ impl<'arena> Block<'arena> {
 
     pub fn add_successor(&mut self, child: u64, flowtype: FlowType) {
         self.successors.push((flowtype, child))
+    }
+
+    /// truncates the current block up to and including the given address,
+    /// and returns a new block containing the rest of the instructions
+    /// if the given address was found in this block
+    pub fn truncate(
+        &mut self,
+        address: impl Into<u64>,
+    ) -> Option<Block<'arena>> {
+        let address = address.into();
+        let (idx, _) = self.insns().iter()
+            .enumerate()
+            .find(|(_, &addr)| addr == address)?;
+        if idx == self.insns.len() - 1 {
+            return None;
+        }
+        let idx = idx + 1;
+        let address = self.insns[idx];
+        let range = address..self.range.end;
+        let insns = self.insns.split_off(idx);
+        let successors = self.successors.split_off(0);
+        let block = Block { range, insns, successors };
+
+        self.range.end = address;
+        self.successors.push((FlowType::Fall, address));
+
+        Some(block)
     }
 }
 

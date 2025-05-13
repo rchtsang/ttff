@@ -101,21 +101,46 @@ impl<'arena> CFGraph<'arena> {
         child: u64,
         flowtype: FlowType,
     ) -> Result<(), Error> {
-        let Some((_, parent_base)) = self.blkmap.overlap(parent).next() else {
+        let Some((_, &parent_base)) = self.blkmap.overlap(parent).next() else {
             return Err(Error::BlockDoesNotExist(parent))
         };
-        assert_eq!(
-            *self.blocks.get(parent_base).unwrap().insns().last().unwrap(),
-            parent & !1,
-            "parent must be last instruction in its block",
-        );
+        let last_block_insn = self.blocks.get(&parent_base).unwrap()
+            .insns()
+            .last()
+            .unwrap();
+        if *last_block_insn != parent & !1 {
+            // parent is not the last instruction in its block,
+            // need to split the block
+            let parent_block = self.blocks.get_mut(&parent_base).unwrap();
+            let old_range = parent_block.range().clone();
+
+            // truncate parent and create new child block
+            let child_block = parent_block.truncate(parent & !1).unwrap();
+            
+            let parent_block = self.blocks.get(&parent_base).unwrap();
+            let parent_range = parent_block.range();
+            let parent_address = parent_block.address();
+            let child_range = child_block.range().clone();
+            let child_address = child_block.address();
+            
+            // add child to blocks
+            self.blocks.insert(child_address, child_block);
+            
+            // remove parent from blkmap, and add both block ranges to blkmap
+            self.blkmap.remove(old_range);
+            self.blkmap.insert(parent_range, parent_address);
+            self.blkmap.insert(child_range, child_address);
+
+            // add new fall edge to cfg
+            self.graph.add_edge(parent_address, child_address, FlowType::Fall);
+        }
         let child_base = self.blkmap.overlap(child).next()
             .map(|(_, child_base)| *child_base)
             .unwrap_or(child);
-        if let Some(edge) = self.graph.add_edge(*parent_base, child_base, flowtype) {
+        if let Some(edge) = self.graph.add_edge(parent_base, child_base, flowtype) {
             trace!("edge already exists: {edge:?}({parent_base:#x} -> {child_base:#x})");
         } else {
-            self.blocks.entry(*parent_base)
+            self.blocks.entry(parent_base)
                 .and_modify(|block| block.add_successor(child_base, flowtype));
         }
 
