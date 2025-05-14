@@ -127,7 +127,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         // let insn = context.fetch(address, pdb.arena)?;
         let insn = pdb.fetch(address, context.backend_mut())?;
         debug!("pc @ {:#010x} (tag={}): {}", address.offset(), &self.pc_tag, insn.disasm_str());
-        self.plugin.pre_insn_cb(&self.pc, insn.as_ref(), context)?;
+        self.plugin.pre_insn_cb(&self.pc, insn.as_ref(), context, pdb)?;
 
         let pcode = &insn.pcode;
         let op_count = pcode.operations.len() as u32;
@@ -137,9 +137,9 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
             let pos = self.pc.position() as usize;
             let op = &pcode.operations[pos];
 
-            self.plugin.pre_pcode_cb(&self.pc, op, context)?;
-            flow = self._evaluate(op, context)?;
-            self.plugin.post_pcode_cb(&self.pc, op, context)?;
+            self.plugin.pre_pcode_cb(&self.pc, op, context, pdb)?;
+            flow = self._evaluate(op, context, pdb)?;
+            self.plugin.post_pcode_cb(&self.pc, op, context, pdb)?;
 
             match flow.flowtype {
                 FlowType::Branch
@@ -170,7 +170,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         // handle events after pc is written
         context.process_events()?;
         
-        self.plugin.post_insn_cb(&self.pc, insn.as_ref(), &flow, context)?;
+        self.plugin.post_insn_cb(&self.pc, insn.as_ref(), &flow, context, pdb)?;
 
         Ok(())
     }
@@ -183,6 +183,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         &mut self,
         operation: &PCodeData,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<Flow, Error> {
         let loc = self.pc.clone();
         trace!("{:#010x}_{}: {}", loc.address.offset(), loc.position, context.fmt_pcodeop(operation));
@@ -198,13 +199,13 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
                 let lsz = dst.size();
 
                 let loc = self._read_addr(src, context)?;
-                self.plugin.pre_mem_access_cb(&self.pc, &loc.0, lsz, Permission::R, context)?;
+                self.plugin.pre_mem_access_cb(&self.pc, &loc.0, lsz, Permission::R, context, pdb)?;
                 let val = self._read_mem(&loc.0, lsz, context)?;
 
                 let tag = self.policy.inner.propagate_load(dst, &val, &loc, context)?;
                 let mem_size = val.0.bytes();
                 let mut value = (val.0, tag);
-                self.plugin.mem_access_cb(&self.pc, &loc.0, mem_size, Permission::R, &mut value, context)?;
+                self.plugin.mem_access_cb(&self.pc, &loc.0, mem_size, Permission::R, &mut value, context, pdb)?;
                 let (val, tag) = value;
                 self._assign(dst, val, tag, context)?;
             }
@@ -218,8 +219,8 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
                 let tag = self.policy.inner.propagate_store(dst, &val, &loc, context)?;
                 let mem_size = val.0.bytes();
                 let mut value = (val.0, tag);
-                self.plugin.pre_mem_access_cb(&self.pc, &loc.0, mem_size, Permission::W, context)?;
-                self.plugin.mem_access_cb(&self.pc, &loc.0, mem_size, Permission::W, &mut value, context)?;
+                self.plugin.pre_mem_access_cb(&self.pc, &loc.0, mem_size, Permission::W, context, pdb)?;
+                self.plugin.mem_access_cb(&self.pc, &loc.0, mem_size, Permission::W, &mut value, context, pdb)?;
                 let (val, tag) = value;
                 self._write_mem(&loc.0, &val, &tag, context)?;
             }
@@ -388,9 +389,9 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
                 let inputs = &operation.inputs[..];
 
                 let (cb_index, cb_inputs, cb_output) = get_userop_params(output, inputs);
-                self.plugin.pre_userop_cb(&loc, cb_index, cb_inputs, cb_output, context)?;
+                self.plugin.pre_userop_cb(&loc, cb_index, cb_inputs, cb_output, context, pdb)?;
                 let result = context.userop(output, inputs)?;
-                self.plugin.post_userop_cb(&loc, cb_index, cb_inputs, cb_output, context, &result)?;
+                self.plugin.post_userop_cb(&loc, cb_index, cb_inputs, cb_output, context, pdb, &result)?;
                 
                 if result.is_some() {
                     return Ok(FlowType::Unknown.target(result.unwrap()));

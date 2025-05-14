@@ -29,6 +29,7 @@ impl<'a> dft::EvalPlugin for MemInterceptPlugin<'a> {
         mem_size: usize,
         _access_type: Permission,
         context: &mut dft::Context<'backend>,
+        _pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), dft::plugin::Error> {
         if !context.backend().mmap().has_mapped(mem_address) {
             error!("encountered unmapped access @ {:#x}", mem_address.offset());

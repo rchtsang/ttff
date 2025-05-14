@@ -86,6 +86,7 @@ impl EvalPlugin for CallStackPlugin {
         _insn: &Insn<'irb>,
         flow: &Flow,
         context: &mut dft::Context<'backend>,
+        _pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), dft::plugin::Error> {
         match flow.flowtype {
             FlowType::Call

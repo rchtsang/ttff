@@ -25,6 +25,7 @@ impl EvalPlugin for DummyEvalPlugin {
         &mut self,
         _thd_switch: &ThreadSwitch,
         _context: &mut Context<'backend>,
+        _pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         self.thread_switch_cnt += 1;
         info!("post_thread_switch_cb calls: {}", self.thread_switch_cnt);
@@ -37,6 +38,7 @@ impl EvalPlugin for DummyEvalPlugin {
         _loc: &Location,
         _insn: &Insn<'irb>,
         _context: &mut Context<'backend>,
+        _pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         self.pre_insn_cnt += 1;
         info!("pre_insn_cb calls: {}", self.pre_insn_cnt);
@@ -50,6 +52,7 @@ impl EvalPlugin for DummyEvalPlugin {
         _insn: &Insn<'irb>,
         _flow: &Flow,
         _context: &mut Context<'backend>,
+        _pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         self.post_insn_cnt += 1;
         info!("post_insn_cb calls: {}", self.post_insn_cnt);
@@ -62,6 +65,7 @@ impl EvalPlugin for DummyEvalPlugin {
         _loc: &Location,
         _pcode: &PCodeData<'irb>,
         _context: &mut Context<'backend>,
+        _pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         self.pre_pcode_cnt += 1;
         info!("pre_pcode_cb calls: {}", self.pre_pcode_cnt);
@@ -74,6 +78,7 @@ impl EvalPlugin for DummyEvalPlugin {
         _loc: &Location,
         _pcode: &PCodeData<'irb>,
         _context: &mut Context<'backend>,
+        _pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         self.post_pcode_cnt += 1;
         info!("post_pcode_cb calls: {}", self.post_pcode_cnt);
@@ -89,6 +94,7 @@ impl EvalPlugin for DummyEvalPlugin {
         access_type: Permission,
         _value: &mut (BitVec, Tag),
         _context: &mut Context<'backend>,
+        _pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         match access_type {
             Permission::R => {
@@ -105,13 +111,14 @@ impl EvalPlugin for DummyEvalPlugin {
     }
 
     #[instrument(skip_all)]
-    fn pre_userop_cb<'backend>(
+    fn pre_userop_cb<'irb, 'backend>(
         &mut self,
         _loc: &Location,
         index: usize,
         _inputs: &[VarnodeData],
         _output: Option<&VarnodeData>,
         _context: &mut Context<'backend>,
+        _pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         info!("called userop: {}", index);
         *(self.userops_called.entry(index).or_insert(0)) += 1;

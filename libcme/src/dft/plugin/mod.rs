@@ -21,6 +21,7 @@ use crate::backend::ThreadSwitch;
 use crate::types::*;
 use crate::dft::Context;
 use crate::dft::tag::Tag;
+use crate::programdb::ProgramDB;
 
 mod dummy;
 pub use dummy::DummyEvalPlugin;
@@ -37,6 +38,7 @@ pub trait EvalPlugin: fmt::Debug {
         &mut self,
         thd_switch: &ThreadSwitch,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> { Ok(()) }
 
     fn pre_insn_cb<'irb, 'backend>(
@@ -44,6 +46,7 @@ pub trait EvalPlugin: fmt::Debug {
         loc: &Location,
         insn: &Insn<'irb>,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> { Ok(()) }
     
     fn post_insn_cb<'irb, 'backend>(
@@ -52,6 +55,7 @@ pub trait EvalPlugin: fmt::Debug {
         insn: &Insn<'irb>,
         flow: &Flow,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> { Ok(()) }
 
     fn pre_pcode_cb<'irb, 'backend>(
@@ -59,6 +63,7 @@ pub trait EvalPlugin: fmt::Debug {
         loc: &Location,
         pcode: &PCodeData<'irb>,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> { Ok(()) }
 
     fn post_pcode_cb<'irb, 'backend>(
@@ -66,6 +71,7 @@ pub trait EvalPlugin: fmt::Debug {
         loc: &Location,
         pcode: &PCodeData<'irb>,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> { Ok(()) }
 
     fn pre_mem_access_cb<'irb, 'backend>(
@@ -75,6 +81,7 @@ pub trait EvalPlugin: fmt::Debug {
         mem_size: usize,
         access_type: Permission,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> { Ok(()) }
 
     fn mem_access_cb<'irb, 'backend>(
@@ -85,24 +92,27 @@ pub trait EvalPlugin: fmt::Debug {
         access_type: Permission,
         value: &mut (BitVec, Tag),
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> { Ok(()) }
 
-    fn pre_userop_cb<'backend>(
+    fn pre_userop_cb<'irb, 'backend>(
         &mut self,
         loc: &Location,
         index: usize,
         inputs: &[VarnodeData],
         output: Option<&VarnodeData>,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> { Ok(()) }
 
-    fn post_userop_cb<'backend>(
+    fn post_userop_cb<'irb, 'backend>(
         &mut self,
         loc: &Location,
         index: usize,
         inputs: &[VarnodeData],
         output: Option<&VarnodeData>,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
         result: &Option<Location>,
     ) -> Result<(), Error> { Ok(()) }
 }
@@ -140,9 +150,10 @@ impl<'a> EvalPlugin for EvaluatorPlugin<'a> {
         loc: &Location,
         insn: &Insn<'irb>,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         for plugin in self.plugins.iter_mut() {
-            plugin.as_mut().pre_insn_cb(loc, insn, context)?;
+            plugin.as_mut().pre_insn_cb(loc, insn, context, pdb)?;
         }
         Ok(())
     }
@@ -153,9 +164,10 @@ impl<'a> EvalPlugin for EvaluatorPlugin<'a> {
         insn: &Insn<'irb>,
         flow: &Flow,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         for plugin in self.plugins.iter_mut() {
-            plugin.as_mut().post_insn_cb(loc, insn, flow, context)?;
+            plugin.as_mut().post_insn_cb(loc, insn, flow, context, pdb)?;
         }
         Ok(())
     }
@@ -165,9 +177,10 @@ impl<'a> EvalPlugin for EvaluatorPlugin<'a> {
         loc: &Location,
         pcode: &PCodeData<'irb>,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         for plugin in self.plugins.iter_mut() {
-            plugin.as_mut().pre_pcode_cb(loc, pcode, context)?;
+            plugin.as_mut().pre_pcode_cb(loc, pcode, context, pdb)?;
         }
         Ok(())
     }
@@ -177,9 +190,10 @@ impl<'a> EvalPlugin for EvaluatorPlugin<'a> {
         loc: &Location,
         pcode: &PCodeData<'irb>,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         for plugin in self.plugins.iter_mut() {
-            plugin.as_mut().post_pcode_cb(loc, pcode, context)?;
+            plugin.as_mut().post_pcode_cb(loc, pcode, context, pdb)?;
         }
         Ok(())
     }
@@ -191,9 +205,10 @@ impl<'a> EvalPlugin for EvaluatorPlugin<'a> {
         mem_size: usize,
         access_type: Permission,
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         for plugin in self.plugins.iter_mut() {
-            plugin.as_mut().pre_mem_access_cb(loc, mem_address, mem_size, access_type, context)?;
+            plugin.as_mut().pre_mem_access_cb(loc, mem_address, mem_size, access_type, context, pdb)?;
         }
         Ok(())
     }
@@ -206,9 +221,10 @@ impl<'a> EvalPlugin for EvaluatorPlugin<'a> {
         access_type: Permission,
         value: &mut (BitVec, Tag),
         context: &mut Context<'backend>,
+        pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), Error> {
         for plugin in self.plugins.iter_mut() {
-            plugin.as_mut().mem_access_cb(loc, mem_address, mem_size, access_type, value, context)?;
+            plugin.as_mut().mem_access_cb(loc, mem_address, mem_size, access_type, value, context, pdb)?;
         }
         Ok(())
     }
