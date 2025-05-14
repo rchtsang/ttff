@@ -1,6 +1,7 @@
 //! uart-jump demo
 //! 
 use std::fs;
+use std::io::BufWriter;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -191,6 +192,7 @@ pub fn main() -> Result<(), anyhow::Error> {
     info!("building evaluator...");
     let mut evaluator = dft::Evaluator::new_with_policy(Box::new(policy));
     evaluator.add_plugin(Box::new(CallStackPlugin::default()));
+    evaluator.add_plugin(Box::new(TaintTracePlugin::default()));
     (evaluator.pc, evaluator.pc_tag) = context.read_pc()
         .map(|(pc, tag)| (Location::from(pc), tag))?;
 
@@ -227,7 +229,25 @@ pub fn main() -> Result<(), anyhow::Error> {
     let step_cb = Some(sc::StepCallback {
         callback: stop_on_policy_violation,
     });
-    let post_exec_cb = None;
+    let dump_cfg = &mut |
+        _evaluator: &mut dft::Evaluator,
+        pdb: &mut ProgramDB,
+        _context: dft::Context,
+        result: Result<ExitKind, libafl::Error>,
+    | {
+        let path = format!("examples/uart-int-overflow/uart-int-overflow.simple-cfg.json");
+        let file = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path.as_str())
+            .unwrap();
+        let writer = BufWriter::new(file);
+        info!("writing cfg to file...");
+        pdb.dump_cfg(writer).expect("failed to write cfg to file");
+        result
+    };
+    let post_exec_cb = Some(sc::PostExecCallback { callback: dump_cfg });
 
     let dft_executor = sc::DftExecutor::new_with(
         evaluator,
