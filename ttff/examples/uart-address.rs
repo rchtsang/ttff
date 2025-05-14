@@ -185,10 +185,10 @@ pub fn main() -> Result<(), anyhow::Error> {
     }
 
     info!("loading program binary...");
-    for section in pdb.program().loadable_sections() {
+    for segment in pdb.program().loadable_segments() {
         context.store_bytes(
-            section.address(),
-            section.data(),
+            segment.p_paddr(),
+            segment.data(),
             &dft::Tag::from(tag::UNACCESSED),
         )?;
     }

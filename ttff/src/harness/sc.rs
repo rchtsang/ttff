@@ -180,8 +180,10 @@ where
         while self.limit.is_none() || cycles < self.limit.unwrap() {
             let result = self.evaluator.step(&mut context, &mut self.pdb);
             if let Some(ref mut step_cb) = self.step_cb {
-                if let Some(kind) = (step_cb.callback)(&result)? {
-                    return Ok(kind);
+                match (step_cb.callback)(&result) {
+                    Ok(Some(kind)) => { return self.post_exec(context, Ok(kind)); }
+                    Err(err) => { return self.post_exec(context, Err(err)); }
+                    Ok(None) => {  }
                 }
             }
             match result {

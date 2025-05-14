@@ -36,7 +36,6 @@ pub struct Section<'bump> {
     name: BumpString<'bump>,
     address: Address,
     size: usize,
-    data: BumpVec<'bump, u8>,
     sh_type: u32,
     sh_flags: u64,
 }
@@ -45,42 +44,56 @@ impl<'bump> std::fmt::Debug for Section<'bump> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:<20} {:<14} {:#010x} {:#08x} {}",
             self.name.as_str(),
-            elfdefs::type_str(self.sh_type),
+            elfdefs::sh_type_str(self.sh_type),
             self.address.offset(),
             self.size,
-            elfdefs::flag_str(self.sh_flags).as_str(),
+            elfdefs::sh_flag_str(self.sh_flags).as_str(),
         )
     }
 }
 
 impl<'bump> Section<'bump> {
-    pub fn name(&self) -> &str {
-        self.name.as_str()
-    }
+    pub fn name(&self) -> &str { self.name.as_str() }
+    pub fn address(&self) -> Address { self.address.clone() }
+    pub fn size(&self) -> usize { self.size }
+    pub fn sh_type(&self) -> u32 { self.sh_type }
+    pub fn sh_type_str(&self) -> &str { elfdefs::sh_type_str(self.sh_type) }
+    pub fn sh_flags(&self) -> u64 { self.sh_flags }
+}
 
-    pub fn address(&self) -> Address {
-        self.address.clone()
-    }
+#[derive(Debug)]
+pub struct Segment<'bump> {
+    /// elf segment type
+    p_type: u32,
+    /// segment offset into elf file
+    p_offset: u64,
+    /// virtual address
+    p_vaddr: Address,
+    /// physical address
+    p_paddr: Address,
+    /// size in elf file
+    p_filesz: usize,
+    /// size in memory
+    p_memsz: usize,
+    /// segment flags
+    p_flags: u32,
+    /// segment alignment
+    p_align: u64,
+    /// bytes data
+    data: BumpVec<'bump, u8>,
+}
 
-    pub fn size(&self) -> usize {
-        self.size
-    }
-
-    pub fn sh_type(&self) -> u32 {
-        self.sh_type
-    }
-
-    pub fn sh_type_str(&self) -> &'static str {
-        elfdefs::type_str(self.sh_type)
-    }
-
-    pub fn sh_flags(&self) -> u64 {
-        self.sh_flags
-    }
-
-    pub fn data(&self) -> &[u8] {
-        self.data.as_slice()
-    }
+impl<'bump> Segment<'bump> {
+    pub fn p_type_str(&self)      -> &str { elfdefs::p_type_str(self.p_type) }
+    pub fn p_type(&self)    -> u32 { self.p_type }
+    pub fn p_offset(&self)  -> u64 { self.p_offset }
+    pub fn p_vaddr(&self)   -> Address { self.p_vaddr.clone() }
+    pub fn p_paddr(&self)   -> Address { self.p_paddr.clone() }
+    pub fn p_filesz(&self)  -> usize { self.p_filesz }
+    pub fn p_memsz(&self)   -> usize { self.p_memsz }
+    pub fn p_flags(&self)   -> u32 { self.p_flags }
+    pub fn p_align(&self)   -> u64 { self.p_align }
+    pub fn data(&self)      -> &[u8] { self.data.as_slice() }
 }
 
 /// an elf symbol
@@ -114,6 +127,7 @@ impl<'bump> Symbol<'bump> {
 #[derive(Default, Debug)]
 pub struct Program<'bump> {
     sections: Vec<Section<'bump>>,
+    segments: Vec<Segment<'bump>>,
     symtab: AHashMap<&'bump str, Symbol<'bump>>,
 }
 
@@ -131,20 +145,37 @@ impl<'bump> Program<'bump> {
             .map(|shdr| {
                 let name = strtab.get(shdr.sh_name as usize)
                     .unwrap_or("");
-                let (data, _) = elf.section_data(&shdr)
-                    .unwrap_or((&[], None));
-                let data = BumpVec::from_iter_in(
-                    data.into_iter().cloned(), 
-                    bump);
                 Section {
                     name: bumpalo::format!(in bump, "{}", name),
                     address: shdr.sh_addr.into(),
                     size: shdr.sh_size as usize,
                     sh_type: shdr.sh_type,
                     sh_flags: shdr.sh_flags,
-                    data,
                 }
             }).collect();
+        
+        let segtab = elf.segments()
+            .ok_or(Error::Elf("expected segment table"))?;
+        let segments = segtab.iter()
+            .map(|phdr| {
+                Segment {
+                    p_type: phdr.p_type,
+                    p_offset: phdr.p_offset,
+                    p_vaddr: Address::from(phdr.p_vaddr),
+                    p_paddr: Address::from(phdr.p_paddr),
+                    p_filesz: phdr.p_filesz as usize,
+                    p_memsz: phdr.p_memsz as usize,
+                    p_flags: phdr.p_flags,
+                    p_align: phdr.p_align,
+                    data: BumpVec::from_iter_in(
+                        elf.segment_data(&phdr)
+                            .unwrap_or(&[])
+                            .iter()
+                            .cloned(),
+                        bump),
+                }
+            }).collect();
+
 
         let (symtab, strtab) = elf.symbol_table()?
             .ok_or(Error::Elf("expected a symbol table"))?;
@@ -154,7 +185,7 @@ impl<'bump> Program<'bump> {
                 (symbol.name, symbol)
             }).collect();
 
-        Ok(Self { sections, symtab })
+        Ok(Self { sections, segments, symtab })
     }
 
     pub fn new_from_bytes<'data>(
@@ -162,18 +193,33 @@ impl<'bump> Program<'bump> {
         base: impl Into<Address>,
         bytes: &[u8],
     ) -> Result<Self, Error> {
+        let base = base.into();
         let sections = vec![
             Section {
                 name: BumpString::from_str_in("text", bump),
-                address: base.into(),
+                address: base.clone(),
                 size: bytes.len(),
                 sh_type: elfdefs::SHT_PROGBITS,
                 sh_flags: elfdefs::SHF_ALLOC | elfdefs::SHF_EXECINSTR,
-                data: BumpVec::from_iter_in(bytes.iter().cloned(), bump),
+                // data: BumpVec::from_iter_in(bytes.iter().cloned(), bump),
+            }
+        ];
+        let segments = vec![
+            Segment {
+                p_type: elfdefs::PT_LOAD,
+                p_offset: 0,
+                p_vaddr: base.clone(),
+                p_paddr: base.clone(),
+                p_filesz: bytes.len(),
+                p_memsz: bytes.len(),
+                p_flags: elfdefs::PF_R | elfdefs::PF_X,
+                p_align: 0x1000,
+                data: BumpVec::from_iter_in(
+                    bytes.iter().cloned(), bump),
             }
         ];
         let symtab = AHashMap::default();
-        Ok(Self { sections, symtab })
+        Ok(Self { sections, segments, symtab })
     }
 
     pub fn sections(&self) -> &[Section<'bump>] {
@@ -184,11 +230,16 @@ impl<'bump> Program<'bump> {
         &self.symtab
     }
 
-    /// get an iterator over the loadable sections of the binary,
-    /// i.e. any section with the SHF_ALLOC flag set
-    pub fn loadable_sections(&self) -> impl Iterator<Item=&Section> + use<'_> {
-        self.sections.iter()
-            .filter(|&sec| elfdefs::flag_alloc(sec.sh_flags))
+    /// get an iterator over the loadable segments of the binary,
+    /// i.e. any segment with PT_LOAD
+    /// (not sure if we need to do anything with EXIDX)
+    pub fn loadable_segments(&self) -> impl Iterator<Item=&Segment> + use<'_> {
+        self.segments.iter()
+            .filter(|&seg| seg.p_type & elfdefs::PT_LOAD != 0)
+
+        // note: exidx segment appears to be used for unwinding tables, but
+        // i am not certain if it needs to be explicitly loaded...
+        // https://sushihangover.github.io/llvm-and-the-arm-elf-arm-dot-exidx-star-section/
     }
 }
 
@@ -235,7 +286,7 @@ pub mod elfdefs {
     pub const SHF_MASKOS        : u64 = 0x0ff00000;
     pub const SHF_MASKPROC      : u64 = 0xf0000000;
 
-    pub fn type_str(sh_type: u32) -> &'static str {
+    pub fn sh_type_str(sh_type: u32) -> &'static str {
         match sh_type {
             SHT_NULL            => { "NULL" }
             SHT_PROGBITS        => { "PROGBITS" }
@@ -264,7 +315,7 @@ pub mod elfdefs {
         }
     }
 
-    pub fn flag_str(sh_flags: u64) -> String {
+    pub fn sh_flag_str(sh_flags: u64) -> String {
         let mut result = String::new();
         if sh_flags & SHF_WRITE != 0 {
             result.push_str("W");
@@ -305,15 +356,76 @@ pub mod elfdefs {
         result
     }
 
-    pub fn flag_write(sh_flags: u64) -> bool {
+    pub fn sh_flag_write(sh_flags: u64) -> bool {
         sh_flags & SHF_WRITE != 0
     }
 
-    pub fn flag_alloc(sh_flags: u64) -> bool {
+    pub fn sh_flag_alloc(sh_flags: u64) -> bool {
         sh_flags & SHF_ALLOC != 0
     }
 
-    pub fn flag_exec(sh_flags: u64) -> bool {
+    pub fn sh_flag_exec(sh_flags: u64) -> bool {
         sh_flags & SHF_EXECINSTR != 0
+    }
+
+    // elf segment type definitions
+    pub const PT_NULL       : u32 = 0;
+    pub const PT_LOAD       : u32 = 1;
+    pub const PT_DYNAMIC    : u32 = 2;
+    pub const PT_INTERP     : u32 = 3;
+    pub const PT_NOTE       : u32 = 4;
+    pub const PT_SHLIB      : u32 = 5;
+    pub const PT_PHDR       : u32 = 6;
+    pub const PT_TLS        : u32 = 7;
+    pub const PT_LOOS       : u32 = 0x60000000;
+    pub const PT_HIOS       : u32 = 0x6fffffff;
+    pub const PT_LOPROC     : u32 = 0x70000000;
+    pub const PT_HIPROC     : u32 = 0x7fffffff;
+
+    // elf segment flag definitions
+    pub const PF_X          : u32 = 0x1;
+    pub const PF_W          : u32 = 0x2;
+    pub const PF_R          : u32 = 0x4;
+    pub const PF_MASKOS     : u32 = 0x0ff00000;
+    pub const PF_MASKPROC   : u32 = 0xf0000000;
+
+
+
+    pub fn p_type_str(p_type: u32) -> &'static str {
+        match p_type {
+            PT_NULL     => { "NULL" }
+            PT_LOAD     => { "LOAD" }
+            PT_DYNAMIC  => { "DYNAMIC" }
+            PT_INTERP   => { "INTERP" }
+            PT_NOTE     => { "NOTE" }
+            PT_SHLIB    => { "SHLIB" }
+            PT_PHDR     => { "PHDR" }
+            PT_TLS      => { "TLS" }
+            PT_LOOS     => { "LOOS" }
+            PT_HIOS     => { "HIOS" }
+            PT_LOPROC   => { "LOPROC" }
+            PT_HIPROC   => { "HIPROC" }
+            _ => { "UNKNOWN" }
+        }
+    }
+
+    pub fn p_flags_str(p_flags: u32) -> String {
+        let mut result = String::new();
+        // if pf_flags & PF_MASKPROC != 0  {
+        //     result.push_str("U");
+        // }
+        // if pf_flags & PF_MASKOS != 0    {
+        //     result.push_str("U");
+        // }
+        if p_flags & PF_R != 0 {
+            result.push_str("R");
+        }
+        if p_flags & PF_W != 0 {
+            result.push_str("W");
+        }
+        if p_flags & PF_X != 0 {
+            result.push_str("X");
+        }
+        result
     }
 }

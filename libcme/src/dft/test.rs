@@ -73,10 +73,10 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     context.map_mem(0x0u64, 0x1000)?;
 
     info!("loading program...");
-    for section in pdb.program().loadable_sections() {
+    for segment in pdb.program().loadable_segments() {
         context.store_bytes(
-            section.address(),
-            section.data(),
+            segment.p_paddr(),
+            segment.data(),
             &Tag::from(tag::UNACCESSED),
         )?;
     }
