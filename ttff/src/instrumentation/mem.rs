@@ -1,7 +1,6 @@
 //! mem.rs
 //! 
 //! a pre-memory access intercept plugin
-
 use libcme::prelude::*;
 
 pub type MemCallback = dyn FnMut(
@@ -21,6 +20,7 @@ impl<'a> std::fmt::Debug for MemInterceptPlugin<'a> {
 }
 
 impl<'a> dft::EvalPlugin for MemInterceptPlugin<'a> {
+
     #[instrument(skip_all)]
     fn pre_mem_access_cb<'irb, 'backend>(
         &mut self,

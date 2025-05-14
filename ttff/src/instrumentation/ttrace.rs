@@ -1,17 +1,16 @@
 //! ttrace.rs
 //! 
 //! taint trace plugin
-
 use libcme::prelude::*;
 
 use fugue_ir::disassembly::PCodeData;
 
-#[derive(Debug)]
-pub struct TaintTracePlugin {
-    trace: Vec<Location>,
-}
+#[derive(Debug, Default)]
+pub struct TaintTracePlugin {}
 
 impl EvalPlugin for TaintTracePlugin {
+
+    #[instrument(skip_all)]
     fn pre_pcode_cb<'irb, 'backend>(
         &mut self,
         loc: &Location,
@@ -29,7 +28,8 @@ impl EvalPlugin for TaintTracePlugin {
         }
 
         if has_tainted_inputs {
-            self.trace.push(loc.clone());
+            warn!("TAINTED LOCATION: {:#010x}-{}",
+                loc.address().offset(), loc.position());
         }
         Ok(())
     }

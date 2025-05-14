@@ -65,6 +65,7 @@ pub struct CallStackPlugin {
 }
 
 impl EvalPlugin for CallStackPlugin {
+
     #[instrument(skip_all)]
     fn post_insn_cb<'irb, 'backend>(
         &mut self,
@@ -190,6 +191,7 @@ pub fn main() -> Result<(), anyhow::Error> {
     info!("building evaluator...");
     let mut evaluator = dft::Evaluator::new_with_policy(Box::new(policy));
     evaluator.add_plugin(Box::new(CallStackPlugin::default()));
+    evaluator.add_plugin(Box::new(TaintTracePlugin::default()));
     (evaluator.pc, evaluator.pc_tag) = context.read_pc()
         .map(|(pc, tag)| (Location::from(pc), tag))?;
 
@@ -226,6 +228,7 @@ pub fn main() -> Result<(), anyhow::Error> {
     let step_cb = Some(sc::StepCallback {
         callback: stop_on_policy_violation,
     });
+    let post_exec_cb = None;
 
     let dft_executor = sc::DftExecutor::new_with(
         evaluator,
@@ -235,6 +238,7 @@ pub fn main() -> Result<(), anyhow::Error> {
         exc_limit,
         halt_cb,
         step_cb,
+        post_exec_cb,
         access_log.clone(),
         rx_channel.clone(),
         tx_channel.clone(),

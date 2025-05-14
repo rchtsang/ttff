@@ -30,12 +30,23 @@ pub type StepCallbackFn = dyn FnMut(
     &Result<(), dft::eval::Error>,
 ) -> Result<Option<ExitKind>, libafl::Error>;
 
+pub type PostExecCallbackFn = dyn FnMut(
+    &mut dft::Evaluator,
+    &mut ProgramDB,
+    dft::Context,
+    Result<ExitKind, libafl::Error>,
+) -> Result<ExitKind, libafl::Error>;
+
 pub struct HaltCallback<'a> {
     pub callback: &'a mut HaltCallbackFn,
 }
 
 pub struct StepCallback<'a> {
     pub callback: &'a mut StepCallbackFn,
+}
+
+pub struct PostExecCallback<'a> {
+    pub callback: &'a mut PostExecCallbackFn,
 }
 
 /// a dft executor for channel-based peripherals
@@ -54,6 +65,8 @@ pub struct DftExecutor<'policy, 'backend, 'irb, 'plugin> {
     /// a post-step callback
     /// (this is redundant and should be combined with halt_fn)
     step_cb: Option<StepCallback<'plugin>>,
+    /// a post-execution callback
+    post_exec_cb: Option<PostExecCallback<'plugin>>,
     evaluator: dft::Evaluator<'policy, 'plugin>,
     base_context: dft::Context<'backend>,
     pdb: ProgramDB<'irb>,
@@ -71,6 +84,7 @@ impl<'policy, 'backend, 'irb, 'plugin> DftExecutor<'policy, 'backend, 'irb, 'plu
         exc_limit: Option<usize>,
         halt_cb: Option<HaltCallback<'plugin>>,
         step_cb: Option<StepCallback<'plugin>>,
+        post_exec_cb: Option<PostExecCallback<'plugin>>,
         access_log: (Sender<Access>, Receiver<Access>),
         read_src: (Sender<u8>, Receiver<u8>),
         write_dst: (Sender<u8>, Receiver<u8>),
@@ -83,6 +97,7 @@ impl<'policy, 'backend, 'irb, 'plugin> DftExecutor<'policy, 'backend, 'irb, 'plu
             exc_limit,
             halt_cb,
             step_cb,
+            post_exec_cb,
             access_log,
             read_src,
             write_dst,
@@ -109,6 +124,18 @@ impl<'policy, 'backend, 'irb, 'plugin> DftExecutor<'policy, 'backend, 'irb, 'plu
             }
         }
         Ok(())
+    }
+
+    #[inline]
+    fn post_exec(
+        &mut self,
+        context: dft::Context<'backend>,
+        result: Result<ExitKind, libafl::Error>,
+    ) -> Result<ExitKind, libafl::Error> {
+        if let Some(ref mut post_exec_cb) = self.post_exec_cb {
+            return (post_exec_cb.callback)(&mut self.evaluator, &mut self.pdb, context, result);
+        }
+        result
     }
 }
 
@@ -162,30 +189,30 @@ where
                     // policy violation
                     error!("execution {:>4}: policy violation: {err:#x?}",
                         *state.executions());
-                    return Ok(ExitKind::Crash);
+                    return self.post_exec(context, Ok(ExitKind::Crash));
                 }
                 Err(dft::eval::Error::Context(
                     dft::context::Error::Backend(
                         backend::Error::Peripheral(err)
                 ))) => {
                     let peripheral::Error::State(err) = err.as_ref() else {
-                        return Ok(ExitKind::Crash);
+                        return self.post_exec(context, Ok(ExitKind::Crash));
                     };
                     if let Some(peripheral::channel::ChannelStateError::Recv(addr, err)) = err.downcast_ref() {
                         error!("execution {:>4}: channel error on read at {}: {:?}",
                             *state.executions(),
                             addr.offset(),
                             err);
-                        return Ok(ExitKind::Timeout);
+                        return self.post_exec(context, Ok(ExitKind::Timeout));
                     } else {
-                        return Ok(ExitKind::Crash);
+                        return self.post_exec(context, Ok(ExitKind::Crash));
                     }
                 }
                 Err(err) => {
                     // other evaluation/emulation error
                     error!("execution {:>4}: other error: {err:#x?}",
                         *state.executions());
-                    return Ok(ExitKind::Crash);
+                    return self.post_exec(context, Ok(ExitKind::Crash));
                 }
                 _ => {
                     cycles += 1;
@@ -193,7 +220,7 @@ where
                         if let Some(kind) = (halt_cb.callback)(
                             &mut self.evaluator, &mut self.pdb, &mut context)
                         {
-                            return Ok(kind);
+                            return self.post_exec(context, Ok(kind));
                         }
                     }
                 }
