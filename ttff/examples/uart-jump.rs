@@ -4,6 +4,7 @@ use std::fs;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::io::BufWriter;
 
 use anyhow;
 use crossbeam::channel::unbounded;
@@ -97,7 +98,7 @@ impl EvalPlugin for CallStackPlugin {
 pub fn main() -> Result<(), anyhow::Error> {
     let (global_sub, _guard) = compact_file_logger(
         "examples/uart-jump/uart-jump.log",
-        Level::INFO,
+        Level::DEBUG,
     );
     set_global_default(global_sub)?;
 
@@ -228,7 +229,25 @@ pub fn main() -> Result<(), anyhow::Error> {
     let step_cb = Some(sc::StepCallback {
         callback: stop_on_policy_violation,
     });
-    let post_exec_cb = None;
+    let dump_cfg = &mut |
+        _evaluator: &mut dft::Evaluator,
+        pdb: &mut ProgramDB,
+        _context: dft::Context,
+        result: Result<ExitKind, libafl::Error>,
+    | {
+        let path = format!("examples/uart-jump/uart-jump.simple-cfg.json");
+        let file = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path.as_str())
+            .unwrap();
+        let writer = BufWriter::new(file);
+        info!("writing cfg to file...");
+        pdb.dump_cfg(writer).expect("failed to write cfg to file");
+        result
+    };
+    let post_exec_cb = Some(sc::PostExecCallback { callback: dump_cfg });
 
     let dft_executor = sc::DftExecutor::new_with(
         evaluator,
@@ -298,9 +317,13 @@ pub fn main() -> Result<(), anyhow::Error> {
     );
 
     let mut generator = RandBytesGenerator::new(nonzero!(0x10000));
-    state
-        .generate_initial_inputs(&mut fuzzer, &mut executor, &mut generator, &mut manager, 8)
-        .expect("failed to generate initial corpus");
+    match state.generate_initial_inputs(
+        &mut fuzzer, &mut executor, &mut generator, &mut manager, 8)
+    {
+        Err(libafl::Error::ShuttingDown) => { info!("fuzzer stopped by user."); return Ok(()) }
+        Err(err) => { panic!("failed to generate initial corpus: {err:?}") }
+        _ => {  }
+    }
 
     match fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut manager) {
         Err(libafl::Error::ShuttingDown) => { info!("fuzzer stopped by user."); Ok(()) }
