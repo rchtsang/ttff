@@ -46,6 +46,14 @@ pub struct CFGraph<'arena> {
 }
 
 impl<'arena> CFGraph<'arena> {
+
+    pub fn blocks(&self) -> impl Iterator<Item=(&u64, &Block<'arena>)> {
+        self.blocks.iter()
+    }
+
+    pub fn graph(&self) -> &GraphMap<u64, FlowType, Directed, AHashState> {
+        &self.graph
+    }
     
     pub fn new_with(bump: &'arena BumpArena) -> Self {
         let blocks = IntMap::default();

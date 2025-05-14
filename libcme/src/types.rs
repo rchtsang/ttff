@@ -34,6 +34,22 @@ pub enum FlowType {
     CallThrough,
 }
 
+impl FlowType {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            Self::Branch        => { "Branch" }
+            Self::CBranch       => { "CBranch" }
+            Self::IBranch       => { "IBranch" }
+            Self::Call          => { "Call" }
+            Self::ICall         => { "ICall" }
+            Self::Return        => { "Return" }
+            Self::Fall          => { "Fall" }
+            Self::Unknown       => { "Unknown" }
+            Self::CallThrough   => { "CallThrough" }
+        }
+    }
+}
+
 /// flow target
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Flow {

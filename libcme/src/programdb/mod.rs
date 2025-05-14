@@ -2,9 +2,13 @@
 //! 
 use std::fmt;
 use std::sync::Arc;
+use std::io::{BufWriter, Write};
 
 use thiserror::Error;
 use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use serde_json;
+use petgraph::Direction;
 
 // use fugue_core::prelude::*;
 use fugue_ir::disassembly::{ Opcode, IRBuilderArena };
@@ -37,6 +41,10 @@ pub enum Error {
     Platform(#[from] platform::Error),
     #[error("plugin error: {0}")]
     Plugin(anyhow::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
 }
 
 
@@ -193,6 +201,62 @@ impl<'irb> ProgramDB<'irb> {
         // maybe return something here at some point?
     }
 }
+
+
+impl<'irb> ProgramDB<'irb> {
+    /// dump the cfg into the writer
+    pub fn dump_cfg(
+        &self,
+        mut writer: BufWriter<impl Write>,
+    ) -> Result<(), Error> {
+        #[derive(Serialize, Deserialize)]
+        struct SimpleBBlock {
+            pub address: u32,
+            pub size: usize,
+            pub insn_addrs: Vec<u32>,
+            pub predecessors: Vec<u32>,
+            pub successors: Vec<u32>,
+        }
+
+        #[derive(Serialize, Deserialize)]
+        struct SimpleCFG {
+            pub nodes: Vec<SimpleBBlock>,
+        }
+
+        let mut blocks: Vec<SimpleBBlock> = vec![];
+        for (&address, block) in self.cfg.blocks() {
+            let address = address as u32;
+            let size = (block.range().end - block.range().start) as usize;
+            let insn_addrs: Vec<u32> = block.insns()
+                .iter()
+                .map(|addr| *addr as u32)
+                .collect();
+            let sblock = SimpleBBlock {
+                address,
+                size,
+                insn_addrs,
+                predecessors: vec![],
+                successors: vec![],
+            };
+            blocks.push(sblock);
+        }
+        for block in blocks.iter_mut() {
+            block.predecessors = self.cfg.graph()
+                .edges_directed(block.address as u64, Direction::Incoming)
+                .map(|(from, _to, _flowtype)| { from as u32 })
+                .collect();
+            block.successors = self.cfg.graph()
+                .edges_directed(block.address as u64, Direction::Outgoing)
+                .map(|(_from, to, _flowtype)| { to as u32 })
+                .collect();
+        }
+        let cfg = SimpleCFG { nodes: blocks };
+        let cfg_str = serde_json::to_string(&cfg)?;
+        writer.write(cfg_str.as_bytes())?;
+        Ok(())
+    }
+}
+
 
 impl<'irb> fmt::Debug for ProgramDB<'irb> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
