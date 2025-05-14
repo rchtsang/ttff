@@ -319,9 +319,13 @@ pub fn main() -> Result<(), anyhow::Error> {
     );
 
     let mut generator = RandBytesGenerator::new(nonzero!(0x10000));
-    state
-        .generate_initial_inputs(&mut fuzzer, &mut executor, &mut generator, &mut manager, 8)
-        .expect("failed to generate initial corpus");
+    match state.generate_initial_inputs(
+        &mut fuzzer, &mut executor, &mut generator, &mut manager, 8)
+    {
+        Err(libafl::Error::ShuttingDown) => { info!("fuzzer stopped by user."); return Ok(()) }
+        Err(err) => { panic!("failed to generate initial corpus: {err:?}") }
+        _ => {  }
+    }
 
     match fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut manager) {
         Err(libafl::Error::ShuttingDown) => { info!("fuzzer stopped by user."); Ok(()) }
