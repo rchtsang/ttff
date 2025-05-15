@@ -25,6 +25,17 @@ LOG_ENTRY_PTRN = re.compile(
     re.DOTALL)
 
 
+class Location:
+    __slots__ = ["address", "position"]
+
+    def __init__(self, address, position):
+        self.address = address
+        self.position = position
+
+    def __repr__(self):
+        return f"({self.address:#010x}, {self.position:d})"
+
+
 # https://stackoverflow.com/questions/8906926
 class DeltaTemplate(Template):
     delimiter = "%"
@@ -118,6 +129,18 @@ def monitor_logs(log: list[LogEntry]):
         monitor_log.append((entry.delta, entry.msg))
     return monitor_log
 
+def tainted_locs(log: list[LogEntry]):
+    LOC_PTRN = re.compile(
+        r"TAINTED LOCATION: (?P<address>0x[0-9a-fA-F]+|\d+)-(?P<position>\d+)")
+    locs = []
+    for entry in log:
+        if not (match := LOC_PTRN.search(entry.msg)):
+            continue
+        address = int(match.group("address"), 0)
+        position = int(match.group("position"), 0)
+        locs.append(Location(address, position))
+    return locs
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("parse-logs",
         description=__doc__)
@@ -135,4 +158,18 @@ if __name__ == "__main__":
         f.write('\n'.join([repr(e) for e in log]))
 
     block_data = block_discovery_data(log)
+
+    with open(args.path.with_suffix('.blk-cov.tsv'), 'w') as f:
+        f.write('\n'.join([
+            f"{data[0]:f}\t{data[1][0]:#x},{data[1][1]:d}" \
+            for data in block_data
+        ]))
+
+    locs = tainted_locs(log)
+
+    with open(args.path.with_suffix('.tainted-locs.tsv'), 'w') as f:
+        f.write('\n'.join([
+            f"{loc.address:#010x}\t{loc.position}" \
+            for loc in locs
+        ]))
 
