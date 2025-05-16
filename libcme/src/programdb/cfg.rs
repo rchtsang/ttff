@@ -79,7 +79,7 @@ impl<'arena> CFGraph<'arena> {
         block: Block<'arena>,
         parent: Option<(FlowType, u64)>,
     ) -> Result<(), Error> {
-        let address = block.address();
+        let address = block.address() & !1;
         if self.blocks.contains_key(&address) {
             return Err(Error::BlockAlreadyExists(block.address()));
         }
@@ -141,6 +141,7 @@ impl<'arena> CFGraph<'arena> {
         child: u64,
         flowtype: FlowType,
     ) -> Result<(), Error> {
+        let (parent, child) = (parent & !1, child & !1);
         let Some((_, &parent_base)) = self.blkmap.overlap(parent).next() else {
             return Err(Error::BlockDoesNotExist(parent))
         };
