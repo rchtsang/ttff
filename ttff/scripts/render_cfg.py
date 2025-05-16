@@ -206,7 +206,7 @@ def to_insn_html(block, lift_data):
 BLOCK_DOT_TEMPLATE = """
 {pad}{address} [
 {pad}{pad}label=<<font face="monospace" point-size="6">
-{pad}{pad}<table align="left" cellborder="0" cellpadding="1">
+{pad}{pad}<table align="left" cellborder="0" cellpadding="0">
 {pad}{pad}<tr><td><b>{address:#010x}</b></td></tr>
 {pad}{pad}{pad}{content}
 {pad}{pad}</table>
@@ -272,20 +272,39 @@ def disasm(data):
         disasm_data[address] = insns
     return disasm_data
 
-def fmt_insns(insns, pad="\t"):
+DISM_PCODE_FMT_STR = (
+    "<tr><td align=\"left\" balign=\"left\">\n{pad}{disasm}\n{pad}</td></tr>"
+    "\n{pad}"
+    "<tr><td align=\"left\" balign=\"left\">{pcode}\n{pad}</td></tr>"
+)
+DISM_FMT_STR = (
+    "<tr><td align=\"left\" balign=\"left\">{disasm}</td></tr>")
+
+def fmt_insns(insns, pad="\t", pcode=True, tainted=set()):
     # expect list of dicts { "address": int, "disasm": str, "pcode": list[str] }
-    fmt_insn = lambda data: (
-            "<tr><td align=\"left\" balign=\"left\">\n{pad}{disasm}\n{pad}</td></tr>"
-            "\n{pad}"
-            "<tr><td align=\"left\" balign=\"left\">{pcode}\n{pad}</td></tr>"
-        ).format(
+
+    if pcode:
+        fmt_insn = lambda data, tainted: DISM_PCODE_FMT_STR.format(
             pad=pad,
-            disasm=data['disasm'],
+            disasm=f"<font color=\"tomato\">{data['disasm']}</font>" \
+                if tainted else data['disasm'],
             pcode="<br/>".join([f"\n{pad}&nbsp;&nbsp;{p}" for p in data['pcode']]))
+    else:
+        fmt_insn = lambda data, tainted: DISM_FMT_STR.format(
+            pad=pad,
+            disasm=f"<font color=\"tomato\">{data['disasm']}</font>" \
+                if tainted else data['disasm'])
 
-    return f"\n{pad}".join([fmt_insn(insn) for insn in insns])
+    formatted = []
+    for insn in insns:
+        if insn['address'] in tainted:
+            formatted.append(fmt_insn(insn, True))
+        else:
+            formatted.append(fmt_insn(insn, False))
 
-def to_dot(bblock, disasm_data, pad="\t"):
+    return f"\n{pad}".join(formatted)
+
+def to_dot(bblock, disasm_data, pad="\t", pcode=True, tainted=set()):
     assert isinstance(bblock, SimpleBBlock), \
         "expected a SimpleBBlock: {}".format(bblock)
 
@@ -301,7 +320,7 @@ def to_dot(bblock, disasm_data, pad="\t"):
         address=bblock.address,
         size=bblock.size,
         insn_addrs=bblock.insn_addrs,
-        content=fmt_insns(insns, pad=pad*3),
+        content=fmt_insns(insns, pad=pad*3, pcode=pcode, tainted=tainted),
         successors=successors)
 
 def build_graph(cfg):
@@ -358,7 +377,20 @@ def draw_dot(dot_graph, svg_path):
     viz_graph.layout(prog="dot")
     viz_graph.draw(str(svg_path))
 
-    
+
+def get_tainted_locs(path):
+    # read tainted addresses from file
+    # ignore pcode offsets for now because imark changes offset,
+    # which is annoying
+    locs = set()
+    with open(path, 'r') as f:
+        for line in f.readlines():
+            address, position = line.strip().split('\t')
+            address = int(address, 0)
+            position = int(position, 0)
+            locs.add(address)
+    return locs
+
 
 if __name__ == "__main__":
     DEFAULT_TARGETS = glob("./*simple-cfg.json")
@@ -371,6 +403,8 @@ if __name__ == "__main__":
         help="locations to search for the binaries")
     parser.add_argument('-d', dest="outdir", type=Path, default=Path("./rendered-cfgs"),
         help="path to desired output directory")
+    parser.add_argument('--tainted-locs', dest="tainted_locs_dir", type=Path, nargs='+', default=[],
+        help="path to tainted-locs.tsv files")
 
     args = parser.parse_args()
 
@@ -394,6 +428,14 @@ if __name__ == "__main__":
         else:
             print(f"binary not found: {str(target_path)}")
             continue
+        
+        tainted = set()
+        for loc in args.tainted_locs_dir:
+            loc = Path(loc)
+            name = target_path.stem.replace(".simple-cfg", ".tainted-locs")
+            if (res := list(loc.glob(f"**/{name}.tsv"))):
+                path = res[0]
+                tainted = get_tainted_locs(path)
 
         cfg['nodes'] = [ SimpleBBlock(**block) for block in cfg['nodes'] ]
 
@@ -419,7 +461,7 @@ if __name__ == "__main__":
 
         dot = ["""digraph "" {"""]
         for block in cfg['nodes']:
-            dot_block = to_dot(block, disasm_data)
+            dot_block = to_dot(block, disasm_data, pcode=False, tainted=tainted)
             dot.append(dot_block)
         dot.append("}\n")
 

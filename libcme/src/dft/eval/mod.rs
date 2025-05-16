@@ -164,10 +164,10 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         // update context pc value
         if matches!(flow.flowtype, FlowType::Fall) {
             self.pc = Location::from(address + pcode.len());
-            // this isn't great for performance, probably better to match on 
-            // the last opcode being executed instead. that can potentially 
-            // miss the IT instructions though... is that fine?
-            pdb.add_edge(address, self.pc.address(), flow.flowtype)?;
+            if pdb.is_block_end(address.offset() & !1) {
+                // can this potentially miss the IT instructions though... is that fine?
+                pdb.add_edge(address, self.pc.address(), flow.flowtype)?;
+            }
         }
         context.write_pc(self.pc.address(), &self.pc_tag)?;
 
@@ -365,7 +365,7 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
                 self.policy.inner.check_cond_branch(&operation.opcode, &bool_val)?;
                 if bool_val.0 {
                     let target = _absolute_loc(loc.address(), operation.inputs[0], loc.position());
-                    return Ok(FlowType::Branch.target(target));
+                    return Ok(FlowType::CBranch.target(target));
                 }
             }
             Opcode::IBranch => {

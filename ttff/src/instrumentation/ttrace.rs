@@ -11,23 +11,30 @@ pub struct TaintTracePlugin {}
 impl EvalPlugin for TaintTracePlugin {
 
     #[instrument(skip_all)]
-    fn pre_pcode_cb<'irb, 'backend>(
+    fn post_pcode_cb<'irb, 'backend>(
         &mut self,
         loc: &Location,
         pcode: &PCodeData<'irb>,
         context: &mut dft::Context<'backend>,
         _pdb: &mut ProgramDB<'irb>,
     ) -> Result<(), dft::plugin::Error> {
-        let mut has_tainted_inputs = false;
+        let mut is_tainted = false;
         for vnd in pcode.inputs.iter() {
             let (_val, tag) = context.read(vnd)
                 .map_err(|e| {
                     dft::plugin::Error(e.into())
                 })?;
-            has_tainted_inputs |= tag.is_tainted();
+            is_tainted |= tag.is_tainted();
+        }
+        if let Some(ref vnd) = pcode.output {
+            let (_val, tag) = context.read(vnd)
+                .map_err(|e| {
+                    dft::plugin::Error(e.into())
+                })?;
+            is_tainted |= tag.is_tainted();
         }
 
-        if has_tainted_inputs {
+        if is_tainted {
             warn!("TAINTED LOCATION: {:#010x}-{}",
                 loc.address().offset(), loc.position());
         }

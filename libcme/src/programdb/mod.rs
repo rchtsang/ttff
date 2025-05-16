@@ -109,6 +109,17 @@ impl<'irb> ProgramDB<'irb> {
             .map_err(Error::from)
     }
 
+    pub fn is_block_end(&self, address: impl Into<u64>) -> bool {
+        let address = address.into();
+        let Some(block) = self.cfg.get_block(address) else {
+            // address not in a block
+            return false;
+        };
+        // unwrap because there shouldn't be an empty block if it was found
+        let last_insn = block.insns().last().unwrap();
+        *last_insn == address
+    }
+
     pub fn platform(&self) -> &Platform {
         &self.platform
     }
