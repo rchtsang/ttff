@@ -448,7 +448,7 @@ if __name__ == "__main__":
 
         graph = nx.DiGraph()
         for node in cfg['nodes']:
-            graph.add_node(node.address, 
+            graph.add_node(node.address,
                 address=node.address,
                 size=node.size,
                 insn_addrs=node.insn_addrs)
