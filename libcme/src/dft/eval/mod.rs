@@ -164,6 +164,10 @@ impl<'irb, 'policy, 'backend, 'plugin> Evaluator<'policy, 'plugin> {
         // update context pc value
         if matches!(flow.flowtype, FlowType::Fall) {
             self.pc = Location::from(address + pcode.len());
+            // this isn't great for performance, probably better to match on 
+            // the last opcode being executed instead. that can potentially 
+            // miss the IT instructions though... is that fine?
+            pdb.add_edge(address, self.pc.address(), flow.flowtype)?;
         }
         context.write_pc(self.pc.address(), &self.pc_tag)?;
 

@@ -64,6 +64,7 @@ impl<'arena> Block<'arena> {
     pub fn truncate(
         &mut self,
         address: impl Into<u64>,
+        after: bool,
     ) -> Option<Block<'arena>> {
         let address = address.into();
         let (idx, _) = self.insns().iter()
@@ -72,7 +73,7 @@ impl<'arena> Block<'arena> {
         if idx == self.insns.len() - 1 {
             return None;
         }
-        let idx = idx + 1;
+        let idx = if after { idx + 1 } else { idx };
         let address = self.insns[idx];
         let range = address..self.range.end;
         let insns = self.insns.split_off(idx);

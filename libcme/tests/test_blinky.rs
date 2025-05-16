@@ -48,10 +48,10 @@ fn test_blinky() -> Result<(), anyhow::Error> {
     // context.map_mem(0x20000000u64, 0x40000usize)?;
 
     info!("loading program...");
-    for section in pdb.program().loadable_sections() {
+    for segment in pdb.program().loadable_segments() {
         context.store_bytes(
-            section.address(),
-            section.data(),
+            segment.p_paddr(),
+            segment.data(),
             &dft::Tag::from(tag::UNACCESSED),
         )?;
     }

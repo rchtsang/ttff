@@ -103,6 +103,38 @@ impl<'arena> CFGraph<'arena> {
     }
 
     #[instrument]
+    pub fn split_block(
+        &mut self,
+        block_base: u64,
+        address: u64,
+        after: bool,
+    ) -> Result<(), Error> {
+        let parent_block = self.blocks.get_mut(&block_base).unwrap();
+        let old_range = parent_block.range().clone();
+
+        // truncate parent and create new child block
+        let child_block = parent_block.truncate(address, after).unwrap();
+        
+        let parent_block = self.blocks.get(&block_base).unwrap();
+        let parent_range = parent_block.range();
+        let parent_address = parent_block.address();
+        let child_range = child_block.range().clone();
+        let child_address = child_block.address();
+        
+        // add child to blocks
+        self.blocks.insert(child_address, child_block);
+        
+        // remove parent from blkmap, and add both block ranges to blkmap
+        self.blkmap.remove(old_range);
+        self.blkmap.insert(parent_range, parent_address);
+        self.blkmap.insert(child_range, child_address);
+
+        // add new fall edge to cfg
+        self.graph.add_edge(parent_address, child_address, FlowType::Fall);
+        Ok(())
+    }
+
+    #[instrument]
     pub fn add_edge(
         &mut self,
         parent: u64,
@@ -118,38 +150,29 @@ impl<'arena> CFGraph<'arena> {
             .unwrap();
         if *last_block_insn != parent & !1 {
             // parent is not the last instruction in its block,
-            // need to split the block
-            let parent_block = self.blocks.get_mut(&parent_base).unwrap();
-            let old_range = parent_block.range().clone();
-
-            // truncate parent and create new child block
-            let child_block = parent_block.truncate(parent & !1).unwrap();
-            
-            let parent_block = self.blocks.get(&parent_base).unwrap();
-            let parent_range = parent_block.range();
-            let parent_address = parent_block.address();
-            let child_range = child_block.range().clone();
-            let child_address = child_block.address();
-            
-            // add child to blocks
-            self.blocks.insert(child_address, child_block);
-            
-            // remove parent from blkmap, and add both block ranges to blkmap
-            self.blkmap.remove(old_range);
-            self.blkmap.insert(parent_range, parent_address);
-            self.blkmap.insert(child_range, child_address);
-
-            // add new fall edge to cfg
-            self.graph.add_edge(parent_address, child_address, FlowType::Fall);
+            if flowtype == FlowType::Fall {
+                // no need for a new edge for a fall type within the block
+                // so just return here
+                return Ok(());
+            }
+            // if it isn't a flow type, it's probably an IT instruction and
+            // we need to split the block
+            self.split_block(parent_base, parent & !1, true)?;
         }
         let child_base = self.blkmap.overlap(child).next()
             .map(|(_, child_base)| *child_base)
             .unwrap_or(child);
-        if let Some(edge) = self.graph.add_edge(parent_base, child_base, flowtype) {
+        if child != child_base {
+            // if child address is not the child base, then the instruction has already
+            // been lifted and is in a different block.
+            // we need to split the other block at the child address
+            self.split_block(child_base, child & !1, false)?;
+        }
+        if let Some(edge) = self.graph.add_edge(parent_base, child, flowtype) {
             trace!("edge already exists: {edge:?}({parent_base:#x} -> {child_base:#x})");
         } else {
             self.blocks.entry(parent_base)
-                .and_modify(|block| block.add_successor(child_base, flowtype));
+                .and_modify(|block| block.add_successor(child, flowtype));
         }
 
         Ok(())
