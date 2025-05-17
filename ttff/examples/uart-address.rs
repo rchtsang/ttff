@@ -194,7 +194,7 @@ pub fn main() -> Result<(), anyhow::Error> {
         )?;
     }
 
-    info!("initializting context...");
+    info!("initializing context...");
     let mut stack_bytes = [0; 4];
     context.load_bytes(0u64, &mut stack_bytes)?;
     let stack_top = u32::from_le_bytes(stack_bytes);
