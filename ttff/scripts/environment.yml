@@ -1,0 +1,12 @@
+name: cfg
+channels:
+  - conda-forge
+dependencies:
+  - networkx
+  - python=3.12
+  - graphviz
+  - pygraphviz
+  - ipykernel
+  - pip:
+    - pypcode==3.2.1
+prefix: /opt/homebrew/Caskroom/miniforge/base/envs/cfg
