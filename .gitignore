@@ -4,3 +4,4 @@
 **/Cargo.lock
 
 libcme/data/processors/
+libcme/tests/samples/*/
