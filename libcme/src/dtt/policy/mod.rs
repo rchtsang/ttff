@@ -8,7 +8,7 @@ use fugue_ir::disassembly::{
     VarnodeData,
     Opcode,
 };
-use crate::dft;
+use crate::dtt;
 use super::tag::{self, Tag};
 
 pub mod jump;
@@ -114,7 +114,7 @@ pub trait TaintPolicy: std::fmt::Debug {
         dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
-        ctx: &dft::Context<'a>,
+        ctx: &dtt::Context<'a>,
     ) -> Result<Tag, Error>;
 
     /// check for policy violations during store operations
@@ -124,7 +124,7 @@ pub trait TaintPolicy: std::fmt::Debug {
         dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
-        ctx: &dft::Context<'a>,
+        ctx: &dtt::Context<'a>,
     ) -> Result<Tag, Error>;
 }
 
@@ -212,7 +212,7 @@ impl TaintPolicy for NoPolicy {
         _dst: &VarnodeData,
         _val: &(BitVec, Tag),
         _loc: &(Address, Tag),
-        _ctx: &dft::Context<'a>,
+        _ctx: &dtt::Context<'a>,
     ) -> Result<Tag, Error> {
         Ok(Tag::from(tag::ACCESSED))
     }
@@ -222,7 +222,7 @@ impl TaintPolicy for NoPolicy {
         _dst: &VarnodeData,
         _val: &(BitVec, Tag),
         _loc: &(Address, Tag),
-        _ctx: &dft::Context<'a>,
+        _ctx: &dtt::Context<'a>,
     ) -> Result<Tag, Error> {
         Ok(Tag::from(tag::ACCESSED))
     }
@@ -312,7 +312,7 @@ impl TaintPolicy for DefaultPolicy {
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
-        _ctx: &dft::Context<'a>,
+        _ctx: &dtt::Context<'a>,
     ) -> Result<Tag, Error> {
         Ok(Tag::new()
             .with_tainted_val(loc.1.is_tainted() || val.1.is_tainted()))
@@ -323,7 +323,7 @@ impl TaintPolicy for DefaultPolicy {
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
-        _ctx: &dft::Context<'a>,
+        _ctx: &dtt::Context<'a>,
     ) -> Result<Tag, Error> {
         Ok(Tag::new()
             .with_tainted_val(val.1.is_tainted())

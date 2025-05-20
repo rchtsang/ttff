@@ -29,7 +29,7 @@ use fugue_ir::{
 };
 
 use libcme::prelude::*;
-use libcme::dft::{
+use libcme::dtt::{
     self,
     tag::Tag,
     policy::*,
@@ -181,7 +181,7 @@ impl TaintPolicy for TaintedAddressPolicy {
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
-        ctx: &dft::Context<'a>,
+        ctx: &dtt::Context<'a>,
     ) -> Result<Tag, policy::Error> {
         if loc.1.is_tainted() {
             self.update_stack();
@@ -203,7 +203,7 @@ impl TaintPolicy for TaintedAddressPolicy {
         _dst: &VarnodeData,
         val: &(BitVec, Tag),
         loc: &(Address, Tag),
-        ctx: &dft::Context<'a>,
+        ctx: &dtt::Context<'a>,
     ) -> Result<Tag, policy::Error> {
         if loc.1.is_tainted() {
             self.update_stack();

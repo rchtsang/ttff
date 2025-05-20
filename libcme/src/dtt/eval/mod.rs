@@ -9,7 +9,7 @@ use fugue_core::prelude::*;
 use fugue_core::ir::Location;
 use fugue_ir::disassembly::{Opcode, VarnodeData, PCodeData};
 
-use crate::dft::context::{self, Context};
+use crate::dtt::context::{self, Context};
 use crate::programdb::{self, ProgramDB};
 use crate::types::*;
 use crate::utils::*;

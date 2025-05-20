@@ -102,10 +102,10 @@ pub fn main() -> Result<(), anyhow::Error> {
     let backend = pdb.backend(&builder)?;
 
     info!("building context...");
-    let mut context = dft::Context::from_backend(backend)?;
+    let mut context = dtt::Context::from_backend(backend)?;
 
     info!("mapping channel peripherals");
-    struct Peri { name: String, base: Address, size: usize, tag: dft::Tag }
+    struct Peri { name: String, base: Address, size: usize, tag: dtt::Tag }
     let mut peripherals: Vec<Peri> = vec![];
     for &MmioRegion {
         ref name,
@@ -115,7 +115,7 @@ pub fn main() -> Result<(), anyhow::Error> {
         description: _,
     } in pdb.platform().mmio().iter() {
         debug!("processing peripheral: {name}");
-        let mmio_tag: dft::Tag = match name.as_str() {
+        let mmio_tag: dtt::Tag = match name.as_str() {
             "p0" | "gpiote" => { tag::TAINTED_VAL.into() }
             _ => { tag::ACCESSED.into() }
         };
@@ -161,7 +161,7 @@ pub fn main() -> Result<(), anyhow::Error> {
         let new_peripheral = peripheral.clone_with(peri.base, peri.size);
         context.map_mmio(new_peripheral.into(), Some(peri.tag))?;
     }
-    let callback = &mut move |context: &mut dft::Context, address: &Address, size: usize| {
+    let callback = &mut move |context: &mut dtt::Context, address: &Address, size: usize| {
         let base = address.offset() & 0xFFFFF000;
         let size = ((size / 0x1000) + 1) * 0x1000;
         if (0x20000000 <= base && base < 0x40000000)
@@ -172,7 +172,7 @@ pub fn main() -> Result<(), anyhow::Error> {
         info!("dynamically mapping new channel peripheral @ [{base:#x}; {size:#x}]");
         let new_peripheral = peripheral.clone_with(base, size);
         context.map_mmio(new_peripheral.into(), Some(tag::ACCESSED.into()))
-            .map_err(|err| dft::plugin::Error(err.into()))
+            .map_err(|err| dtt::plugin::Error(err.into()))
     };
     let unmapped_plugin = MemInterceptPlugin { callback };
 
@@ -182,7 +182,7 @@ pub fn main() -> Result<(), anyhow::Error> {
         context.store_bytes(
             segment.p_paddr(),
             segment.data(),
-            &dft::Tag::from(tag::UNACCESSED),
+            &dtt::Tag::from(tag::UNACCESSED),
         )?;
     }
 
@@ -191,29 +191,29 @@ pub fn main() -> Result<(), anyhow::Error> {
     let mut stack_bytes = [0u8; 4];
     context.load_bytes(0u64, &mut stack_bytes)?;
     let stack_top = u32::from_le_bytes(stack_bytes);
-    context.write_sp(stack_top, &dft::Tag::from(tag::ACCESSED))?;
+    context.write_sp(stack_top, &dtt::Tag::from(tag::ACCESSED))?;
 
     let mut entry_bytes = [0u8; 4];
     context.load_bytes(4u64, &mut entry_bytes)?;
     let entry = u32::from_le_bytes(entry_bytes);
-    context.write_pc(entry, &dft::Tag::from(tag::ACCESSED))?;
+    context.write_pc(entry, &dtt::Tag::from(tag::ACCESSED))?;
 
     info!("building taint policy...");
     let lang = Arc::new(pdb.lang().clone());
     let policy = ttff::policy::TaintedJumpPolicy::new_with(lang);
 
     info!("building evaluator...");
-    let mut evaluator = dft::Evaluator::new_with_policy(Box::new(policy));
+    let mut evaluator = dtt::Evaluator::new_with_policy(Box::new(policy));
     evaluator.add_plugin(Box::new(unmapped_plugin));
     (evaluator.pc, evaluator.pc_tag) = context.read_pc()
         .map(|(pc, tag)| (Location::from(pc), tag))?;
 
-    info!("building dft executor...");
+    info!("building dtt executor...");
     let halt_fn = None;
     let step_cb_fn = None;
     let post_exec_cb = None;
 
-    let dft_executor = sc::DftExecutor::new_with(
+    let dtt_executor = sc::DttExecutor::new_with(
         evaluator,
         context,
         pdb,
@@ -276,7 +276,7 @@ pub fn main() -> Result<(), anyhow::Error> {
     let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
 
     let mut executor = WithObservers::new(
-        dft_executor,
+        dtt_executor,
         tuple_list!(edges_observer, time_observer),
     );
 

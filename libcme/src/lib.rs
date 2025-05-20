@@ -5,7 +5,7 @@
 pub mod backend;
 // pub mod concrete;
 pub mod programdb;
-pub mod dft;
+pub mod dtt;
 pub mod peripheral;
 pub mod utils;
 pub mod types;
@@ -24,7 +24,7 @@ pub mod prelude {
         PeripheralState,
     };
     pub use super::backend::{self, armv7m, Backend};
-    pub use super::dft::{
+    pub use super::dtt::{
         self,
         policy,
         tag,
@@ -42,5 +42,5 @@ pub mod prelude {
     pub use super::types::*;
 
     pub use super::programdb::plugin::AnalysisPlugin;
-    pub use super::dft::plugin::EvalPlugin;
+    pub use super::dtt::plugin::EvalPlugin;
 }

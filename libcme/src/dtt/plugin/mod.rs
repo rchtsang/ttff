@@ -19,8 +19,8 @@ use fugue_ir::disassembly::{PCodeData, VarnodeData};
 
 use crate::backend::ThreadSwitch;
 use crate::types::*;
-use crate::dft::Context;
-use crate::dft::tag::Tag;
+use crate::dtt::Context;
+use crate::dtt::tag::Tag;
 use crate::programdb::ProgramDB;
 
 mod dummy;

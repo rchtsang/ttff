@@ -37,8 +37,8 @@ fn test_blinky() -> Result<(), anyhow::Error> {
     let lang = Arc::new(backend.lang().clone());
     let policy = policy::TaintedJumpPolicy::new_with(lang);
 
-    info!("building dft context...");
-    let mut context = dft::Context::from_backend(backend)?;
+    info!("building dtt context...");
+    let mut context = dtt::Context::from_backend(backend)?;
 
     // // note that memory is specified in yml config
     // info!("mapping memory...");
@@ -52,7 +52,7 @@ fn test_blinky() -> Result<(), anyhow::Error> {
         context.store_bytes(
             segment.p_paddr(),
             segment.data(),
-            &dft::Tag::from(tag::UNACCESSED),
+            &dtt::Tag::from(tag::UNACCESSED),
         )?;
     }
 
@@ -65,16 +65,16 @@ fn test_blinky() -> Result<(), anyhow::Error> {
     context.load_bytes(4u64, &mut entry_bytes)?;
     let entry = u32::from_le_bytes(entry_bytes);
 
-    context.write_sp(stack_size, &dft::Tag::from(tag::ACCESSED))?;
-    context.write_pc(entry, &dft::Tag::from(tag::ACCESSED))?;
+    context.write_sp(stack_size, &dtt::Tag::from(tag::ACCESSED))?;
+    context.write_pc(entry, &dtt::Tag::from(tag::ACCESSED))?;
 
     info!("initializing dummy plugins...");
-    let eval_plugin = Box::new(dft::plugin::DummyEvalPlugin::default());
+    let eval_plugin = Box::new(dtt::plugin::DummyEvalPlugin::default());
     let pdb_plugin = Box::new(programdb::plugin::DummyAnalysisPlugin::default());
     pdb.add_plugin(pdb_plugin);
 
     info!("executing program...");
-    let mut evaluator = dft::Evaluator::new_with_policy(Box::new(policy));
+    let mut evaluator = dtt::Evaluator::new_with_policy(Box::new(policy));
     evaluator.add_plugin(eval_plugin);
     (evaluator.pc, evaluator.pc_tag) = context.read_pc()
         .map(|(pc, tag)| (Location::from(pc), tag))?;
@@ -83,7 +83,7 @@ fn test_blinky() -> Result<(), anyhow::Error> {
     while cycles < 10000 {
         let result = evaluator.step(&mut context, &mut pdb);
         match result {
-            Err(dft::eval::Error::Policy(err)) => {
+            Err(dtt::eval::Error::Policy(err)) => {
                 error!("policy violation: {err:?}");
                 return Ok(())
             }

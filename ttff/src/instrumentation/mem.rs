@@ -4,10 +4,10 @@
 use libcme::prelude::*;
 
 pub type MemCallback = dyn FnMut(
-    &mut dft::Context,
+    &mut dtt::Context,
     &Address,
     usize,
-) -> Result<(), dft::plugin::Error>;
+) -> Result<(), dtt::plugin::Error>;
 
 pub struct MemInterceptPlugin<'a> {
     pub callback: &'a mut MemCallback,
@@ -19,7 +19,7 @@ impl<'a> std::fmt::Debug for MemInterceptPlugin<'a> {
     }
 }
 
-impl<'a> dft::EvalPlugin for MemInterceptPlugin<'a> {
+impl<'a> dtt::EvalPlugin for MemInterceptPlugin<'a> {
 
     #[instrument(skip_all)]
     fn pre_mem_access_cb<'irb, 'backend>(
@@ -28,9 +28,9 @@ impl<'a> dft::EvalPlugin for MemInterceptPlugin<'a> {
         mem_address: &Address,
         mem_size: usize,
         _access_type: Permission,
-        context: &mut dft::Context<'backend>,
+        context: &mut dtt::Context<'backend>,
         _pdb: &mut ProgramDB<'irb>,
-    ) -> Result<(), dft::plugin::Error> {
+    ) -> Result<(), dtt::plugin::Error> {
         if !context.backend().mmap().has_mapped(mem_address) {
             error!("encountered unmapped access @ {:#x}", mem_address.offset());
             (self.callback)(context, mem_address, mem_size)?;

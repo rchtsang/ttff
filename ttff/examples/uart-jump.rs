@@ -73,9 +73,9 @@ impl EvalPlugin for CallStackPlugin {
         _loc: &Location,
         _insn: &Insn<'irb>,
         flow: &Flow,
-        _context: &mut dft::Context<'backend>,
+        _context: &mut dtt::Context<'backend>,
         _pdb: &mut ProgramDB<'irb>,
-    ) -> Result<(), dft::plugin::Error> {
+    ) -> Result<(), dtt::plugin::Error> {
         match flow.flowtype {
             FlowType::Call
             | FlowType::ICall => {
@@ -132,7 +132,7 @@ pub fn main() -> Result<(), anyhow::Error> {
 
     info!("building context...");
     let backend = pdb.backend(&builder)?;
-    let mut context = dft::Context::from_backend(backend)?;
+    let mut context = dtt::Context::from_backend(backend)?;
 
     info!("mapping peripherals...");
     let ficr_peripheral = ficr::FICRState::new_with(ficr::FICR_BASE);
@@ -149,7 +149,7 @@ pub fn main() -> Result<(), anyhow::Error> {
         access_log.clone(), rx_channel.clone(), tx_channel.clone());
     context.map_mmio(
         Peripheral::new_with(Box::new(uart_peripheral)),
-        Some(dft::Tag::from(tag::TAINTED_VAL)),
+        Some(dtt::Tag::from(tag::TAINTED_VAL)),
     )?;
 
     for mapped_range in context.backend().mmap().mapped() {
@@ -170,7 +170,7 @@ pub fn main() -> Result<(), anyhow::Error> {
         context.store_bytes(
             segment.p_paddr(),
             segment.data(),
-            &dft::Tag::from(tag::UNACCESSED),
+            &dtt::Tag::from(tag::UNACCESSED),
         )?;
     }
 
@@ -178,29 +178,29 @@ pub fn main() -> Result<(), anyhow::Error> {
     let mut stack_bytes = [0; 4];
     context.load_bytes(0u64, &mut stack_bytes)?;
     let stack_top = u32::from_le_bytes(stack_bytes);
-    context.write_sp(stack_top, &dft::Tag::from(tag::ACCESSED))?;
+    context.write_sp(stack_top, &dtt::Tag::from(tag::ACCESSED))?;
 
     let mut entry_bytes = [0u8; 4];
     context.load_bytes(4u64, &mut entry_bytes)?;
     let entry = u32::from_le_bytes(entry_bytes);
-    context.write_pc(entry, &dft::Tag::from(tag::ACCESSED))?;
+    context.write_pc(entry, &dtt::Tag::from(tag::ACCESSED))?;
 
     info!("building taint policy...");
     let lang = Arc::new(pdb.lang().clone());
     let policy = ttff::policy::TaintedJumpPolicy::new_with(lang);
 
     info!("building evaluator...");
-    let mut evaluator = dft::Evaluator::new_with_policy(Box::new(policy));
+    let mut evaluator = dtt::Evaluator::new_with_policy(Box::new(policy));
     evaluator.add_plugin(Box::new(CallStackPlugin::default()));
     evaluator.add_plugin(Box::new(TaintTracePlugin::default()));
     (evaluator.pc, evaluator.pc_tag) = context.read_pc()
         .map(|(pc, tag)| (Location::from(pc), tag))?;
 
-    info!("building dft executor...");
+    info!("building dtt executor...");
     let halt_on_exit = &mut |
-        evaluator: &dft::Evaluator,
+        evaluator: &dtt::Evaluator,
         _pdb: &ProgramDB,
-        _context: &mut dft::Context,
+        _context: &mut dtt::Context,
     | {
         match evaluator.pc.address().offset() {
             // we can locate obvious exit functions statically as self loops.
@@ -215,10 +215,10 @@ pub fn main() -> Result<(), anyhow::Error> {
     });
 
     let stop_on_policy_violation = &mut |
-        result: &Result<(), dft::eval::Error>,
+        result: &Result<(), dtt::eval::Error>,
     | {
         match result {
-            Err(dft::eval::Error::Policy(err)) => {
+            Err(dtt::eval::Error::Policy(err)) => {
                 // policy violation
                 error!("policy violation: {err:#x?}");
                 return Err(libafl::Error::ShuttingDown);
@@ -230,9 +230,9 @@ pub fn main() -> Result<(), anyhow::Error> {
         callback: stop_on_policy_violation,
     });
     let dump_cfg = &mut |
-        _evaluator: &mut dft::Evaluator,
+        _evaluator: &mut dtt::Evaluator,
         pdb: &mut ProgramDB,
-        _context: dft::Context,
+        _context: dtt::Context,
         result: Result<ExitKind, libafl::Error>,
     | {
         let path = format!("examples/uart-jump/uart-jump.simple-cfg.json");
@@ -249,7 +249,7 @@ pub fn main() -> Result<(), anyhow::Error> {
     };
     let post_exec_cb = Some(sc::PostExecCallback { callback: dump_cfg });
 
-    let dft_executor = sc::DftExecutor::new_with(
+    let dtt_executor = sc::DttExecutor::new_with(
         evaluator,
         context,
         pdb,
@@ -312,7 +312,7 @@ pub fn main() -> Result<(), anyhow::Error> {
     let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
 
     let mut executor = WithObservers::new(
-        dft_executor,
+        dtt_executor,
         tuple_list!(edges_observer, time_observer),
     );
 

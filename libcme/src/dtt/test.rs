@@ -20,7 +20,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
         Program,
     };
     use crate::backend::armv7m;
-    use crate::dft::{
+    use crate::dtt::{
         self,
         Evaluator,
         tag::{self, Tag},
@@ -67,7 +67,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     let policy = TaintedJumpPolicy::new_with(lang);
 
     info!("building dft context...");
-    let mut context = dft::Context::new_with(Box::new(backend));
+    let mut context = dtt::Context::new_with(Box::new(backend));
 
     info!("mapping memory...");
     context.map_mem(0x0u64, 0x1000)?;
@@ -94,7 +94,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     context.write_pc(0u64, &Tag::from(tag::ACCESSED))?;
 
     info!("initializing dummy plugins...");
-    let eval_plugin = Box::new(dft::plugin::DummyEvalPlugin::default());
+    let eval_plugin = Box::new(dtt::plugin::DummyEvalPlugin::default());
     let pdb_plugin = Box::new(programdb::plugin::DummyAnalysisPlugin::default());
     pdb.add_plugin(pdb_plugin);
 
@@ -108,7 +108,7 @@ fn test_smash_stack() -> Result<(), anyhow::Error> {
     while cycles < 500 {
         let result = evaluator.step(&mut context, &mut pdb);
         match result {
-            Err(dft::eval::Error::Policy(err)) => {
+            Err(dtt::eval::Error::Policy(err)) => {
                 error!("policy violation: {err:?}");
                 return Ok(())
             }

@@ -1,6 +1,6 @@
 //! sc.rs
 //! 
-//! single channel dft executor harness
+//! single channel dtt executor harness
 use crossbeam::channel::{
     Receiver,
     Sender,
@@ -21,19 +21,19 @@ use libafl::{
 };
 
 pub type HaltCallbackFn = dyn FnMut(
-    &dft::Evaluator,
+    &dtt::Evaluator,
     &ProgramDB,
-    &mut dft::Context,
+    &mut dtt::Context,
 ) -> Option<ExitKind>;
 
 pub type StepCallbackFn = dyn FnMut(
-    &Result<(), dft::eval::Error>,
+    &Result<(), dtt::eval::Error>,
 ) -> Result<Option<ExitKind>, libafl::Error>;
 
 pub type PostExecCallbackFn = dyn FnMut(
-    &mut dft::Evaluator,
+    &mut dtt::Evaluator,
     &mut ProgramDB,
-    dft::Context,
+    dtt::Context,
     Result<ExitKind, libafl::Error>,
 ) -> Result<ExitKind, libafl::Error>;
 
@@ -49,13 +49,13 @@ pub struct PostExecCallback<'a> {
     pub callback: &'a mut PostExecCallbackFn,
 }
 
-/// a dft executor for channel-based peripherals
+/// a dtt executor for channel-based peripherals
 /// 
 /// the base_context should be initialized at the point where
 /// fuzzing should begin, so it must already be initialized for execution.
 /// 
 /// if cycle limit is None, then there is no limit.
-pub struct DftExecutor<'policy, 'backend, 'irb, 'plugin> {
+pub struct DttExecutor<'policy, 'backend, 'irb, 'plugin> {
     /// an optional cycle count limit
     limit: Option<usize>,
     /// an optional maximum number of executions
@@ -67,18 +67,18 @@ pub struct DftExecutor<'policy, 'backend, 'irb, 'plugin> {
     step_cb: Option<StepCallback<'plugin>>,
     /// a post-execution callback
     post_exec_cb: Option<PostExecCallback<'plugin>>,
-    evaluator: dft::Evaluator<'policy, 'plugin>,
-    base_context: dft::Context<'backend>,
+    evaluator: dtt::Evaluator<'policy, 'plugin>,
+    base_context: dtt::Context<'backend>,
     pdb: ProgramDB<'irb>,
     access_log: (Sender<Access>, Receiver<Access>),
     read_src: (Sender<u8>, Receiver<u8>),
     write_dst: (Sender<u8>, Receiver<u8>),
 }
 
-impl<'policy, 'backend, 'irb, 'plugin> DftExecutor<'policy, 'backend, 'irb, 'plugin> {
+impl<'policy, 'backend, 'irb, 'plugin> DttExecutor<'policy, 'backend, 'irb, 'plugin> {
     pub fn new_with(
-        evaluator: dft::Evaluator<'policy, 'plugin>,
-        base_context: dft::Context<'backend>,
+        evaluator: dtt::Evaluator<'policy, 'plugin>,
+        base_context: dtt::Context<'backend>,
         pdb: programdb::ProgramDB<'irb>,
         limit: Option<usize>,
         exc_limit: Option<usize>,
@@ -129,7 +129,7 @@ impl<'policy, 'backend, 'irb, 'plugin> DftExecutor<'policy, 'backend, 'irb, 'plu
     #[inline]
     fn post_exec(
         &mut self,
-        context: dft::Context<'backend>,
+        context: dtt::Context<'backend>,
         result: Result<ExitKind, libafl::Error>,
     ) -> Result<ExitKind, libafl::Error> {
         if let Some(ref mut post_exec_cb) = self.post_exec_cb {
@@ -140,7 +140,7 @@ impl<'policy, 'backend, 'irb, 'plugin> DftExecutor<'policy, 'backend, 'irb, 'plu
 }
 
 
-impl<'p, 'b, 'a, 'z, EM, I, S, Z> Executor<EM, I, S, Z> for DftExecutor<'p, 'b, 'a, 'z>
+impl<'p, 'b, 'a, 'z, EM, I, S, Z> Executor<EM, I, S, Z> for DttExecutor<'p, 'b, 'a, 'z>
 where
     S: HasCorpus<I> + HasExecutions,
     I: HasTargetBytes,
@@ -187,14 +187,14 @@ where
                 }
             }
             match result {
-                Err(dft::eval::Error::Policy(err)) => {
+                Err(dtt::eval::Error::Policy(err)) => {
                     // policy violation
                     error!("execution {:>4}: policy violation: {err:#x?}",
                         *state.executions());
                     return self.post_exec(context, Ok(ExitKind::Crash));
                 }
-                Err(dft::eval::Error::Context(
-                    dft::context::Error::Backend(
+                Err(dtt::eval::Error::Context(
+                    dtt::context::Error::Backend(
                         backend::Error::Peripheral(err)
                 ))) => {
                     let peripheral::Error::State(err) = err.as_ref() else {

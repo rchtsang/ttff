@@ -15,21 +15,21 @@ impl EvalPlugin for TaintTracePlugin {
         &mut self,
         loc: &Location,
         pcode: &PCodeData<'irb>,
-        context: &mut dft::Context<'backend>,
+        context: &mut dtt::Context<'backend>,
         _pdb: &mut ProgramDB<'irb>,
-    ) -> Result<(), dft::plugin::Error> {
+    ) -> Result<(), dtt::plugin::Error> {
         let mut is_tainted = false;
         for vnd in pcode.inputs.iter() {
             let (_val, tag) = context.read(vnd)
                 .map_err(|e| {
-                    dft::plugin::Error(e.into())
+                    dtt::plugin::Error(e.into())
                 })?;
             is_tainted |= tag.is_tainted();
         }
         if let Some(ref vnd) = pcode.output {
             let (_val, tag) = context.read(vnd)
                 .map_err(|e| {
-                    dft::plugin::Error(e.into())
+                    dtt::plugin::Error(e.into())
                 })?;
             is_tainted |= tag.is_tainted();
         }
