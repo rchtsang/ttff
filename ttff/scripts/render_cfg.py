@@ -21,7 +21,7 @@ def op_fmt(op):
     return "{}(in=[{}])".format(
         op.opcode.name, inputs)
 
-disasm_fmt = lambda ins: f"{ins.addr.offset:#010x}: {ins.mnem:<6} {ins.body}"
+disasm_fmt = lambda ins: f"{ins.addr.offset:#x}: {ins.mnem:<6} {ins.body}"
 
 RENDER_PARENT_DIR = Path(__file__).resolve().parent
 
@@ -206,8 +206,8 @@ def to_insn_html(block, lift_data):
 BLOCK_DOT_TEMPLATE = """
 {pad}{address} [
 {pad}{pad}label=<<font face="monospace" point-size="6">
-{pad}{pad}<table align="left" cellborder="0" cellpadding="0">
-{pad}{pad}<tr><td><b>{address:#010x}</b></td></tr>
+{pad}{pad}<table align="left" cellborder="0" cellpadding="0" cellspacing="0">
+{pad}{pad}<tr><td><b>{address:#x}</b></td></tr>
 {pad}{pad}{pad}{content}
 {pad}{pad}</table>
 {pad}{pad}</font>>,
@@ -391,6 +391,64 @@ def get_tainted_locs(path):
             locs.add(address)
     return locs
 
+def find_bin(target_path: Path, search_locs: list[Path]=[]):
+    bin_path = None
+    for loc in search_locs:
+        name = target_path.stem.replace(".simple-cfg", "")
+        if (res := list(loc.glob(f"**/{name}.bin"))):
+            bin_path = res[0]
+            break
+    else:
+        print(f"binary not found: {str(target_path)}")
+    return bin_path
+
+def load_cfg(target_path: Path):
+    with open(target_path, 'r') as cfgfile:
+        cfg = json.load(cfgfile)
+
+    cfg['nodes'] = [ SimpleBBlock(**block) for block in cfg['nodes'] ]
+    return cfg
+
+def load_tainted(target_path: Path, tainted_locs_dir: list[Path]=[]):
+    tainted = set()
+    for loc in tainted_locs_dir:
+        loc = Path(loc)
+        name = target_path.stem.replace(".simple-cfg", ".tainted-locs")
+        if (res := list(loc.glob(f"**/{name}.tsv"))):
+            path = res[0]
+            tainted = get_tainted_locs(path)
+
+    return tainted
+
+def build_dot(cfg: dict, bin_path: Path, tainted: set, pcode=False):
+    graph = nx.DiGraph()
+    for node in cfg['nodes']:
+        graph.add_node(node.address,
+            address=node.address,
+            size=node.size,
+            insn_addrs=node.insn_addrs)
+
+    for node in cfg['nodes']:
+        graph.add_edges_from([(node.address, child) for child in node.successors])
+
+    block_data = get_block_data(bin_path, cfg)
+    disasm_data = disasm(block_data)
+
+    dot = ["""digraph "" {"""]
+    for block in cfg['nodes']:
+        dot_block = to_dot(block, disasm_data, pcode=pcode, tainted=tainted)
+        dot.append(dot_block)
+    dot.append("}\n")
+
+    dot_graph = "\n".join(dot)
+    return dot_graph
+
+def draw_dot(dot_graph: str, dst: Path):
+    viz_graph = pgv.AGraph(dot_graph)
+    viz_graph.layout(prog="dot")
+    viz_graph.draw(str(dst))
+    print(f"rendered {str(dst)}")
+
 
 if __name__ == "__main__":
     DEFAULT_TARGETS = glob("./*simple-cfg.json")
@@ -416,28 +474,9 @@ if __name__ == "__main__":
         assert target_path.exists(), \
             "target does not exist: {}".format(target_path)
 
-        with open(target_path, 'r') as cfgfile:
-            cfg = json.load(cfgfile)
-
-        bin_path = None
-        for loc in args.search_locs:
-            name = target_path.stem.replace(".simple-cfg", "")
-            if (res := list(loc.glob(f"**/{name}.bin"))):
-                bin_path = res[0]
-                break
-        else:
-            print(f"binary not found: {str(target_path)}")
-            continue
-        
-        tainted = set()
-        for loc in args.tainted_locs_dir:
-            loc = Path(loc)
-            name = target_path.stem.replace(".simple-cfg", ".tainted-locs")
-            if (res := list(loc.glob(f"**/{name}.tsv"))):
-                path = res[0]
-                tainted = get_tainted_locs(path)
-
-        cfg['nodes'] = [ SimpleBBlock(**block) for block in cfg['nodes'] ]
+        bin_path = find_bin(target_path, args.search_locs)
+        cfg = load_cfg(target_path)
+        tainted = load_tainted(target_path, args.tainted_locs_dir)
 
         # build listing
         html_path = args.outdir / f"{target_path.stem}.html"
@@ -446,41 +485,15 @@ if __name__ == "__main__":
             f.write(html)
         print(f"rendered {str(html_path)}")
 
-        graph = nx.DiGraph()
-        for node in cfg['nodes']:
-            graph.add_node(node.address,
-                address=node.address,
-                size=node.size,
-                insn_addrs=node.insn_addrs)
-
-        for node in cfg['nodes']:
-            graph.add_edges_from([(node.address, child) for child in node.successors])
-
-        block_data = get_block_data(bin_path, cfg)
-        disasm_data = disasm(block_data)
-
-        dot = ["""digraph "" {"""]
-        for block in cfg['nodes']:
-            dot_block = to_dot(block, disasm_data, pcode=False, tainted=tainted)
-            dot.append(dot_block)
-        dot.append("}\n")
-
-        dot_graph = "\n".join(dot)
+        dot_graph = build_dot(cfg, bin_path, tainted)
 
         dot_path = args.outdir / f"{target_path.stem}.dot"
         # nx.nx_agraph.write_dot(graph, str(dot_path))
         with open(dot_path, 'w') as f:
             f.write(dot_graph)
-
-        # viz_graph = nx.nx_agraph.to_agraph(graph)
-        viz_graph = pgv.AGraph(dot_graph)
-        viz_graph.layout(prog="dot")
-
+        
         svg_path = args.outdir / f"{dot_path.stem}.svg"
-        # viz_graph.draw(str(svg_path), format="svg:cairo")
-        viz_graph.draw(str(svg_path))
-
-        print(f"rendered {str(dot_path)}")
+        draw_dot(dot_graph, svg_path)
 
 
 
